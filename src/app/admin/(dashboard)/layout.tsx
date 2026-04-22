@@ -382,7 +382,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             flexDirection: 'column',
             alignItems: 'center',
             gap: 4,
-            color: colors.outlineVariant,
+            color: pathname === '/compose' ? colors.primary : colors.outlineVariant,
             textDecoration: 'none',
           }}
         >
@@ -414,13 +414,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </Link>
         <Link
-          href="/admin"
+          href="/admin/analytics"
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 4,
-            color: colors.outlineVariant,
+            color: pathname.startsWith('/admin/analytics') ? colors.primary : colors.outlineVariant,
             textDecoration: 'none',
           }}
         >
@@ -433,13 +433,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </Link>
         <Link
-          href="/admin"
+          href="/admin/openrouter"
           style={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: 4,
-            color: colors.outlineVariant,
+            color: pathname.startsWith('/admin/openrouter') ? colors.primary : colors.outlineVariant,
             textDecoration: 'none',
           }}
         >
