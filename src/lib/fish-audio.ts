@@ -61,7 +61,7 @@ export class FishAudioError extends Error {
   /** HTTP status code from the API response, if available. */
   public readonly statusCode?: number;
   /** Human-readable error category for programmatic handling. */
-  public readonly category: "auth" | "rate_limit" | "api" | "network" | "unknown";
+  public readonly category: "auth" | "rate_limit" | "voice_invalid" | "api" | "network" | "unknown";
 
   constructor(
     message: string,
@@ -92,41 +92,79 @@ function getEnvApiKey(): string {
 }
 
 /**
+ * Result of a Fish Audio connection test, providing structured error info.
+ */
+export interface FishAudioTestResult {
+  ok: boolean;
+  /** Machine-readable error category for programmatic handling. */
+  category?: "auth" | "rate_limit" | "voice_invalid" | "api" | "network";
+  /** Human-readable description of what went wrong and how to fix it. */
+  error?: string;
+}
+
+/**
  * Test the Fish Audio API connection with the provided or environment API key.
  * @param apiKey - Optional API key to test. If not provided, uses FISH_AUDIO_API_KEY env var.
- * @returns true if connection is valid, false otherwise.
+ * @param voiceId - Optional voice ID to test with. If not provided, uses a minimal test.
+ * @returns FishAudioTestResult with ok status and structured error info on failure.
  */
-export async function testFishAudioConnection(apiKey?: string, voiceId?: string): Promise<boolean> {
+export async function testFishAudioConnection(apiKey?: string, voiceId?: string): Promise<FishAudioTestResult> {
   const key = apiKey || process.env.FISH_AUDIO_API_KEY;
   if (!key) {
-    return false;
+    return { ok: false, category: "auth", error: "No API key provided. Add your Fish Audio API key." };
   }
 
-  const refId = voiceId || "e75e1618ff544059be71409c5126b4c0";
+  // Use provided voiceId or a safe test reference.
+  // Without a real voice ID, we send a minimal request to validate the key only.
+  const refId = voiceId || undefined;
 
   try {
+    const body: Record<string, unknown> = {
+      text: "Hi",
+      model: "s2-pro",
+    };
+    if (refId) {
+      body.reference_id = refId;
+    }
+
     const response = await fetch(FISH_AUDIO_API_URL, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        text: "Hi",
-        reference_id: refId,
-        model: "s2-pro",
-      }),
+      body: JSON.stringify(body),
     });
 
-    // Even if synthesis fails (e.g., invalid voice ID), a 401/403 means bad key
     if (response.status === 401 || response.status === 403) {
-      return false;
+      return { ok: false, category: "auth", error: `Fish Audio rejected the API key (HTTP ${response.status}). Check that your key is correct and active in the Fish Audio dashboard.` };
     }
 
-    // Any other response means the key is valid (even 400 for invalid voice)
-    return true;
-  } catch {
-    return false;
+    if (response.status === 429) {
+      return { ok: false, category: "rate_limit", error: "Fish Audio rate limit exceeded (HTTP 429). Wait a moment and try again." };
+    }
+
+    // Check for invalid voice ID (400 with voice-related error)
+    if (response.status === 400) {
+      const errorBody = await response.text().catch(() => "");
+      if (errorBody.toLowerCase().includes("voice") || errorBody.toLowerCase().includes("reference")) {
+        return { ok: false, category: "voice_invalid", error: `Voice ID is not valid. Verify the voice ID in your Fish Audio dashboard.` };
+      }
+      return { ok: false, category: "api", error: `Fish Audio returned HTTP 400: ${errorBody.slice(0, 200)}` };
+    }
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      return { ok: false, category: "api", error: `Fish Audio returned HTTP ${response.status}: ${errorBody.slice(0, 200)}` };
+    }
+
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      category: "network",
+      error: `Network error contacting Fish Audio: ${err instanceof Error ? err.message : String(err)}. Check your internet connection.`,
+    };
   }
 }
 
@@ -153,7 +191,7 @@ export async function testFishAudioConnection(apiKey?: string, voiceId?: string)
  *
  * const audioBuffer = await synthesizeSpeech({
  *   text: "(break) Welcome to the show (emphasis)everyone(/emphasis)!",
- *   voiceId: "e75e1618ff544059be71409c5126b4c0",
+ *   voiceId: "your-fish-audio-voice-id",
  *   format: "mp3",
  * });
  * // audioBuffer is a Buffer containing MP3 audio data
@@ -228,6 +266,22 @@ export async function synthesizeSpeech(
         `Fish Audio rate limit exceeded (HTTP 429): ${errorBody}. Retry after a delay.`,
         statusCode,
         "rate_limit"
+      );
+    }
+
+    if (statusCode === 400) {
+      const lower = errorBody.toLowerCase();
+      if (lower.includes("voice") || lower.includes("reference")) {
+        throw new FishAudioError(
+          `Invalid voice ID. Verify the voice ID in your Fish Audio dashboard.`,
+          statusCode,
+          "voice_invalid"
+        );
+      }
+      throw new FishAudioError(
+        `Fish Audio request error (HTTP 400): ${errorBody}`,
+        statusCode,
+        "api"
       );
     }
 
