@@ -55,7 +55,7 @@ interface ModelSlotRow {
 }
 
 interface OpenRouterIntegrationRow {
-  encrypted_api_key: string;
+  api_key_encrypted: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ export async function getDecryptedApiKey(): Promise<string> {
 
   const { data, error } = await admin
     .from("openrouter_integration")
-    .select("encrypted_api_key")
+    .select("api_key_encrypted")
     .limit(1)
     .single<OpenRouterIntegrationRow>();
 
@@ -95,13 +95,13 @@ export async function getDecryptedApiKey(): Promise<string> {
     throw new Error(`Failed to read OpenRouter integration: ${error.message}`);
   }
 
-  if (!data?.encrypted_api_key) {
+  if (!data?.api_key_encrypted) {
     throw new Error(
       "No OpenRouter API key is stored in the database. Please configure one first."
     );
   }
 
-  return decrypt(data.encrypted_api_key);
+  return decrypt(data.api_key_encrypted);
 }
 
 // ---------------------------------------------------------------------------
