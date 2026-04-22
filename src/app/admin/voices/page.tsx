@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { colors, typography, radius, spacing } from '@/lib/design-tokens';
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -11,21 +11,13 @@ interface Voice {
   label: string;
   isActive: boolean;
   createdAt: string;
+  sampleUrl?: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────
-
-const INITIAL_VOICES: Voice[] = [
-  {
-    id: 'voice-1',
-    voiceId: 'e75e1618ff544059be71409c5126b4c0',
-    label: 'Stefan (Default)',
-    isActive: true,
-    createdAt: '2026-04-15',
-  },
-];
-
-const PREVIEW_SENTENCE = 'The quick brown fox jumps over the lazy dog.';
+interface FishAudioConfig {
+  isConfigured: boolean;
+  apiKeyPreview: string | null;
+}
 
 // ─── Icon Helpers ─────────────────────────────────────────────────
 
@@ -33,6 +25,14 @@ function SettingsVoiceIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
       <path d="M7 9H5v6h2V9zm4-4H9v14h2V5zm4 2h-2v10h2V7zm4 4h-2v6h2v-6z" />
+    </svg>
+  );
+}
+
+function KeyIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.65 10C11.83 7.67 9.61 6 7 6c-3.31 0-6 2.69-6 6s2.69 6 6 6c2.61 0 4.83-1.67 5.65-4H17v4h4v-4h2v-4H12.65zM7 14c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2z" />
     </svg>
   );
 }
@@ -355,10 +355,33 @@ const actionsRowStyle: React.CSSProperties = {
   flexWrap: 'wrap' as const,
 };
 
+const alertStyle = (type: 'error' | 'success' | 'warning'): React.CSSProperties => ({
+  padding: spacing.md,
+  borderRadius: radius.DEFAULT,
+  backgroundColor: type === 'error' ? `${colors.error}10` : type === 'success' ? `${colors.primary}10` : `${colors.secondary}10`,
+  border: `1px solid ${type === 'error' ? colors.error : type === 'success' ? colors.primary : colors.secondary}`,
+  color: type === 'error' ? colors.error : type === 'success' ? colors.primary : colors.secondary,
+  ...typography.uiBody,
+});
+
+const DEFAULT_PREVIEW_TEXT = 'Hello! This is a preview of my voice for your STAR speeches.';
+
 // ─── Page Component ───────────────────────────────────────────────
 
 export default function VoiceConfigPage() {
-  const [voices, setVoices] = useState<Voice[]>(INITIAL_VOICES);
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Fish Audio Config
+  const [fishAudioConfig, setFishAudioConfig] = useState<FishAudioConfig | null>(null);
+  const [fishAudioKey, setFishAudioKey] = useState('');
+  const [showFishAudioKey, setShowFishAudioKey] = useState(false);
+  const [isSavingFishKey, setIsSavingFishKey] = useState(false);
+  const [fishKeyStatus, setFishKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+
+  // Voices
+  const [voices, setVoices] = useState<Voice[]>([]);
   const [newVoiceId, setNewVoiceId] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
@@ -366,46 +389,172 @@ export default function VoiceConfigPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
-  // ─── Handlers ────────────────────────────────────────────────
-
-  const handleSetVoiceActive = useCallback((voiceId: string) => {
-    setVoices((prev) =>
-      prev.map((v) => ({
-        ...v,
-        isActive: v.id === voiceId,
-      })),
-    );
+  // ─── Load Data on Mount ─────────────────────────────────────
+  useEffect(() => {
+    loadData();
   }, []);
 
-  const handleDeleteVoice = useCallback((voiceId: string) => {
-    setVoices((prev) => {
-      const filtered = prev.filter((v) => v.id !== voiceId);
-      // If we deleted the active voice and others remain, make the first one active
-      if (filtered.length > 0 && !filtered.some((v) => v.isActive)) {
-        filtered[0].isActive = true;
+  const loadData = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      // Load Fish Audio config
+      const faRes = await fetch('/api/admin/fish-audio');
+      if (faRes.ok) {
+        const faData = await faRes.json();
+        if (faData.integration) {
+          setFishAudioConfig({
+            isConfigured: faData.integration.is_configured,
+            apiKeyPreview: faData.integration.api_key_preview,
+          });
+        }
       }
-      return filtered;
-    });
-  }, []);
 
-  const handleAddVoice = useCallback(() => {
+      // Load voices
+      const voicesRes = await fetch('/api/admin/voices');
+      if (voicesRes.ok) {
+        const voicesData = await voicesRes.json();
+        setVoices(voicesData.voices?.map((v: { id: string; fish_audio_voice_id: string; label: string; is_active: boolean; created_at: string }) => ({
+          id: v.id,
+          voiceId: v.fish_audio_voice_id,
+          label: v.label,
+          isActive: v.is_active,
+          createdAt: v.created_at?.split('T')[0] || 'Unknown',
+        })) || []);
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ─── Fish Audio Config Handlers ─────────────────────────────
+  const handleSaveFishAudioKey = async () => {
+    if (!fishAudioKey) return;
+    setIsSavingFishKey(true);
+    setFishKeyStatus('testing');
+
+    try {
+      const res = await fetch('/api/admin/fish-audio', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: fishAudioKey }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.validationStatus === 'valid') {
+        setFishKeyStatus('valid');
+        setFishAudioConfig({
+          isConfigured: true,
+          apiKeyPreview: `****${fishAudioKey.slice(-4)}`,
+        });
+        setFishAudioKey('');
+      } else {
+        setFishKeyStatus('invalid');
+      }
+    } catch {
+      setFishKeyStatus('invalid');
+    } finally {
+      setIsSavingFishKey(false);
+    }
+  };
+
+  const handleDeleteFishAudioKey = async () => {
+    if (!confirm('Are you sure you want to remove the Fish Audio API key?')) return;
+
+    try {
+      const res = await fetch('/api/admin/fish-audio', { method: 'DELETE' });
+      if (res.ok) {
+        setFishAudioConfig(null);
+        setFishKeyStatus('idle');
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  // ─── Voice Handlers ─────────────────────────────────────────
+  const handleSetVoiceActive = async (voiceId: string) => {
+    try {
+      const res = await fetch(`/api/admin/voices/${voiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: true }),
+      });
+
+      if (res.ok) {
+        setVoices((prev) =>
+          prev.map((v) => ({
+            ...v,
+            isActive: v.id === voiceId,
+          })),
+        );
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDeleteVoice = async (voiceId: string) => {
+    if (!confirm('Delete this voice?')) return;
+
+    try {
+      const res = await fetch(`/api/admin/voices/${voiceId}`, { method: 'DELETE' });
+      if (res.ok) {
+        setVoices((prev) => {
+          const filtered = prev.filter((v) => v.id !== voiceId);
+          if (filtered.length > 0 && !filtered.some((v) => v.isActive)) {
+            return filtered.map((v, i) => i === 0 ? { ...v, isActive: true } : v);
+          }
+          return filtered;
+        });
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleAddVoice = async () => {
     if (!newVoiceId.trim() || !newLabel.trim()) return;
 
-    const newVoice: Voice = {
-      id: `voice-${Date.now()}`,
-      voiceId: newVoiceId.trim(),
-      label: newLabel.trim(),
-      isActive: false,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const res = await fetch('/api/admin/voices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fishAudioVoiceId: newVoiceId.trim(),
+          label: newLabel.trim(),
+          isActive: voices.length === 0,
+        }),
+      });
 
-    setVoices((prev) => [...prev, newVoice]);
-    setNewVoiceId('');
-    setNewLabel('');
-    setShowAddForm(false);
-  }, [newVoiceId, newLabel]);
+      if (res.ok) {
+        const data = await res.json();
+        setVoices((prev) => [
+          ...prev,
+          {
+            id: data.voice.id,
+            voiceId: data.voice.fish_audio_voice_id,
+            label: data.voice.label,
+            isActive: data.voice.is_active,
+            createdAt: data.voice.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          },
+        ]);
+        setNewVoiceId('');
+        setNewLabel('');
+        setShowAddForm(false);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
-  const handlePreview = useCallback((voiceId: string) => {
+  // ─── Preview Handler (Real Fish Audio API) ─────────────────
+  const handlePreview = async (voiceId: string) => {
+    const voice = voices.find((v) => v.id === voiceId);
+    if (!voice) return;
+
     const currentState = previewStates[voiceId];
 
     // If playing, stop
@@ -419,27 +568,57 @@ export default function VoiceConfigPage() {
       return;
     }
 
-    // Mock: simulate loading then playing
     setPreviewStates((prev) => ({ ...prev, [voiceId]: 'loading' }));
 
-    // Simulate API call delay
-    setTimeout(() => {
+    try {
+      const text = previewTexts[voiceId] || DEFAULT_PREVIEW_TEXT;
+      const res = await fetch('/api/admin/voices/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fishAudioVoiceId: voice.voiceId, text }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Preview failed');
+      }
+
+      const blob = await res.blob();
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+
+      audioRefs.current[voiceId] = audio;
+
+      audio.addEventListener('ended', () => {
+        setPreviewStates((prev) => ({ ...prev, [voiceId]: 'idle' }));
+        URL.revokeObjectURL(audioUrl);
+      });
+
+      audio.addEventListener('error', () => {
+        setPreviewStates((prev) => ({ ...prev, [voiceId]: 'error' }));
+        URL.revokeObjectURL(audioUrl);
+      });
+
+      await audio.play();
       setPreviewStates((prev) => ({ ...prev, [voiceId]: 'playing' }));
+    } catch {
+      setPreviewStates((prev) => ({ ...prev, [voiceId]: 'error' }));
+    }
+  };
 
-      // Auto-stop after 3 seconds (mock playback duration)
-      setTimeout(() => {
-        setPreviewStates((prev) => {
-          if (prev[voiceId] === 'playing') {
-            return { ...prev, [voiceId]: 'idle' };
-          }
-          return prev;
-        });
-      }, 3000);
-    }, 800);
-  }, [previewStates]);
+  // ─── Loading State ──────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div style={pageStyle}>
+        <main style={mainStyle}>
+          <div style={{ textAlign: 'center', padding: spacing.xl, color: colors.onSurfaceVariant }}>
+            Loading configuration...
+          </div>
+        </main>
+      </div>
+    );
+  }
 
-  // ─── Render ──────────────────────────────────────────────────
-
+  // ─── Render ─────────────────────────────────────────────────
   return (
     <div style={pageStyle}>
       <main style={mainStyle}>
@@ -447,8 +626,91 @@ export default function VoiceConfigPage() {
         <div style={headerStyle}>
           <h1 style={h1Style}>Voice Configuration</h1>
           <p style={subtitleStyle}>
-            Manage Fish Audio voice IDs for speech generation. Configure, label, and preview voices before setting them active for production use.
+            Manage Fish Audio voice IDs for speech generation. Configure your API key, add voices, and test them before setting them active for production use.
           </p>
+        </div>
+
+        {loadError && (
+          <div style={alertStyle('error')}>Error: {loadError}</div>
+        )}
+
+        {/* Fish Audio API Key Section */}
+        <div style={cardContainerStyle}>
+          <div style={sectionHeaderStyle}>
+            <div style={sectionTitleRowStyle}>
+              <span style={sectionIconStyle}><KeyIcon /></span>
+              <h2 style={sectionTitleStyle}>Fish Audio API Key</h2>
+            </div>
+          </div>
+
+          {fishAudioConfig?.isConfigured ? (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.md,
+              padding: spacing.md,
+              backgroundColor: `${colors.primary}08`,
+              border: `1px solid ${colors.primary}`,
+              borderRadius: radius.DEFAULT,
+            }}>
+              <span style={{ color: colors.primary, fontSize: '20px' }}>✓</span>
+              <div style={{ flex: 1 }}>
+                <span style={{ ...typography.uiBody, color: colors.onSurface }}>
+                  API Key configured: <strong>{fishAudioConfig.apiKeyPreview}</strong>
+                </span>
+                <p style={{ ...typography.caption, color: colors.onSurfaceVariant, margin: 0 }}>
+                  Voice synthesis is enabled.
+                </p>
+              </div>
+              <button
+                style={dangerButtonStyle}
+                onClick={handleDeleteFishAudioKey}
+              >
+                <DeleteIcon /> Remove
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ marginBottom: spacing.md }}>
+                <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.sm }}>
+                  Enter your Fish Audio API key to enable voice synthesis for speeches.
+                </p>
+                <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type={showFishAudioKey ? 'text' : 'password'}
+                      value={fishAudioKey}
+                      onChange={(e) => setFishAudioKey(e.target.value)}
+                      placeholder="Enter Fish Audio API key..."
+                      style={{
+                        ...previewInputStyle,
+                        fontFamily: 'monospace',
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFishAudioKey((p) => !p)}
+                    style={secondaryButtonStyle}
+                  >
+                    {showFishAudioKey ? 'Hide' : 'Show'}
+                  </button>
+                  <button
+                    style={{ ...primaryButtonStyle, opacity: !fishAudioKey ? 0.5 : 1 }}
+                    onClick={handleSaveFishAudioKey}
+                    disabled={!fishAudioKey || isSavingFishKey}
+                  >
+                    {isSavingFishKey ? 'Testing...' : fishKeyStatus === 'valid' ? '✓ Saved' : 'Save Key'}
+                  </button>
+                </div>
+                {fishKeyStatus === 'invalid' && (
+                  <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.xs }}>
+                    Invalid API key. Please check and try again.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Voices Section */}
@@ -462,13 +724,18 @@ export default function VoiceConfigPage() {
             <button
               style={primaryButtonStyle}
               onClick={() => setShowAddForm(true)}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.primaryContainer; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.primary; }}
+              disabled={!fishAudioConfig?.isConfigured}
             >
               <AddIcon />
               Add Voice
             </button>
           </div>
+
+          {!fishAudioConfig?.isConfigured && (
+            <div style={alertStyle('warning')}>
+              ⚠️ Configure your Fish Audio API key above to add and test voices.
+            </div>
+          )}
 
           {/* Add Voice Form */}
           {showAddForm && (
@@ -477,7 +744,7 @@ export default function VoiceConfigPage() {
                 <label style={labelStyle}>Voice Label</label>
                 <input
                   type="text"
-                  placeholder="e.g. Christy Female Pro"
+                  placeholder="e.g. Stefan (Default)"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   style={textInputStyle}
@@ -492,7 +759,7 @@ export default function VoiceConfigPage() {
                   placeholder="e.g. e75e1618ff544059be71409c5126b4c0"
                   value={newVoiceId}
                   onChange={(e) => setNewVoiceId(e.target.value)}
-                  style={textInputStyle}
+                  style={{ ...textInputStyle, fontFamily: 'monospace' }}
                   onFocus={(e) => { e.currentTarget.style.borderBottomColor = colors.secondary; }}
                   onBlur={(e) => { e.currentTarget.style.borderBottomColor = colors.outlineVariant; }}
                 />
@@ -505,8 +772,6 @@ export default function VoiceConfigPage() {
                     setNewVoiceId('');
                     setNewLabel('');
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.secondary; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.outlineVariant; }}
                 >
                   Cancel
                 </button>
@@ -514,12 +779,6 @@ export default function VoiceConfigPage() {
                   style={primaryButtonStyle}
                   onClick={handleAddVoice}
                   disabled={!newVoiceId.trim() || !newLabel.trim()}
-                  onMouseEnter={(e) => {
-                    if (e.currentTarget.style.opacity !== '0.5') {
-                      e.currentTarget.style.backgroundColor = colors.primaryContainer;
-                    }
-                  }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.primary; }}
                 >
                   <AddIcon />
                   Add Voice
@@ -563,8 +822,6 @@ export default function VoiceConfigPage() {
                       padding: `${spacing.xs} ${spacing.sm}`,
                     }}
                     onClick={() => handleSetVoiceActive(voice.id)}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.primary; e.currentTarget.style.color = colors.onPrimary; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}20`; e.currentTarget.style.color = colors.primary; }}
                   >
                     Set as Active
                   </button>
@@ -582,38 +839,26 @@ export default function VoiceConfigPage() {
                 <label style={{ ...labelStyle, marginBottom: spacing.xs }}>Preview Text</label>
                 <input
                   type="text"
-                  value={previewTexts[voice.id] ?? PREVIEW_SENTENCE}
+                  value={previewTexts[voice.id] ?? DEFAULT_PREVIEW_TEXT}
                   onChange={(e) =>
                     setPreviewTexts((prev) => ({
                       ...prev,
                       [voice.id]: e.target.value,
                     }))
                   }
-                  placeholder={PREVIEW_SENTENCE}
+                  placeholder={DEFAULT_PREVIEW_TEXT}
                   style={previewInputStyle}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = colors.secondary; }}
-                  onBlur={(e) => { e.currentTarget.style.borderColor = colors.outlineVariant; }}
+                  disabled={!fishAudioConfig?.isConfigured}
                 />
                 <div style={previewControlsStyle}>
                   <button
                     style={
                       previewStates[voice.id] === 'playing'
                         ? { ...dangerButtonStyle, opacity: 1 }
-                        : { ...secondaryButtonStyle, opacity: 1 }
+                        : { ...secondaryButtonStyle, opacity: fishAudioConfig?.isConfigured ? 1 : 0.5 }
                     }
                     onClick={() => handlePreview(voice.id)}
-                    onMouseEnter={(e) => {
-                      if (previewStates[voice.id] !== 'playing') {
-                        e.currentTarget.style.borderColor = colors.secondary;
-                        e.currentTarget.style.color = colors.secondary;
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (previewStates[voice.id] !== 'playing') {
-                        e.currentTarget.style.borderColor = colors.outlineVariant;
-                        e.currentTarget.style.color = colors.secondary;
-                      }
-                    }}
+                    disabled={!fishAudioConfig?.isConfigured || previewStates[voice.id] === 'loading'}
                   >
                     {previewStates[voice.id] === 'loading' && (
                       <>
@@ -636,7 +881,10 @@ export default function VoiceConfigPage() {
                         <StopIcon /> Stop
                       </>
                     )}
-                    {previewStates[voice.id] !== 'loading' && previewStates[voice.id] !== 'playing' && (
+                    {previewStates[voice.id] === 'error' && (
+                      <>❌ Error</>
+                    )}
+                    {previewStates[voice.id] !== 'loading' && previewStates[voice.id] !== 'playing' && previewStates[voice.id] !== 'error' && (
                       <>
                         <PlayIcon /> Preview
                       </>
@@ -644,7 +892,7 @@ export default function VoiceConfigPage() {
                   </button>
                   {previewStates[voice.id] === 'playing' && (
                     <span style={{ ...typography.caption, color: colors.primary, display: 'inline-flex', alignItems: 'center', gap: spacing.xs }}>
-                      <VolumeUpIcon /> Playing preview...
+                      <VolumeUpIcon /> Playing...
                     </span>
                   )}
                 </div>
@@ -656,8 +904,6 @@ export default function VoiceConfigPage() {
                   <button
                     style={dangerButtonStyle}
                     onClick={() => handleDeleteVoice(voice.id)}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.error}20`; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                   >
                     <DeleteIcon /> Delete
                   </button>

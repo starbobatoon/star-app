@@ -277,6 +277,7 @@ export default function AdminDashboard() {
     <div
       style={{
         minHeight: '100vh',
+        display: 'flex',
         backgroundColor: colors.surface.containerLowest,
         fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
       }}
@@ -284,15 +285,16 @@ export default function AdminDashboard() {
       {/* ── Desktop Sidebar ── */}
       <aside
         style={{
-          position: 'fixed',
-          left: 0,
+          position: 'sticky',
           top: 0,
-          bottom: 0,
+          height: '100vh',
+          flexShrink: 0,
           width: '288px',
           backgroundColor: colors.surface.containerLow,
           borderRight: `1px solid ${colors.outlineVariant}`,
           padding: spacing.lg,
           flexDirection: 'column',
+          alignSelf: 'flex-start',
           zIndex: 40,
         }}
         className="hidden md:flex"
@@ -487,10 +489,12 @@ export default function AdminDashboard() {
       {/* ── Main Content ── */}
       <main
         style={{
+          flex: 1,
+          minWidth: 0,
           padding: `${spacing.xl} ${spacing.lg}`,
           minHeight: '100vh',
         }}
-        className="md:ml-72 pb-28 md:pb-xl"
+        className="pb-28 md:pb-xl"
       >
         {/* ── Mobile Header ── */}
         <header

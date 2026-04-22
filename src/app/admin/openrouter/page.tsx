@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   colors,
   typography,
@@ -13,7 +13,7 @@ import { Card } from '@/components/ui/Card';
 import { Select } from '@/components/ui/Select';
 import { Tag } from '@/components/ui/Tag';
 
-// ─── Mock Data ───────────────────────────────────────────────────
+// ─── Expanded Model List ─────────────────────────────────────────
 
 interface ModelInfo {
   id: string;
@@ -23,55 +23,127 @@ interface ModelInfo {
   completionPrice: string;
 }
 
-const MOCK_MODELS: ModelInfo[] = [
+const AVAILABLE_MODELS: ModelInfo[] = [
+  // Anthropic
   {
-    id: 'anthropic/claude-sonnet-4',
-    label: 'Anthropic: Claude Sonnet 4',
+    id: 'anthropic/claude-opus-4-7',
+    label: 'Anthropic: Claude Opus 4.7',
+    contextWindow: '200K',
+    promptPrice: '$15.00/M',
+    completionPrice: '$75.00/M',
+  },
+  {
+    id: 'anthropic/claude-opus-4-6',
+    label: 'Anthropic: Claude Opus 4.6',
+    contextWindow: '200K',
+    promptPrice: '$15.00/M',
+    completionPrice: '$75.00/M',
+  },
+  {
+    id: 'anthropic/claude-sonnet-4-6',
+    label: 'Anthropic: Claude Sonnet 4.6',
     contextWindow: '200K',
     promptPrice: '$3.00/M',
     completionPrice: '$15.00/M',
   },
+  // Google
   {
-    id: 'anthropic/claude-haiku-3.5',
-    label: 'Anthropic: Claude 3.5 Haiku',
-    contextWindow: '200K',
-    promptPrice: '$0.80/M',
-    completionPrice: '$4.00/M',
-  },
-  {
-    id: 'google/gemini-2.5-pro',
-    label: 'Google: Gemini 2.5 Pro',
+    id: 'google/gemini-3.1-pro-preview',
+    label: 'Google: Gemini 3.1 Pro Preview',
     contextWindow: '1M',
     promptPrice: '$1.25/M',
     completionPrice: '$10.00/M',
   },
   {
-    id: 'google/gemini-2.5-flash',
-    label: 'Google: Gemini 2.5 Flash',
+    id: 'google/gemini-3.1-flash-lite-preview',
+    label: 'Google: Gemini 3.1 Flash Lite Preview',
     contextWindow: '1M',
     promptPrice: '$0.15/M',
     completionPrice: '$0.60/M',
   },
+  // OpenRouter Free
   {
-    id: 'openai/gpt-4o',
-    label: 'OpenAI: GPT-4o',
-    contextWindow: '128K',
-    promptPrice: '$2.50/M',
-    completionPrice: '$10.00/M',
+    id: 'openrouter/free',
+    label: 'OpenRouter: Free Tier',
+    contextWindow: 'Variable',
+    promptPrice: '$0.00/M',
+    completionPrice: '$0.00/M',
   },
+  // Mistral
   {
-    id: 'meta-llama/llama-3.3-70b-instruct',
-    label: 'Meta: Llama 3.3 70B Instruct',
-    contextWindow: '128K',
-    promptPrice: '$0.12/M',
-    completionPrice: '$0.30/M',
-  },
-  {
-    id: 'mistralai/mistral-large-2411',
+    id: 'openrouter/mistral/mistral-large-2411',
     label: 'Mistral: Mistral Large',
     contextWindow: '128K',
     promptPrice: '$2.00/M',
     completionPrice: '$6.00/M',
+  },
+  // Moonshot
+  {
+    id: 'openrouter/moonshotai/kimi-k2.6',
+    label: 'Moonshot: Kimi K2.6',
+    contextWindow: '256K',
+    promptPrice: '$0.50/M',
+    completionPrice: '$2.00/M',
+  },
+  // Xiaomi MiMo
+  {
+    id: 'openrouter/xiaomi/mimo-v2-pro',
+    label: 'Xiaomi: MiMo V2 Pro',
+    contextWindow: '1M',
+    promptPrice: '$0.20/M',
+    completionPrice: '$0.80/M',
+  },
+  {
+    id: 'openrouter/xiaomi/mimo-v2-omni',
+    label: 'Xiaomi: MiMo V2 Omni',
+    contextWindow: '262K',
+    promptPrice: '$0.30/M',
+    completionPrice: '$1.20/M',
+  },
+  {
+    id: 'xiaomi/mimo-flash',
+    label: 'Xiaomi: MiMo Flash',
+    contextWindow: '128K',
+    promptPrice: '$0.10/M',
+    completionPrice: '$0.40/M',
+  },
+  // GLM
+  {
+    id: 'ollama/glm-5.1:cloud',
+    label: 'Zhipu AI: GLM 5.1 (via Ollama)',
+    contextWindow: '128K',
+    promptPrice: '$0.50/M',
+    completionPrice: '$1.50/M',
+  },
+  // MiniMax
+  {
+    id: 'openrouter/minimax/minimax-m2.7',
+    label: 'MiniMax: MiniMax M2.7',
+    contextWindow: '200K',
+    promptPrice: '$0.30/M',
+    completionPrice: '$1.20/M',
+  },
+  {
+    id: 'openrouter/minimax/minimax-m2.5-free',
+    label: 'MiniMax: MiniMax M2.5 Free',
+    contextWindow: '200K',
+    promptPrice: '$0.00/M',
+    completionPrice: '$0.00/M',
+  },
+  // OpenAI
+  {
+    id: 'openai-codex/gpt-5.4',
+    label: 'OpenAI: GPT 5.4',
+    contextWindow: '256K',
+    promptPrice: '$2.50/M',
+    completionPrice: '$10.00/M',
+  },
+  {
+    id: 'openai-codex/gpt-5.4-mini',
+    label: 'OpenAI: GPT 5.4 Mini',
+    contextWindow: '128K',
+    promptPrice: '$0.60/M',
+    completionPrice: '$2.40/M',
   },
 ];
 
@@ -82,7 +154,8 @@ const modelToSelectOption = (m: ModelInfo) => ({
 
 // ─── Types ───────────────────────────────────────────────────────
 
-type ConnectionStatus = 'idle' | 'testing' | 'connected' | 'error';
+type ConnectionStatus = 'idle' | 'testing' | 'connected' | 'error' | 'loading';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface SlotConfig {
   modelId: string;
@@ -90,81 +163,240 @@ interface SlotConfig {
   maxTokens: number;
 }
 
+interface OpenRouterConfig {
+  apiKey: string;
+  primary: SlotConfig;
+  brainstorm: SlotConfig & { usePrimary: boolean };
+}
+
 // ─── Component ───────────────────────────────────────────────────
 
 export default function OpenRouterPage() {
+  // Page load state
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   // Section A: API Key
   const [apiKey, setApiKey] = useState('');
+  const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [credits, setCredits] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   // Section B: Available Models
-  const [models, setModels] = useState<ModelInfo[]>(MOCK_MODELS);
+  const [models, setModels] = useState<ModelInfo[]>(AVAILABLE_MODELS);
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [selectedPreviewModel, setSelectedPreviewModel] = useState<string>('');
 
   // Section C: Model Slots
   const [primarySlot, setPrimarySlot] = useState<SlotConfig>({
-    modelId: 'anthropic/claude-sonnet-4',
+    modelId: 'anthropic/claude-sonnet-4-6',
     temperature: 0.7,
     maxTokens: 4096,
   });
   const [brainstormSlot, setBrainstormSlot] = useState<SlotConfig>({
-    modelId: 'google/gemini-2.5-flash',
+    modelId: 'google/gemini-3.1-flash-lite-preview',
     temperature: 1.2,
     maxTokens: 2048,
   });
   const [usePrimaryForBrainstorm, setUsePrimaryForBrainstorm] = useState(false);
 
-  // Section A: Test Connection (mock)
-  const handleTestConnection = useCallback(() => {
+  // ─── Load Config on Mount ────────────────────────────────────
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const res = await fetch('/api/admin/openrouter');
+      if (!res.ok) throw new Error('Failed to load config');
+      const data = await res.json();
+
+      if (data.integration) {
+        setApiKeyPreview(data.integration.api_key_preview);
+        setIsConfigured(data.integration.is_configured);
+      }
+
+      if (data.slots && data.slots.length > 0) {
+        const primaryData = data.slots.find((s: { slot: string }) => s.slot === 'primary');
+        const brainstormData = data.slots.find((s: { slot: string }) => s.slot === 'brainstorm');
+
+        if (primaryData) {
+          setPrimarySlot({
+            modelId: primaryData.model_id,
+            temperature: primaryData.temperature,
+            maxTokens: primaryData.max_output_tokens,
+          });
+        }
+        if (brainstormData) {
+          setBrainstormSlot({
+            modelId: brainstormData.model_id,
+            temperature: brainstormData.temperature,
+            maxTokens: brainstormData.max_output_tokens,
+          });
+          // Check if brainstorm uses primary
+          if (primaryData && brainstormData.model_id === primaryData.model_id &&
+              brainstormData.temperature === primaryData.temperature &&
+              brainstormData.max_output_tokens === primaryData.max_output_tokens) {
+            setUsePrimaryForBrainstorm(true);
+          }
+        }
+      }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load configuration');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ─── Section A: Test Connection ───────────────────────────────
+  const handleTestConnection = useCallback(async () => {
+    if (!apiKey) return;
     setConnectionStatus('testing');
     setCredits(null);
-    // Simulate API call
-    setTimeout(() => {
-      if (apiKey.length >= 20) {
+
+    try {
+      const res = await fetch('/api/admin/openrouter/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
         setConnectionStatus('connected');
-        setCredits('$14.37 remaining');
+        if (data.credits !== undefined) {
+          setCredits(`$${data.credits.toFixed(2)} remaining`);
+        }
       } else {
         setConnectionStatus('error');
       }
-    }, 1500);
+    } catch {
+      setConnectionStatus('error');
+    }
   }, [apiKey]);
 
-  // Section B: Refresh Models (mock)
-  const handleRefreshModels = useCallback(() => {
-    setRefreshingModels(true);
-    setTimeout(() => {
-      setModels([...MOCK_MODELS]);
-      setRefreshingModels(false);
-    }, 1000);
+  // ─── Delete Key ───────────────────────────────────────────────
+  const handleDeleteKey = useCallback(async () => {
+    if (!confirm('Are you sure you want to remove the OpenRouter API key?')) return;
+
+    setConnectionStatus('loading');
+    try {
+      const res = await fetch('/api/admin/openrouter', { method: 'DELETE' });
+      if (res.ok) {
+        setApiKey('');
+        setApiKeyPreview(null);
+        setIsConfigured(false);
+        setConnectionStatus('idle');
+        setCredits(null);
+      } else {
+        setConnectionStatus('error');
+      }
+    } catch {
+      setConnectionStatus('error');
+    }
   }, []);
 
-  // Section C: Use Primary shortcut
-  const handleToggleUsePrimary = useCallback(() => {
-    setUsePrimaryForBrainstorm((prev) => !prev);
-    if (!usePrimaryForBrainstorm) {
-      setBrainstormSlot((prev) => ({
-        ...prev,
-        modelId: primarySlot.modelId,
-      }));
+  // ─── Section B: Refresh Models ────────────────────────────────
+  const handleRefreshModels = useCallback(async () => {
+    setRefreshingModels(true);
+    try {
+      const res = await fetch('/api/admin/openrouter/models');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          // Merge with our known models
+          const apiModelIds = new Set(data.models.map((m: { id: string }) => m.id));
+          const newModels = data.models
+            .filter((m: { id: string }) => !AVAILABLE_MODELS.some(am => am.id === m.id))
+            .map((m: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }) => ({
+              id: m.id,
+              label: m.name || m.id,
+              contextWindow: m.context_length ? `${m.context_length / 1000}K` : 'Unknown',
+              promptPrice: m.pricing?.prompt ? `$${(parseFloat(m.pricing.prompt) * 1000000).toFixed(2)}/M` : 'N/A',
+              completionPrice: m.pricing?.completion ? `$${(parseFloat(m.pricing.completion) * 1000000).toFixed(2)}/M` : 'N/A',
+            }));
+          setModels([...AVAILABLE_MODELS, ...newModels]);
+        }
+      }
+    } finally {
+      setRefreshingModels(false);
     }
-  }, [usePrimaryForBrainstorm, primarySlot.modelId]);
+  }, []);
+
+  // ─── Section C: Use Primary shortcut ──────────────────────────
+  const handleToggleUsePrimary = useCallback(() => {
+    setUsePrimaryForBrainstorm((prev) => {
+      const newValue = !prev;
+      if (newValue) {
+        setBrainstormSlot((prev) => ({
+          ...prev,
+          modelId: primarySlot.modelId,
+          temperature: primarySlot.temperature,
+          maxTokens: primarySlot.maxTokens,
+        }));
+      }
+      return newValue;
+    });
+  }, [primarySlot]);
+
+  // Update brainstorm when primary changes if linked
+  useEffect(() => {
+    if (usePrimaryForBrainstorm) {
+      setBrainstormSlot({
+        ...primarySlot,
+      });
+    }
+  }, [primarySlot, usePrimaryForBrainstorm]);
 
   // Find selected model info for preview
   const previewModel = models.find((m) => m.id === selectedPreviewModel);
 
-  // Save handler (mock)
-  const handleSave = useCallback(() => {
-    // eslint-disable-next-line no-console
-    console.log('Saving configuration:', {
-      apiKey: apiKey ? '••••••••' : '(empty)',
-      primarySlot,
-      brainstormSlot: usePrimaryForBrainstorm ? '(uses primary)' : brainstormSlot,
-    });
-    alert('Configuration saved! (mock)');
-  }, [apiKey, primarySlot, brainstormSlot, usePrimaryForBrainstorm]);
+  // ─── Save Handler ─────────────────────────────────────────────
+  const handleSave = useCallback(async () => {
+    if (!apiKey && !isConfigured) {
+      alert('Please enter an API key or test connection first');
+      return;
+    }
+
+    setSaveStatus('saving');
+    try {
+      const payload = {
+        apiKey: apiKey || undefined, // Don't send empty string if using existing
+        slots: {
+          primary: primarySlot,
+          brainstorm: {
+            ...brainstormSlot,
+            usePrimary: usePrimaryForBrainstorm,
+          },
+        },
+      };
+
+      const res = await fetch('/api/admin/openrouter', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+        // Reload to get updated preview
+        await loadConfig();
+      } else {
+        const data = await res.json();
+        setSaveStatus('error');
+        alert(data.error || 'Failed to save configuration');
+      }
+    } catch (err) {
+      setSaveStatus('error');
+      alert('Failed to save configuration');
+    }
+  }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm]);
 
   // ─── Styles ──────────────────────────────────────────────────
 
@@ -210,8 +442,26 @@ export default function OpenRouterPage() {
     marginTop: '2px',
   };
 
-  // ─── Render ──────────────────────────────────────────────────
+  // ─── Loading State ────────────────────────────────────────────
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        backgroundColor: colors.surface.dim,
+        fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
+        padding: spacing.lg,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <div style={{ textAlign: 'center', color: colors.onSurfaceVariant }}>
+          <div style={{ marginBottom: spacing.md }}>⏳ Loading configuration...</div>
+        </div>
+      </div>
+    );
+  }
 
+  // ─── Render ──────────────────────────────────────────────────
   return (
     <div
       style={{
@@ -249,6 +499,12 @@ export default function OpenRouterPage() {
           </p>
         </header>
 
+        {loadError && (
+          <Card cardStyle={{ marginBottom: spacing.lg, borderColor: colors.error }}>
+            <Tag variant="error">Error: {loadError}</Tag>
+          </Card>
+        )}
+
         <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
           {/* ═══════ Section A: API Key ═══════ */}
           <Card>
@@ -260,9 +516,23 @@ export default function OpenRouterPage() {
             </div>
 
             <div style={fieldGroupStyle}>
+              {/* Show existing key preview if configured */}
+              {apiKeyPreview && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: colors.surface.containerLow,
+                  borderRadius: radius.DEFAULT,
+                  marginBottom: spacing.sm,
+                }}>
+                  <span style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
+                    Currently configured: <strong>{apiKeyPreview}</strong>
+                  </span>
+                </div>
+              )}
+
               <div style={{ position: 'relative' }}>
                 <Input
-                  label="OpenRouter API Key"
+                  label={isConfigured ? "Update API Key (leave empty to keep current)" : "OpenRouter API Key"}
                   type={showKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => {
@@ -321,6 +591,16 @@ export default function OpenRouterPage() {
                   Test Connection
                 </Button>
 
+                {isConfigured && (
+                  <Button
+                    variant="tertiary"
+                    onClick={handleDeleteKey}
+                    loading={connectionStatus === 'loading'}
+                  >
+                    Remove Key
+                  </Button>
+                )}
+
                 {connectionStatus === 'connected' && (
                   <Tag variant="success">Connected</Tag>
                 )}
@@ -360,7 +640,7 @@ export default function OpenRouterPage() {
                 onClick={handleRefreshModels}
                 loading={refreshingModels}
               >
-                Refresh List
+                Refresh from OpenRouter
               </Button>
             </div>
 
@@ -390,74 +670,92 @@ export default function OpenRouterPage() {
                       style={{
                         ...typography.uiLabel,
                         color: colors.onSurfaceVariant,
-                        display: 'block',
-                        marginBottom: '2px',
-                      }}
-                    >
-                      Model ID
-                    </span>
-                    <span
-                      style={{
-                        ...typography.uiBody,
-                        color: colors.onSurface,
-                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-                        fontSize: '14px',
-                      }}
-                    >
-                      {previewModel.id}
-                    </span>
-                  </div>
-                  <div>
-                    <span
-                      style={{
-                        ...typography.uiLabel,
-                        color: colors.onSurfaceVariant,
-                        display: 'block',
-                        marginBottom: '2px',
                       }}
                     >
                       Context Window
                     </span>
-                    <span style={{ ...typography.uiBody, color: colors.onSurface }}>
+                    <p
+                      style={{
+                        ...typography.uiBody,
+                        color: colors.onSurface,
+                        margin: 0,
+                      }}
+                    >
                       {previewModel.contextWindow}
-                    </span>
+                    </p>
                   </div>
                   <div>
                     <span
                       style={{
                         ...typography.uiLabel,
                         color: colors.onSurfaceVariant,
-                        display: 'block',
-                        marginBottom: '2px',
                       }}
                     >
                       Prompt Price
                     </span>
-                    <span style={{ ...typography.uiBody, color: colors.onSurface }}>
+                    <p
+                      style={{
+                        ...typography.uiBody,
+                        color: colors.onSurface,
+                        margin: 0,
+                      }}
+                    >
                       {previewModel.promptPrice}
-                    </span>
+                    </p>
                   </div>
                   <div>
                     <span
                       style={{
                         ...typography.uiLabel,
                         color: colors.onSurfaceVariant,
-                        display: 'block',
-                        marginBottom: '2px',
                       }}
                     >
                       Completion Price
                     </span>
-                    <span style={{ ...typography.uiBody, color: colors.onSurface }}>
+                    <p
+                      style={{
+                        ...typography.uiBody,
+                        color: colors.onSurface,
+                        margin: 0,
+                      }}
+                    >
                       {previewModel.completionPrice}
+                    </p>
+                  </div>
+                  <div>
+                    <span
+                      style={{
+                        ...typography.uiLabel,
+                        color: colors.onSurfaceVariant,
+                      }}
+                    >
+                      Model ID
                     </span>
+                    <code
+                      style={{
+                        ...typography.caption,
+                        backgroundColor: colors.surface.containerHigh,
+                        padding: `${spacing.xs} ${spacing.sm}`,
+                        borderRadius: radius.sm,
+                        display: 'block',
+                        marginTop: spacing.xs,
+                      }}
+                    >
+                      {previewModel.id}
+                    </code>
                   </div>
                 </div>
               )}
 
-              <p style={{ ...typography.caption, color: colors.outline }}>
-                {models.length} models available via OpenRouter. Select a model above to view pricing and context details.
-              </p>
+              <div
+                style={{
+                  ...typography.caption,
+                  color: colors.onSurfaceVariant,
+                  marginTop: spacing.sm,
+                }}
+              >
+                Showing {models.length} models. Select a model below to configure your slots.
+              </div>
             </div>
           </Card>
 
@@ -465,181 +763,47 @@ export default function OpenRouterPage() {
           <Card>
             <div style={sectionHeaderStyle}>
               <h2 style={sectionTitleStyle}>
-                <span style={{ fontSize: '18px' }}>🎯</span>
+                <span style={{ fontSize: '18px' }}>⚙️</span>
                 Model Slots
               </h2>
             </div>
 
-            <div style={rowStyle}>
-              {/* Primary Slot */}
-              <div style={fieldGroupStyle}>
-                <span
-                  style={{
-                    ...typography.uiLabel,
-                    color: colors.primary,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  Primary (Speech Generation)
-                </span>
-                <Select
-                  options={models.map(modelToSelectOption)}
-                  value={primarySlot.modelId}
-                  onChange={(val) =>
-                    setPrimarySlot((prev) => ({ ...prev, modelId: val }))
-                  }
-                  placeholder="Select primary model..."
-                />
-                <p style={{ ...typography.caption, color: colors.outline, margin: 0 }}>
-                  Used for deep drafting, rhetorical structuring, and final speech output.
-                </p>
-              </div>
+            {/* Primary Slot */}
+            <div style={{ marginBottom: spacing.lg }}>
+              <h3
+                style={{
+                  ...typography.h2,
+                  fontSize: '24px',
+                  color: colors.onSurface,
+                  margin: `0 0 ${spacing.md} 0`,
+                }}
+              >
+                Primary Slot
+              </h3>
+              <div style={rowStyle}>
+                <div>
+                  <Select
+                    label="Model"
+                    options={models.map(modelToSelectOption)}
+                    value={primarySlot.modelId}
+                    onChange={(value) =>
+                      setPrimarySlot((prev) => ({ ...prev, modelId: value }))
+                    }
+                  />
+                </div>
 
-              {/* Brainstorm Slot */}
-              <div style={fieldGroupStyle}>
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <span
+                {/* Temperature */}
+                <div style={sliderContainerStyle}>
+                  <label
                     style={{
                       ...typography.uiLabel,
-                      color: colors.secondary,
-                      textTransform: 'uppercase' as const,
-                      letterSpacing: '0.08em',
+                      color: colors.onSurfaceVariant,
+                      display: 'block',
+                      marginBottom: spacing.xs,
                     }}
                   >
-                    Brainstorm (Ideation Mode)
-                  </span>
-                </div>
-                <Select
-                  options={models.map(modelToSelectOption)}
-                  value={
-                    usePrimaryForBrainstorm
-                      ? primarySlot.modelId
-                      : brainstormSlot.modelId
-                  }
-                  onChange={(val) =>
-                    setBrainstormSlot((prev) => ({ ...prev, modelId: val }))
-                  }
-                  placeholder="Select brainstorm model..."
-                />
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.sm,
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={handleToggleUsePrimary}
-                    style={{
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: radius.sm,
-                      border: `1px solid ${
-                        usePrimaryForBrainstorm
-                          ? colors.primary
-                          : colors.outlineVariant
-                      }`,
-                      backgroundColor: usePrimaryForBrainstorm
-                        ? colors.primary
-                        : 'transparent',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      padding: 0,
-                      transition: 'all 0.15s ease',
-                    }}
-                    aria-label="Use primary model for brainstorming"
-                  >
-                    {usePrimaryForBrainstorm && (
-                      <span
-                        style={{
-                          color: colors.onPrimary,
-                          fontSize: '10px',
-                          lineHeight: 1,
-                        }}
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                  <span
-                    style={{
-                      ...typography.caption,
-                      color: usePrimaryForBrainstorm
-                        ? colors.primary
-                        : colors.onSurfaceVariant,
-                      cursor: 'pointer',
-                    }}
-                    onClick={handleToggleUsePrimary}
-                  >
-                    Use Primary model for brainstorming
-                  </span>
-                </div>
-                <p style={{ ...typography.caption, color: colors.outline, margin: 0 }}>
-                  Used for free-form ideation, brainstorming sessions, and creative exploration.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          {/* ═══════ Section D: Temperature & Settings ═══════ */}
-          <Card>
-            <div style={sectionHeaderStyle}>
-              <h2 style={sectionTitleStyle}>
-                <span style={{ fontSize: '18px' }}>⚙️</span>
-                Temperature &amp; Settings
-              </h2>
-            </div>
-
-            <div style={rowStyle}>
-              {/* Primary Temperature & Tokens */}
-              <div style={fieldGroupStyle}>
-                <span
-                  style={{
-                    ...typography.uiLabel,
-                    color: colors.primary,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.08em',
-                  }}
-                >
-                  Primary Slot
-                </span>
-
-                {/* Temperature Slider */}
-                <div style={sliderContainerStyle}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <label
-                      style={{
-                        ...typography.uiLabel,
-                        color: colors.onSurfaceVariant,
-                      }}
-                    >
-                      Creativity Variance (Temperature)
-                    </label>
-                    <span
-                      style={{
-                        ...typography.uiLabel,
-                        color: colors.primary,
-                      }}
-                    >
-                      {primarySlot.temperature.toFixed(1)}
-                    </span>
-                  </div>
+                    Temperature: {primarySlot.temperature.toFixed(1)}
+                  </label>
                   <input
                     type="range"
                     min={0}
@@ -723,46 +887,71 @@ export default function OpenRouterPage() {
                   </span>
                 </div>
               </div>
+            </div>
 
-              {/* Brainstorm Temperature & Tokens */}
-              <div style={fieldGroupStyle}>
-                <span
+            {/* Brainstorm Slot */}
+            <div>
+              <h3
+                style={{
+                  ...typography.h2,
+                  fontSize: '24px',
+                  color: colors.onSurface,
+                  margin: `0 0 ${spacing.md} 0`,
+                }}
+              >
+                Brainstorm Slot
+              </h3>
+
+              {/* Use Primary toggle */}
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  marginBottom: spacing.md,
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={usePrimaryForBrainstorm}
+                  onChange={handleToggleUsePrimary}
                   style={{
-                    ...typography.uiLabel,
-                    color: colors.secondary,
-                    textTransform: 'uppercase' as const,
-                    letterSpacing: '0.08em',
+                    width: '18px',
+                    height: '18px',
+                    accentColor: colors.primary,
+                    cursor: 'pointer',
                   }}
-                >
-                  Brainstorm Slot
+                />
+                <span style={{ ...typography.uiBody, color: colors.onSurface }}>
+                  Use Primary model settings for Brainstorm
                 </span>
+              </label>
 
-                {/* Temperature Slider */}
+              <div style={{ ...rowStyle, opacity: usePrimaryForBrainstorm ? 0.5 : 1 }}>
+                <div>
+                  <Select
+                    label="Model"
+                    options={models.map(modelToSelectOption)}
+                    value={brainstormSlot.modelId}
+                    onChange={(value) =>
+                      setBrainstormSlot((prev) => ({ ...prev, modelId: value }))
+                    }
+                  />
+                </div>
+
+                {/* Temperature */}
                 <div style={sliderContainerStyle}>
-                  <div
+                  <label
                     style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
+                      ...typography.uiLabel,
+                      color: colors.onSurfaceVariant,
+                      display: 'block',
+                      marginBottom: spacing.xs,
                     }}
                   >
-                    <label
-                      style={{
-                        ...typography.uiLabel,
-                        color: colors.onSurfaceVariant,
-                      }}
-                    >
-                      Creativity Variance (Temperature)
-                    </label>
-                    <span
-                      style={{
-                        ...typography.uiLabel,
-                        color: colors.secondary,
-                      }}
-                    >
-                      {brainstormSlot.temperature.toFixed(1)}
-                    </span>
-                  </div>
+                    Temperature: {brainstormSlot.temperature.toFixed(1)}
+                  </label>
                   <input
                     type="range"
                     min={0}
@@ -866,9 +1055,15 @@ export default function OpenRouterPage() {
               borderTop: `1px solid ${colors.outlineVariant}`,
             }}
           >
-            <Button variant="tertiary">Cancel Changes</Button>
-            <Button variant="primary" onClick={handleSave}>
-              Save Configuration
+            <Button variant="tertiary" onClick={() => loadConfig()}>
+              Reset Changes
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleSave}
+              loading={saveStatus === 'saving'}
+            >
+              {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : 'Save Configuration'}
             </Button>
           </div>
         </div>
