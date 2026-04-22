@@ -295,10 +295,28 @@ export default function ComposePage() {
             </Card>
             {questions.map((q, i) => (
               <Card key={q.id || i}>
-                <p style={reviewQuestionStyle}>{q.question_text}</p>
-                <p style={reviewAnswerStyle}>
-                  {answers[i] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
-                </p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={reviewQuestionStyle}>{q.question_text}</p>
+                    <p style={reviewAnswerStyle}>
+                      {answers[i] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setStep(i + 1)}
+                    style={editButtonStyle}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = colors.primary;
+                      e.currentTarget.style.borderColor = colors.primary;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = colors.outline;
+                      e.currentTarget.style.borderColor = colors.outlineVariant;
+                    }}
+                  >
+                    Edit
+                  </button>
+                </div>
               </Card>
             ))}
           </div>
@@ -889,6 +907,25 @@ const reviewAnswerStyle: React.CSSProperties = {
   color: colors.onSurface,
   whiteSpace: "pre-wrap" as const,
   margin: 0,
+};
+
+const editButtonStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: `${spacing.xs} ${spacing.sm}`,
+  backgroundColor: "transparent",
+  color: colors.outline,
+  border: `1px solid ${colors.outlineVariant}`,
+  borderRadius: radius.DEFAULT,
+  fontFamily: `var(${typography.uiLabel.fontFamily})`,
+  fontSize: typography.uiLabel.fontSize,
+  fontWeight: typography.uiLabel.fontWeight,
+  letterSpacing: typography.uiLabel.letterSpacing,
+  textTransform: "uppercase" as const,
+  cursor: "pointer",
+  transition: "color 0.2s ease, border-color 0.2s ease",
+  flexShrink: 0,
+  marginTop: "2px",
 };
 
 // Success screen styles
