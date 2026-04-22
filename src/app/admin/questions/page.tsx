@@ -34,6 +34,7 @@ const NAV_ITEMS = [
 function AdminSidebar() {
   return (
     <nav
+      className="hidden md:flex"
       style={{
         backgroundColor: '#1A1A1A',
         position: 'fixed',
@@ -42,7 +43,6 @@ function AdminSidebar() {
         height: '100%',
         width: 288,
         borderRight: `1px solid #2A2A2A`,
-        display: 'flex',
         flexDirection: 'column',
         padding: spacing.lg,
         zIndex: 40,
@@ -393,7 +393,6 @@ export default function QuestionsPage() {
   }, []);
 
   const containerStyle: CSSProperties = {
-    marginLeft: 288,
     minHeight: '100vh',
     backgroundColor: colors.surface.base,
     padding: spacing.xl,
@@ -459,7 +458,7 @@ export default function QuestionsPage() {
   return (
     <div>
       <AdminSidebar />
-      <main style={containerStyle}>
+      <main style={containerStyle} className="md:ml-72 pb-28 md:pb-0 pt-16 md:pt-0">
         <div style={contentStyle}>
           {/* Header */}
           <header style={headerStyle}>
