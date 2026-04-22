@@ -117,13 +117,13 @@ export default function UsersPage() {
       </div>
 
       {error && (
-        <Card style={{ marginBottom: spacing.md, padding: spacing.lg, backgroundColor: `${colors.errorContainer}CC` }}>
+        <Card cardStyle={{ marginBottom: spacing.md, padding: spacing.lg, backgroundColor: `${colors.errorContainer}CC` }}>
           <p style={{ color: colors.onErrorContainer, margin: 0 }}>{error}</p>
         </Card>
       )}
 
       {loading ? (
-        <Card style={{ padding: spacing.xl, textAlign: 'center' }}>
+        <Card cardStyle={{ padding: spacing.xl, textAlign: 'center' }}>
           <p style={{ color: colors.onSurfaceVariant }}>Loading users...</p>
         </Card>
       ) : (
