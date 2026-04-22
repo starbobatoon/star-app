@@ -396,7 +396,7 @@ export default function AdminDashboard() {
 
           {/* Voice Config */}
           <a
-            href="#"
+            href="/admin/voices"
             style={{
               display: 'flex',
               alignItems: 'center',
