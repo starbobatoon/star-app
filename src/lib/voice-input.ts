@@ -27,27 +27,10 @@ export interface VoiceInputResult {
  * Features:
  * - Detects browser support for SpeechRecognition / webkitSpeechRecognition
  * - Handles iOS Safari quirks (requires user gesture to start recognition)
+ * - Accumulates all final transcripts across the session
  * - Resets transcript on each new recognition session
  * - Graceful fallback: isSupported=false when the API is unavailable
  * - Exposes start/stop controls, listening state, transcript, and errors
- *
- * @example
- * ```tsx
- * const { isListening, transcript, start, stop, isSupported, error } = useVoiceInput();
- *
- * if (!isSupported) {
- *   return <p>Voice input is not supported in this browser.</p>;
- * }
- *
- * return (
- *   <div>
- *     <button onClick={start} disabled={isListening}>🎤 Start</button>
- *     <button onClick={stop} disabled={!isListening}>■ Stop</button>
- *     {error && <p className="text-red-500">{error}</p>}
- *     <p>{transcript}</p>
- *   </div>
- * );
- * ```
  */
 export function useVoiceInput(): VoiceInputResult {
   const [isListening, setIsListening] = useState(false);
@@ -56,6 +39,7 @@ export function useVoiceInput(): VoiceInputResult {
   const [isSupported, setIsSupported] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const accumulatedRef = useRef("");
 
   // Detect support once on mount (client-side only)
   useEffect(() => {
@@ -65,13 +49,6 @@ export function useVoiceInput(): VoiceInputResult {
     setIsSupported(supported);
   }, []);
 
-  /**
-   * Start voice recognition.
-   *
-   * On iOS Safari, this MUST be called from a user gesture handler
-   * (e.g. a button click). The hook does not auto-start on mount
-   * to avoid permission prompt issues on iOS.
-   */
   const start = useCallback(() => {
     if (!isSupported) {
       setError("Voice input is not supported in this browser.");
@@ -84,6 +61,7 @@ export function useVoiceInput(): VoiceInputResult {
     }
 
     setError(null);
+    accumulatedRef.current = "";
     setTranscript("");
 
     const SpeechRecognitionConstructor =
@@ -112,19 +90,23 @@ export function useVoiceInput(): VoiceInputResult {
         }
       }
 
-      // Show interim results as they come, finalize on result
-      setTranscript(finalTranscript || interimTranscript);
+      // Accumulate final transcripts
+      if (finalTranscript) {
+        accumulatedRef.current += (accumulatedRef.current ? " " : "") + finalTranscript.trim();
+      }
+
+      // Show accumulated final + current interim
+      const display = accumulatedRef.current + (interimTranscript ? (accumulatedRef.current ? " " : "") + interimTranscript : "");
+      setTranscript(display);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      // "no-speech" and "aborted" are common and not real errors for the user
       if (event.error === "no-speech" || event.error === "aborted") {
         setIsListening(false);
         recognitionRef.current = null;
         return;
       }
 
-      // "not-allowed" means permission was denied
       if (event.error === "not-allowed") {
         setError(
           "Microphone access was denied. Please allow microphone access in your browser settings and try again."
@@ -140,27 +122,28 @@ export function useVoiceInput(): VoiceInputResult {
     recognition.onend = () => {
       setIsListening(false);
       recognitionRef.current = null;
+      // Ensure final accumulated text is set
+      if (accumulatedRef.current) {
+        setTranscript(accumulatedRef.current);
+      }
     };
 
     try {
       recognition.start();
       recognitionRef.current = recognition;
     } catch (e) {
-      // iOS Safari can throw if start() is not called from a user gesture
       const message = e instanceof Error ? e.message : "Failed to start voice recognition.";
       setError(
-        `${message} If you're on iOS, please tap the microphone button directly (not through automation).`
+        `${message} If you're on iOS, please tap the microphone button directly.`
       );
       recognitionRef.current = null;
       setIsListening(false);
     }
   }, [isSupported]);
 
-  /** Stop listening and finalize the current transcript. */
   const stop = useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
-      // onend handler will clean up isListening and recognitionRef
     }
   }, []);
 

@@ -20,7 +20,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to list users' }, { status: 500 });
     }
 
-    return NextResponse.json(users);
+    // Filter to only elocutionist app users
+    const elocutionistUsers = users.filter(
+      (u) => u.app_metadata?.app === 'elocutionist'
+    );
+
+    return NextResponse.json(elocutionistUsers);
   } catch (error) {
     console.error('[admin/users] GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       email_confirm: true,
-      app_metadata: { role: 'admin' },
+      app_metadata: { role: 'admin', app: 'elocutionist' },
     });
 
     if (error) {

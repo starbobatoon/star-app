@@ -78,6 +78,16 @@ function IconSignOut() {
 
 // ─── Navigation Config ────────────────────────────────────────────
 
+function IconAnalytics() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" x2="18" y1="20" y2="10" />
+      <line x1="12" x2="12" y1="20" y2="4" />
+      <line x1="6" x2="6" y1="20" y2="14" />
+    </svg>
+  );
+}
+
 const NAV_ITEMS = [
   { label: 'DASHBOARD', href: '/admin', icon: IconAutoStories },
   { label: 'MODEL SETTINGS', href: '/admin/openrouter', icon: IconSettings },
@@ -85,6 +95,7 @@ const NAV_ITEMS = [
   { label: 'USERS', href: '/admin/users', icon: IconUsers },
   { label: 'QUESTIONS', href: '/admin/questions', icon: IconQuiz },
   { label: 'GHL INTEGRATION', href: '/admin/ghl-integration', icon: IconGHL },
+  { label: 'ANALYTICS', href: '/admin/analytics', icon: IconAnalytics },
 ];
 
 // ─── Breadcrumb Config ────────────────────────────────────────────
@@ -98,6 +109,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   '/admin/ghl-integration': 'GHL Integration',
   '/admin/login': 'Login',
   '/admin/prompt': 'Prompt',
+  '/admin/analytics': 'Analytics',
 };
 
 // ─── Layout Component ─────────────────────────────────────────────
@@ -398,7 +410,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </Link>
         <Link
-          href="#"
+          href="/admin"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -417,7 +429,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
         </Link>
         <Link
-          href="#"
+          href="/admin"
           style={{
             display: 'flex',
             flexDirection: 'column',
