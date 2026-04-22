@@ -4,6 +4,20 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/admin/instructions',
+        destination: '/admin/openrouter',
+        permanent: true,
+      },
+      {
+        source: '/admin/prompt',
+        destination: '/admin/openrouter',
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
