@@ -403,6 +403,7 @@ export async function DELETE() {
         api_key_encrypted: null,
         api_key_preview: null,
         is_configured: false,
+        default_voice_id: null,
         last_validated_at: null,
         last_validation_status: null,
         last_validation_message: null,

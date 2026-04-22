@@ -17,6 +17,7 @@ interface Voice {
 interface FishAudioConfig {
   isConfigured: boolean;
   apiKeyPreview: string | null;
+  defaultVoiceId: string | null;
 }
 
 // ─── Icon Helpers ─────────────────────────────────────────────────
@@ -379,6 +380,8 @@ export default function VoiceConfigPage() {
   const [showFishAudioKey, setShowFishAudioKey] = useState(false);
   const [isSavingFishKey, setIsSavingFishKey] = useState(false);
   const [fishKeyStatus, setFishKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+  const [defaultVoiceId, setDefaultVoiceId] = useState('e75e1618ff544059be71409c5126b4c0');
+  const [testVoiceStatus, setTestVoiceStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
 
   // Voices
   const [voices, setVoices] = useState<Voice[]>([]);
@@ -406,7 +409,11 @@ export default function VoiceConfigPage() {
           setFishAudioConfig({
             isConfigured: faData.integration.is_configured,
             apiKeyPreview: faData.integration.api_key_preview,
+            defaultVoiceId: faData.integration.default_voice_id || null,
           });
+          if (faData.integration.default_voice_id) {
+            setDefaultVoiceId(faData.integration.default_voice_id);
+          }
         }
       }
 
@@ -437,9 +444,9 @@ export default function VoiceConfigPage() {
 
     try {
       const res = await fetch('/api/admin/fish-audio', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: fishAudioKey }),
+        body: JSON.stringify({ apiKey: fishAudioKey, voiceId: defaultVoiceId }),
       });
 
       const data = await res.json();
@@ -448,6 +455,7 @@ export default function VoiceConfigPage() {
         setFishAudioConfig({
           isConfigured: true,
           apiKeyPreview: `****${fishAudioKey.slice(-4)}`,
+          defaultVoiceId,
         });
         setFishAudioKey('');
       } else {
@@ -471,6 +479,27 @@ export default function VoiceConfigPage() {
       }
     } catch {
       // ignore
+    }
+  };
+
+  // ─── Test Voice Handler ───────────────────────────────────
+  const handleTestVoice = async () => {
+    setTestVoiceStatus('testing');
+    try {
+      const res = await fetch('/api/admin/fish-audio/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: fishAudioKey || undefined, voiceId: defaultVoiceId }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setTestVoiceStatus('success');
+      } else {
+        setTestVoiceStatus('failed');
+      }
+    } catch {
+      setTestVoiceStatus('failed');
     }
   };
 
@@ -634,15 +663,21 @@ export default function VoiceConfigPage() {
           <div style={alertStyle('error')}>Error: {loadError}</div>
         )}
 
-        {/* Fish Audio API Key Section */}
+        {/* Fish Audio Configuration Section */}
         <div style={cardContainerStyle}>
           <div style={sectionHeaderStyle}>
             <div style={sectionTitleRowStyle}>
               <span style={sectionIconStyle}><KeyIcon /></span>
-              <h2 style={sectionTitleStyle}>Fish Audio API Key</h2>
+              <h2 style={sectionTitleStyle}>Fish Audio Configuration</h2>
             </div>
+            {fishAudioConfig?.isConfigured && (
+              <span style={{ ...typography.uiLabel, color: colors.primary }}>
+                Voice: Enabled
+              </span>
+            )}
           </div>
 
+          {/* Status Badge */}
           {fishAudioConfig?.isConfigured ? (
             <div style={{
               display: 'flex',
@@ -652,15 +687,18 @@ export default function VoiceConfigPage() {
               backgroundColor: `${colors.primary}08`,
               border: `1px solid ${colors.primary}`,
               borderRadius: radius.DEFAULT,
+              marginBottom: spacing.md,
             }}>
               <span style={{ color: colors.primary, fontSize: '20px' }}>✓</span>
               <div style={{ flex: 1 }}>
                 <span style={{ ...typography.uiBody, color: colors.onSurface }}>
                   API Key configured: <strong>{fishAudioConfig.apiKeyPreview}</strong>
                 </span>
-                <p style={{ ...typography.caption, color: colors.onSurfaceVariant, margin: 0 }}>
-                  Voice synthesis is enabled.
-                </p>
+                {fishAudioConfig.defaultVoiceId && (
+                  <p style={{ ...typography.caption, color: colors.onSurfaceVariant, margin: 0 }}>
+                    Default Voice ID: {fishAudioConfig.defaultVoiceId.slice(0, 8)}...{fishAudioConfig.defaultVoiceId.slice(-4)}
+                  </p>
+                )}
               </div>
               <button
                 style={dangerButtonStyle}
@@ -670,11 +708,16 @@ export default function VoiceConfigPage() {
               </button>
             </div>
           ) : (
-            <div>
+            <div style={{ marginBottom: spacing.md }}>
+              <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
+                Configure Fish Audio to enable voice synthesis for speeches.
+              </p>
+
+              {/* API Key Field */}
               <div style={{ marginBottom: spacing.md }}>
-                <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.sm }}>
-                  Enter your Fish Audio API key to enable voice synthesis for speeches.
-                </p>
+                <label style={{ ...typography.uiLabel, color: colors.onSurfaceVariant, display: 'block', marginBottom: spacing.xs }}>
+                  Fish Audio API Key
+                </label>
                 <div style={{ display: 'flex', gap: spacing.sm, alignItems: 'flex-end' }}>
                   <div style={{ flex: 1 }}>
                     <input
@@ -695,13 +738,6 @@ export default function VoiceConfigPage() {
                   >
                     {showFishAudioKey ? 'Hide' : 'Show'}
                   </button>
-                  <button
-                    style={{ ...primaryButtonStyle, opacity: !fishAudioKey ? 0.5 : 1 }}
-                    onClick={handleSaveFishAudioKey}
-                    disabled={!fishAudioKey || isSavingFishKey}
-                  >
-                    {isSavingFishKey ? 'Testing...' : fishKeyStatus === 'valid' ? '✓ Saved' : 'Save Key'}
-                  </button>
                 </div>
                 {fishKeyStatus === 'invalid' && (
                   <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.xs }}>
@@ -709,6 +745,70 @@ export default function VoiceConfigPage() {
                   </p>
                 )}
               </div>
+
+              {/* Voice ID Field */}
+              <div style={{ marginBottom: spacing.md }}>
+                <label style={{ ...typography.uiLabel, color: colors.onSurfaceVariant, display: 'block', marginBottom: spacing.xs }}>
+                  Fish Audio Voice ID
+                </label>
+                <input
+                  type="text"
+                  value={defaultVoiceId}
+                  onChange={(e) => setDefaultVoiceId(e.target.value)}
+                  placeholder="Enter Fish Audio Voice ID..."
+                  style={{
+                    ...previewInputStyle,
+                    fontFamily: 'monospace',
+                    marginBottom: spacing.xs,
+                  }}
+                />
+                {defaultVoiceId === 'e75e1618ff544059be71409c5126b4c0' && (
+                  <span style={{ ...typography.caption, color: colors.primary }}>
+                    Voice: Stefan
+                  </span>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' as const }}>
+                <button
+                  style={{ ...secondaryButtonStyle, opacity: fishAudioKey ? 1 : 0.5 }}
+                  onClick={handleTestVoice}
+                  disabled={!fishAudioKey || testVoiceStatus === 'testing'}
+                >
+                  {testVoiceStatus === 'testing' ? (
+                    <>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '12px',
+                        height: '12px',
+                        border: `2px solid ${colors.secondary}`,
+                        borderTopColor: 'transparent',
+                        borderRadius: radius.full,
+                        animation: 'spin 0.6s linear infinite',
+                      }} />
+                      Testing...
+                    </>
+                  ) : testVoiceStatus === 'success' ? (
+                    <>✓ Tested</>
+                  ) : (
+                    <>Test Voice</>
+                  )}
+                </button>
+                <button
+                  style={{ ...primaryButtonStyle, opacity: fishAudioKey ? 1 : 0.5 }}
+                  onClick={handleSaveFishAudioKey}
+                  disabled={!fishAudioKey || isSavingFishKey}
+                >
+                  {isSavingFishKey ? 'Testing...' : fishKeyStatus === 'valid' ? '✓ Saved' : 'Save'}
+                </button>
+              </div>
+
+              {testVoiceStatus === 'failed' && (
+                <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.xs }}>
+                  Voice test failed. Please check your API key and Voice ID.
+                </p>
+              )}
             </div>
           )}
         </div>
