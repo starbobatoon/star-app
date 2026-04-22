@@ -1,41 +1,66 @@
 'use client';
 
-"use client";
-
-import { colors, typography, radius, spacing } from "@/styles/design-tokens";
+import { useState } from 'react';
+import { colors, typography, radius, spacing } from '@/styles/design-tokens';
 
 export default function AdminLoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Login failed');
+        return;
+      }
+
+      // Successful login - redirect to admin dashboard
+      window.location.href = '/admin';
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
       style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: colors.surface.base,
-        fontFamily: "var(--font-inter), system-ui, sans-serif",
+        fontFamily: 'var(--font-inter), system-ui, sans-serif',
         padding: spacing.md,
       }}
     >
       <div
         style={{
-          width: "100%",
-          maxWidth: "400px",
+          width: '100%',
+          maxWidth: '400px',
           backgroundColor: colors.surface.container,
           borderRadius: radius.lg,
           border: `1px solid ${colors.outlineVariant}`,
           padding: spacing.xl,
         }}
       >
-        {/* Logo / Brand */}
-        <div style={{ textAlign: "center", marginBottom: spacing.lg }}>
-          <h1
-            style={{
-              ...typography.h2,
-              color: colors.primary,
-              margin: 0,
-            }}
-          >
+        <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
+          <h1 style={{ ...typography.h2, color: colors.primary, margin: 0 }}>
             STAR Admin
           </h1>
           <p
@@ -49,23 +74,28 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        {/* Login Form */}
         <form
-          method="POST"
-          action="/api/auth/login"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: spacing.md,
-          }}
+          onSubmit={handleSubmit}
+          style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
+          {error && (
+            <div
+              style={{
+                padding: spacing.sm,
+                backgroundColor: colors.errorContainer || '#3a1a1a',
+                color: colors.error || '#ff6b6b',
+                borderRadius: radius.DEFAULT,
+                fontSize: '14px',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
             <label
               htmlFor="email"
-              style={{
-                ...typography.uiLabel,
-                color: colors.onSurfaceVariant,
-              }}
+              style={{ ...typography.uiLabel, color: colors.onSurfaceVariant }}
             >
               Email
             </label>
@@ -76,6 +106,8 @@ export default function AdminLoginPage() {
               required
               autoComplete="email"
               placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               style={{
                 ...typography.uiBody,
                 backgroundColor: colors.surface.containerLow,
@@ -83,8 +115,8 @@ export default function AdminLoginPage() {
                 border: `1px solid ${colors.outlineVariant}`,
                 borderRadius: radius.DEFAULT,
                 padding: `${spacing.sm} ${spacing.md}`,
-                outline: "none",
-                transition: "border-color 0.2s",
+                outline: 'none',
+                transition: 'border-color 0.2s',
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = colors.primary;
@@ -95,13 +127,10 @@ export default function AdminLoginPage() {
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: spacing.xs }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
             <label
               htmlFor="password"
-              style={{
-                ...typography.uiLabel,
-                color: colors.onSurfaceVariant,
-              }}
+              style={{ ...typography.uiLabel, color: colors.onSurfaceVariant }}
             >
               Password
             </label>
@@ -112,6 +141,8 @@ export default function AdminLoginPage() {
               required
               autoComplete="current-password"
               placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               style={{
                 ...typography.uiBody,
                 backgroundColor: colors.surface.containerLow,
@@ -119,8 +150,8 @@ export default function AdminLoginPage() {
                 border: `1px solid ${colors.outlineVariant}`,
                 borderRadius: radius.DEFAULT,
                 padding: `${spacing.sm} ${spacing.md}`,
-                outline: "none",
-                transition: "border-color 0.2s",
+                outline: 'none',
+                transition: 'border-color 0.2s',
               }}
               onFocus={(e) => {
                 e.currentTarget.style.borderColor = colors.primary;
@@ -133,51 +164,44 @@ export default function AdminLoginPage() {
 
           <button
             type="submit"
+            disabled={loading}
             style={{
               ...typography.uiLabel,
-              fontSize: "15px",
-              backgroundColor: colors.primary,
-              color: colors.onPrimary,
-              border: "none",
+              fontSize: '15px',
+              backgroundColor: loading ? colors.outlineVariant : colors.primary,
+              color: loading ? colors.outline : colors.onPrimary,
+              border: 'none',
               borderRadius: radius.DEFAULT,
               padding: `${spacing.sm} ${spacing.md}`,
-              cursor: "pointer",
+              cursor: loading ? 'not-allowed' : 'pointer',
               fontWeight: 600,
-              letterSpacing: "0.02em",
-              transition: "background-color 0.2s",
+              letterSpacing: '0.02em',
+              transition: 'background-color 0.2s',
               marginTop: spacing.xs,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = colors.primaryContainer;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = colors.primary;
-            }}
           >
-            Sign In
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
+
+        <p style={{ textAlign: 'center', marginTop: spacing.md }}>
+          <a
+            href="/admin/forgot-password"
+            style={{ color: colors.secondary, textDecoration: 'none', fontSize: '13px' }}
+          >
+            Forgot Password?
+          </a>
+        </p>
 
         <p
           style={{
             ...typography.caption,
             color: colors.outline,
-            textAlign: "center",
-            marginTop: spacing.lg,
+            textAlign: 'center',
+            marginTop: spacing.sm,
           }}
         >
           Protected area. Authorized personnel only.
-        </p>
-        <p style={{ textAlign: 'center', marginTop: spacing.sm }}>
-          <a
-            href="/admin/forgot-password"
-            style={{
-              color: colors.secondary,
-              textDecoration: 'none',
-            }}
-          >
-            Forgot Password?
-          </a>
         </p>
       </div>
     </div>
