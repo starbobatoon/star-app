@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { colors, typography, spacing, radius, glassmorphism } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/Button';
+import { AudioPlayer } from '@/components/ui/AudioPlayer';
 
-// ─── Mock Data ─────────────────────────────────────────────────────
-// Real data comes from API in Wave 3. This represents a complete 5-section speech.
+// ─── Types ─────────────────────────────────────────────────────────
 
 interface SpeechSection {
   id: string;
@@ -13,77 +13,112 @@ interface SpeechSection {
   content: string;
 }
 
-interface SpeechData {
+interface SpeechStatus {
   id: string;
-  title: string;
-  voice: string;
-  voiceLabel: string;
-  totalDuration: string;
-  sections: SpeechSection[];
+  status: string;
+  transcript?: string | null;
+  audioUrl?: string | null;
+  createdAt?: string;
+  completedAt?: string;
 }
 
-const mockSpeech: SpeechData = {
-  id: 'demo-1',
-  title: 'The Future of AI Governance',
-  voice: 'arthur',
-  voiceLabel: 'Arthur (British Male, Authoritative)',
-  totalDuration: '02:30',
-  sections: [
-    {
-      id: 'opening',
-      title: 'Opening',
-      content:
-        'Ladies and gentlemen, distinguished guests, and colleagues. We stand today at a precipice of technological evolution that is unlike any humanity has previously encountered. The tools we are developing are not merely extensions of our physical capabilities, as the steam engine or the printing press were. They are extensions of our cognitive capacities.',
-    },
-    {
-      id: 'problem',
-      title: 'The Problem',
-      content:
-        'This fundamental shift requires a correspondingly profound shift in how we approach governance. We cannot regulate artificial intelligence using the paradigms designed for the industrial age. We must construct frameworks that are as adaptive, as nuanced, and as global as the technology itself.',
-    },
-    {
-      id: 'vision',
-      title: 'A Vision for Governance',
-      content:
-        'The challenge before us is not to stifle innovation, but to steer it. We must ensure that these powerful systems remain aligned with human values, that they promote equity rather than exacerbating division, and that their development is transparent and accountable.',
-    },
-    {
-      id: 'call-to-action',
-      title: 'Call to Action',
-      content:
-        'I call upon every stakeholder in this room — policymakers, technologists, civil society leaders — to commit to three principles: first, transparency in algorithmic decision-making; second, inclusive participation in governance frameworks; and third, accountability mechanisms that hold power to account.',
-    },
-    {
-      id: 'closing',
-      title: 'Closing',
-      content:
-        'Let us not fear the future, but rather, let us shape it with intention and wisdom. The choices we make today will echo through generations. Let those echoes be ones of courage, foresight, and an unwavering commitment to the common good. Thank you.',
-    },
-  ],
-};
+// ─── Constants ─────────────────────────────────────────────────────
 
-// ─── Icon Components ────────────────────────────────────────────────
+const SPEAKER_TIPS = [
+  'Make eye contact with different sections of the audience.',
+  'Pause after your key points to let them land.',
+  'Vary your pace — slow down for emphasis, speed up for energy.',
+  'Breathe deeply before you begin. Confidence starts with breath.',
+  'Your opening 30 seconds set the tone. Own them.',
+  'Speak to one person, not to a crowd.',
+  'Use silence as a tool. Pauses build anticipation.',
+  'Anchor your body. Stand grounded, gesture with purpose.',
+  'End with a call to action, not an apology.',
+  'Rehearse out loud at least three times before delivering.',
+  'Record yourself to hear pacing and tone gaps.',
+  'The audience wants you to succeed. Remember that.',
+];
 
-function PlayIcon() {
+const POLL_INTERVAL_MS = 5000;
+
+// ─── Helpers ───────────────────────────────────────────────────────
+
+function parseTranscriptToSections(raw: string): SpeechSection[] {
+  if (!raw) return [];
+  const sectionRegex = /\*\*(.+?)\*\*/g;
+  const parts: SpeechSection[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  const allMatches: { title: string; index: number }[] = [];
+  while ((match = sectionRegex.exec(raw)) !== null) {
+    allMatches.push({ title: match[1].trim(), index: match.index });
+  }
+
+  if (allMatches.length === 0) {
+    return [{ id: 'full', title: 'Speech', content: raw.trim() }];
+  }
+
+  for (let i = 0; i < allMatches.length; i++) {
+    const current = allMatches[i];
+    const next = allMatches[i + 1];
+    const contentStart = current.index + current.title.length + 4;
+    const contentEnd = next ? next.index : raw.length;
+    const content = raw.slice(contentStart, contentEnd).trim();
+
+    if (content) {
+      parts.push({
+        id: current.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        title: current.title,
+        content,
+      });
+    }
+  }
+
+  return parts;
+}
+
+function formatStatus(status: string): { label: string; color: string } {
+  switch (status) {
+    case 'pending':
+      return { label: 'Queued', color: colors.outline };
+    case 'generating_text':
+      return { label: 'Writing your speech', color: colors.secondary };
+    case 'generating_audio':
+      return { label: 'Recording audio', color: colors.primary };
+    case 'complete':
+    case 'completed':
+      return { label: 'Ready', color: colors.primary };
+    case 'failed':
+      return { label: 'Generation failed', color: colors.error };
+    default:
+      return { label: status, color: colors.outline };
+  }
+}
+
+// ─── Icon Components ───────────────────────────────────────────────
+
+function StarIcon({ filled, size = 28 }: { filled: boolean; size?: number }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8 5v14l11-7z" fill="currentColor" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill={filled ? colors.primary : 'none'}
+      stroke={filled ? colors.primary : colors.outline}
+      strokeWidth="1.5"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
     </svg>
   );
 }
 
-function PauseIcon() {
+function SpeakerIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function ShareIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L5.04 9.81C4.5 9.31 3.79 9 3 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.42-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" fill="currentColor" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" fill="currentColor" />
+      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" fill="currentColor" />
     </svg>
   );
 }
@@ -96,67 +131,195 @@ function DownloadIcon() {
   );
 }
 
-function RefreshIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function VoiceIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.58 14.48 17 12 17s-4.52-2.42-4.93-5.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3.34 3.18 5.98 6.41 6.36V21c0 .55.45 1 1 1s1-.45 1-1v-2.5c3.23-.38 5.92-3.02 6.41-6.36.1-.6-.39-1.14-1-1.14z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function VolumeIcon() {
+function ShareIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0014 8.5v7a4.47 4.47 0 002.5-3.5zM14 3.23v2.06A6.993 6.993 0 0121 12a6.993 6.993 0 01-7 6.71v2.06A8.994 8.994 0 0023 12a8.994 8.994 0 00-9-8.77z" fill="currentColor" />
+      <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L5.04 9.81C4.5 9.31 3.79 9 3 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.42-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" fill="currentColor" />
     </svg>
   );
 }
 
 // ─── Page Component ────────────────────────────────────────────────
 
-export default function SpeechPreviewPage() {
-  const speech = mockSpeech;
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(45); // mock: 45 seconds in
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
+export default function SpeechPreviewPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = React.use(params);
+  const speechId = resolvedParams.id;
 
-  const duration = 150; // 2:30 in seconds
-  const progressRatio = currentTime / duration;
+  const [speech, setSpeech] = useState<SpeechStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
+  const [rating, setRating] = useState<number | null>(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingSaved, setRatingSaved] = useState(false);
 
-  const formatTime = (seconds: number): string => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isGenerating = speech
+    ? ['pending', 'generating_text', 'generating_audio'].includes(speech.status)
+    : true;
+
+  // ─── Fetch speech status ─────────────────────────────────────────
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/speeches/${speechId}/status`);
+      if (!res.ok) {
+        const body = await res.json();
+        throw new Error(body.error || 'Failed to fetch speech');
+      }
+      const data: SpeechStatus = await res.json();
+      setSpeech(data);
+      setError(null);
+
+      const done = data.status === 'complete' || data.status === 'completed' || data.status === 'failed';
+      if (done && pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  }, [speechId]);
+
+  // ─── Polling on mount ────────────────────────────────────────────
+  useEffect(() => {
+    fetchStatus();
+    pollingRef.current = setInterval(fetchStatus, POLL_INTERVAL_MS);
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [fetchStatus]);
+
+  // ─── Rotating tips while generating ──────────────────────────────
+  useEffect(() => {
+    if (!isGenerating) return;
+    const interval = setInterval(() => {
+      setTipIndex((prev) => (prev + 1) % SPEAKER_TIPS.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [isGenerating]);
+
+  // ─── Rating handler ──────────────────────────────────────────────
+  const handleRate = async (value: number) => {
+    if (ratingSubmitting || ratingSaved) return;
+    setRating(value);
+    setRatingSubmitting(true);
+    try {
+      const res = await fetch(`/api/speeches/${speechId}/rate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: value }),
+      });
+      if (!res.ok) throw new Error('Failed to submit rating');
+      setRatingSaved(true);
+    } catch {
+      setRatingSaved(false);
+    } finally {
+      setRatingSubmitting(false);
+    }
   };
 
-  const handleScrub = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    const bar = progressRef.current;
-    if (!bar) return;
-    const rect = bar.getBoundingClientRect();
-    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    setCurrentTime(ratio * duration);
-  }, [duration]);
+  // ─── Parse sections from transcript ──────────────────────────────
+  const sections: SpeechSection[] = speech?.transcript
+    ? parseTranscriptToSections(speech.transcript)
+    : [];
 
-  const handleRegenerate = (sectionId: string) => {
-    setRegeneratingId(sectionId);
-    // Simulate regeneration delay
-    setTimeout(() => {
-      setRegeneratingId(null);
-    }, 1500);
-  };
+  const statusInfo = formatStatus(speech?.status ?? 'pending');
+
+  // ─── Loading state ───────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: colors.surface.containerLowest,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <p style={{
+          fontFamily: `var(${typography.uiLabel.fontFamily})`,
+          fontSize: typography.uiLabel.fontSize,
+          color: colors.onSurfaceVariant,
+        }}>
+          Loading your speech...
+        </p>
+      </div>
+    );
+  }
+
+  // ─── Error state ─────────────────────────────────────────────────
+  if (error && !speech) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: colors.surface.containerLowest,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.lg,
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+          <p style={{
+            fontFamily: `var(${typography.h2.fontFamily})`,
+            fontSize: typography.h2.fontSize,
+            fontWeight: typography.h2.fontWeight,
+            color: colors.error,
+            marginBottom: spacing.md,
+          }}>
+            Something went wrong
+          </p>
+          <p style={{
+            fontFamily: `var(${typography.uiLabel.fontFamily})`,
+            fontSize: typography.uiLabel.fontSize,
+            color: colors.onSurfaceVariant,
+          }}>
+            {error}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Failed state ────────────────────────────────────────────────
+  if (speech?.status === 'failed') {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: colors.surface.containerLowest,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.lg,
+      }}>
+        <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+          <p style={{
+            fontFamily: `var(${typography.h2.fontFamily})`,
+            fontSize: typography.h2.fontSize,
+            fontWeight: typography.h2.fontWeight,
+            color: colors.error,
+            marginBottom: spacing.md,
+          }}>
+            Generation Failed
+          </p>
+          <p style={{
+            fontFamily: `var(${typography.uiLabel.fontFamily})`,
+            fontSize: typography.uiLabel.fontSize,
+            color: colors.onSurfaceVariant,
+            marginBottom: spacing.lg,
+          }}>
+            We could not generate your speech. Please try submitting again.
+          </p>
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: colors.surface.containerLowest }}>
-      {/* Main Content Area */}
       <main
         style={{
           maxWidth: '720px',
@@ -166,11 +329,11 @@ export default function SpeechPreviewPage() {
           flexDirection: 'column',
         }}
       >
-        {/* Actions Header */}
+        {/* ─── Header ──────────────────────────────────────────────── */}
         <div
           style={{
             display: 'flex',
-            flexWrap: 'wrap' as const,
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'flex-start',
             gap: spacing.lg,
@@ -188,304 +351,327 @@ export default function SpeechPreviewPage() {
                 lineHeight: typography.uiLabel.lineHeight,
                 letterSpacing: typography.uiLabel.letterSpacing,
                 color: colors.outline,
-                textTransform: 'uppercase' as const,
+                textTransform: 'uppercase',
                 marginBottom: spacing.sm,
               }}
             >
               Speech Preview
             </div>
+            {/* Status badge */}
             <div
               style={{
-                fontFamily: `var(${typography.h2.fontFamily})`,
-                fontSize: typography.h2.fontSize,
-                fontWeight: typography.h2.fontWeight,
-                lineHeight: typography.h2.lineHeight,
-                letterSpacing: typography.h2.letterSpacing,
-                color: colors.onSurface,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                fontSize: typography.caption.fontSize,
+                fontWeight: typography.caption.fontWeight,
+                color: statusInfo.color,
+                background: `${statusInfo.color}15`,
+                padding: `${spacing.xs} ${spacing.sm}`,
+                borderRadius: radius.DEFAULT,
+                marginBottom: spacing.sm,
               }}
             >
-              {speech.title}
+              {isGenerating && (
+                <span
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: statusInfo.color,
+                    animation: 'pulse 2s ease-in-out infinite',
+                  }}
+                />
+              )}
+              {statusInfo.label}
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
-            <Button variant="secondary">
-              <ShareIcon />
-              Share Link
-            </Button>
-            <Button variant="primary">
-              <DownloadIcon />
-              Download PDF
-            </Button>
-          </div>
+          {sections.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
+              <Button variant="secondary">
+                <ShareIcon />
+                Share Link
+              </Button>
+              <Button variant="primary">
+                <DownloadIcon />
+                Download PDF
+              </Button>
+            </div>
+          )}
         </div>
 
-        {/* Transcript Sections */}
-        <article style={{ display: 'flex', flexDirection: 'column', gap: spacing.xl }}>
-          {speech.sections.map((section) => (
-            <section key={section.id}>
-              {/* Section Title + Regenerate Button */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: spacing.sm,
-                }}
-              >
-                <h3
-                  style={{
-                    fontFamily: `var(${typography.uiLabel.fontFamily})`,
-                    fontSize: typography.uiLabel.fontSize,
-                    fontWeight: typography.uiLabel.fontWeight,
-                    lineHeight: typography.uiLabel.lineHeight,
-                    letterSpacing: typography.uiLabel.letterSpacing,
-                    color: colors.secondary,
-                    textTransform: 'uppercase' as const,
-                  }}
-                >
-                  {section.title}
-                </h3>
-                <button
-                  onClick={() => handleRegenerate(section.id)}
-                  disabled={regeneratingId === section.id}
-                  style={{
-                    background: 'none',
-                    border: `1px solid ${colors.outlineVariant}`,
-                    borderRadius: radius.DEFAULT,
-                    color: colors.onSurfaceVariant,
-                    fontFamily: `var(${typography.uiLabel.fontFamily})`,
-                    fontSize: typography.caption.fontSize,
-                    fontWeight: typography.caption.fontWeight,
-                    letterSpacing: typography.uiLabel.letterSpacing,
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    cursor: regeneratingId === section.id ? 'not-allowed' : 'pointer',
-                    opacity: regeneratingId === section.id ? 0.5 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: spacing.xs,
-                    transition: 'border-color 0.2s ease, color 0.2s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = colors.secondary;
-                    e.currentTarget.style.color = colors.secondary;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = colors.outlineVariant;
-                    e.currentTarget.style.color = colors.onSurfaceVariant;
-                  }}
-                >
-                  <RefreshIcon />
-                  {regeneratingId === section.id ? 'Regenerating...' : 'Regenerate'}
-                </button>
-              </div>
+        {/* ─── Waiting State ───────────────────────────────────────── */}
+        {isGenerating && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: `${spacing.xxl} ${spacing.lg}`,
+              textAlign: 'center',
+            }}
+          >
+            {/* Animated speaker icon */}
+            <div
+              style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: `linear-gradient(135deg, ${colors.secondaryContainer}, ${colors.primaryContainer})`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: colors.onPrimaryContainer,
+                marginBottom: spacing.xl,
+                animation: 'pulse 2.5s ease-in-out infinite',
+              }}
+            >
+              <SpeakerIcon />
+            </div>
 
-              {/* Section Content — Newsreader serif */}
+            <h2
+              style={{
+                fontFamily: `var(${typography.h2.fontFamily})`,
+                fontSize: '24px',
+                fontWeight: typography.h2.fontWeight,
+                lineHeight: typography.h2.lineHeight,
+                color: colors.onSurface,
+                margin: `0 0 ${spacing.sm} 0`,
+              }}
+            >
+              Please wait, we&apos;re generating your speech.
+            </h2>
+
+            <p
+              style={{
+                fontFamily: `var(${typography.caption.fontFamily})`,
+                fontSize: typography.caption.fontSize,
+                fontWeight: typography.caption.fontWeight,
+                lineHeight: typography.caption.lineHeight,
+                color: colors.onSurfaceVariant,
+                margin: `0 0 ${spacing.xl} 0`,
+              }}
+            >
+              This usually takes 1-3 minutes. Hang tight.
+            </p>
+
+            {/* Rotating speaker tip */}
+            <div
+              key={tipIndex}
+              style={{
+                maxWidth: '480px',
+                background: colors.surface.containerHigh,
+                border: `1px solid ${colors.outlineVariant}`,
+                borderRadius: radius.lg,
+                padding: spacing.md,
+                animation: 'fadeIn 0.5s ease-in',
+              }}
+            >
               <p
                 style={{
-                  fontFamily: `var(${typography.transcriptBody.fontFamily})`,
-                  fontSize: typography.transcriptBody.fontSize,
-                  fontWeight: typography.transcriptBody.fontWeight,
-                  lineHeight: typography.transcriptBody.lineHeight,
-                  letterSpacing: typography.transcriptBody.letterSpacing,
+                  fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                  fontSize: typography.uiLabel.fontSize,
+                  fontWeight: typography.uiLabel.fontWeight,
+                  lineHeight: typography.uiLabel.lineHeight,
+                  color: colors.secondary,
+                  textTransform: 'uppercase',
+                  letterSpacing: typography.uiLabel.letterSpacing,
+                  margin: `0 0 ${spacing.xs} 0`,
+                }}
+              >
+                Speaker Tip
+              </p>
+              <p
+                style={{
+                  fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                  fontSize: typography.uiLabel.fontSize,
+                  fontWeight: 400,
+                  lineHeight: '1.5',
                   color: colors.onSurface,
                   margin: 0,
                 }}
               >
-                {section.content}
+                {SPEAKER_TIPS[tipIndex]}
               </p>
-            </section>
-          ))}
-        </article>
-
-        {/* Download Audio Button */}
-        <div
-          style={{
-            marginTop: spacing.xxl,
-            paddingTop: spacing.lg,
-            borderTop: `1px solid ${colors.surface.containerHigh}`,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <Button variant="secondary" fullWidth>
-            <DownloadIcon />
-            Download Audio
-          </Button>
-        </div>
-      </main>
-
-      {/* Floating Audio Player — Glassmorphism */}
-      <div
-        className="glass"
-        style={{
-          position: 'fixed',
-          bottom: spacing.md,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          width: '90%',
-          maxWidth: '600px',
-          zIndex: 900,
-          borderRadius: radius.lg,
-          padding: spacing.md,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: spacing.sm,
-        }}
-      >
-        {/* Voice label and time */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontFamily: `var(${typography.caption.fontFamily})`,
-            fontSize: typography.caption.fontSize,
-            fontWeight: typography.caption.fontWeight,
-            lineHeight: typography.caption.lineHeight,
-            color: colors.onSurfaceVariant,
-            padding: `0 ${spacing.sm}`,
-          }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: spacing.xs }}>
-            <VoiceIcon />
-            Voice: {speech.voiceLabel}
-          </span>
-          <span>
-            {formatTime(currentTime)} / {speech.totalDuration}
-          </span>
-        </div>
-
-        {/* Controls row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-          {/* Play/Pause Button */}
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: radius.full,
-              background: colors.primary,
-              color: colors.onPrimary,
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              flexShrink: 0,
-              transition: 'transform 0.15s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            type="button"
-          >
-            {isPlaying ? <PauseIcon /> : <PlayIcon />}
-          </button>
-
-          {/* Waveform Progress Bar */}
-          <div
-            ref={progressRef}
-            onClick={handleScrub}
-            style={{
-              flex: 1,
-              height: '32px',
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-            }}
-            role="slider"
-            aria-label="Scrub audio"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progressRatio * 100)}
-            tabIndex={0}
-          >
-            {/* Background track */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                width: '100%',
-                height: '2px',
-                background: colors.surface.bright,
-                borderRadius: radius.full,
-              }}
-            />
-            {/* Progress fill */}
-            <div
-              style={{
-                position: 'absolute',
-                left: 0,
-                width: `${progressRatio * 100}%`,
-                height: '2px',
-                background: colors.primary,
-                borderRadius: radius.full,
-                transition: 'width 0.1s linear',
-              }}
-            />
-            {/* Decorative waveform bars */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '0 4px',
-                opacity: 0.5,
-              }}
-            >
-              {Array.from({ length: 15 }, (_, i) => {
-                const isPlayed = i / 15 < progressRatio;
-                const height = `${8 + Math.sin(i * 0.8) * 12 + Math.abs(Math.cos(i * 0.3)) * 8}px`;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      width: '2px',
-                      height,
-                      backgroundColor: isPlayed ? colors.primary : colors.surface.bright,
-                      borderRadius: radius.full,
-                      flexShrink: 0,
-                      transition: 'background-color 0.3s ease',
-                    }}
-                  />
-                );
-              })}
             </div>
           </div>
+        )}
 
-          {/* Volume & Settings */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, flexShrink: 0 }}>
-            <button
+        {/* ─── Generated Speech Content ────────────────────────────── */}
+        {!isGenerating && sections.length > 0 && (
+          <>
+            <article
               style={{
-                background: 'none',
-                border: 'none',
-                color: colors.onSurfaceVariant,
-                cursor: 'pointer',
-                padding: spacing.sm,
-                lineHeight: 1,
-                transition: 'color 0.2s ease',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: spacing.xl,
+                maxHeight: '65vh',
+                overflowY: 'auto',
+                paddingRight: spacing.sm,
+                scrollbarWidth: 'thin',
+                scrollbarColor: `${colors.outlineVariant} transparent`,
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = colors.primary;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = colors.onSurfaceVariant;
-              }}
-              aria-label="Volume"
-              type="button"
             >
-              <VolumeIcon />
-            </button>
-          </div>
-        </div>
-      </div>
+              {sections.map((section) => (
+                <section key={section.id}>
+                  <h3
+                    style={{
+                      fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                      fontSize: typography.uiLabel.fontSize,
+                      fontWeight: typography.uiLabel.fontWeight,
+                      lineHeight: typography.uiLabel.lineHeight,
+                      letterSpacing: typography.uiLabel.letterSpacing,
+                      color: colors.secondary,
+                      textTransform: 'uppercase',
+                      marginBottom: spacing.sm,
+                    }}
+                  >
+                    {section.title}
+                  </h3>
+                  <p
+                    style={{
+                      fontFamily: `var(${typography.transcriptBody.fontFamily})`,
+                      fontSize: typography.transcriptBody.fontSize,
+                      fontWeight: typography.transcriptBody.fontWeight,
+                      lineHeight: typography.transcriptBody.lineHeight,
+                      letterSpacing: typography.transcriptBody.letterSpacing,
+                      color: colors.onSurface,
+                      margin: 0,
+                    }}
+                  >
+                    {section.content}
+                  </p>
+                </section>
+              ))}
+            </article>
+
+            {/* ─── Audio Player ─────────────────────────────────────── */}
+            {speech?.audioUrl && (
+              <div style={{ marginTop: spacing.xxl }}>
+                <AudioPlayer src={speech.audioUrl} aria-label="Speech audio" />
+              </div>
+            )}
+
+            {/* ─── Rating UI ────────────────────────────────────────── */}
+            <div
+              style={{
+                marginTop: spacing.xxl,
+                paddingTop: spacing.lg,
+                borderTop: `1px solid ${colors.surface.containerHigh}`,
+                textAlign: 'center',
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                  fontSize: typography.uiLabel.fontSize,
+                  fontWeight: typography.uiLabel.fontWeight,
+                  lineHeight: typography.uiLabel.lineHeight,
+                  letterSpacing: typography.uiLabel.letterSpacing,
+                  color: colors.onSurfaceVariant,
+                  textTransform: 'uppercase',
+                  margin: `0 0 ${spacing.md} 0`,
+                }}
+              >
+                How was your speech?
+              </p>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.md,
+                }}
+              >
+                {[1, 2, 3, 4].map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => handleRate(value)}
+                    disabled={ratingSubmitting || ratingSaved}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      cursor: ratingSubmitting || ratingSaved ? 'default' : 'pointer',
+                      padding: spacing.sm,
+                      borderRadius: radius.DEFAULT,
+                      transition: 'transform 0.15s ease, opacity 0.2s ease',
+                      opacity: ratingSaved && rating !== value ? 0.3 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!ratingSaved) e.currentTarget.style.transform = 'scale(1.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    aria-label={`Rate ${value} out of 4`}
+                    type="button"
+                  >
+                    <StarIcon filled={rating !== null && value <= rating} size={32} />
+                  </button>
+                ))}
+              </div>
+
+              {/* Rating labels */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: spacing.xl,
+                  marginTop: spacing.sm,
+                }}
+              >
+                {['Needs Work', 'Okay', 'Good', 'Excellent'].map((label, i) => (
+                  <span
+                    key={label}
+                    style={{
+                      fontFamily: `var(${typography.caption.fontFamily})`,
+                      fontSize: '11px',
+                      fontWeight: typography.caption.fontWeight,
+                      color:
+                        rating !== null && i + 1 <= rating
+                          ? colors.primary
+                          : colors.outline,
+                      width: '64px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              {ratingSaved && (
+                <p
+                  style={{
+                    fontFamily: `var(${typography.caption.fontFamily})`,
+                    fontSize: typography.caption.fontSize,
+                    fontWeight: typography.caption.fontWeight,
+                    color: colors.primary,
+                    marginTop: spacing.md,
+                  }}
+                >
+                  Thank you for your feedback!
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* ─── CSS Animations ───────────────────────────────────────── */}
+      <style jsx global>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.7; transform: scale(0.97); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
