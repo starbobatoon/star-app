@@ -24,7 +24,6 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
-import { triggerWorkflow } from "@/lib/ghl/workflows";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -211,7 +210,7 @@ async function dispatchToN8n(
       phone: speech.phone,
       ghlContactId: speech.ghl_contact_id,
     },
-    speechUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.elocutionist.com"}/speech/${speech.id}`,
+    speechUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.starspeaker.com"}/speech/${speech.id}`,
     completedAt: new Date().toISOString(),
   };
 
