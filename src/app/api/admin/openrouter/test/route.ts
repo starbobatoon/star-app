@@ -42,18 +42,40 @@ export async function POST(request: Request) {
     const result = await testConnection(apiKey);
 
     if (!result.ok) {
+      // Categorize the error for the UI
+      let category = "unknown";
+      let userMessage = result.error || "Connection failed";
+
+      if (result.error) {
+        const errLower = result.error.toLowerCase();
+        if (result.error.includes("401") || errLower.includes("unauthorized") || errLower.includes("invalid api key")) {
+          category = "auth";
+          userMessage = "Invalid API key. Check that your OpenRouter key is correct and active.";
+        } else if (result.error.includes("403") || errLower.includes("forbidden")) {
+          category = "auth";
+          userMessage = "Access forbidden. Your API key may lack the required permissions.";
+        } else if (result.error.includes("429") || errLower.includes("rate limit")) {
+          category = "rate_limit";
+          userMessage = "Rate limit exceeded. Wait a moment and try again.";
+        } else if (errLower.includes("network") || errLower.includes("fetch failed") || errLower.includes("econnrefused")) {
+          category = "network";
+          userMessage = "Cannot reach OpenRouter. Check your internet connection.";
+        }
+      }
+
       // Log failure
       await writeAuditLog({
         actorEmail: user.email ?? undefined,
         action: "test",
         entityType: "openrouter_integration",
         entityId: undefined,
-        afterValue: { success: false, error: result.error },
+        afterValue: { success: false, category, error: result.error },
       });
 
       return NextResponse.json({
         ok: false,
-        error: result.error,
+        error: userMessage,
+        category,
       });
     }
 

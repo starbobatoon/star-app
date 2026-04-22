@@ -132,10 +132,12 @@ export async function PUT(request: Request) {
     // Test the connection first
     let validationStatus = "unknown";
     let validationMessage = "";
+    let validationCategory: string | undefined;
     try {
-      const isValid = await testFishAudioConnection(apiKey);
-      validationStatus = isValid ? "valid" : "invalid";
-      validationMessage = isValid ? "Connection successful" : "Connection failed - invalid key";
+      const result = await testFishAudioConnection(apiKey);
+      validationStatus = result.ok ? "valid" : "invalid";
+      validationMessage = result.ok ? "Connection successful" : (result.error || "Connection failed");
+      validationCategory = result.category;
     } catch (e) {
       validationStatus = "error";
       validationMessage = e instanceof Error ? e.message : String(e);
@@ -206,6 +208,7 @@ export async function PUT(request: Request) {
       ok: true,
       validationStatus,
       validationMessage,
+      ...(validationCategory && { validationCategory }),
     });
   } catch (err) {
     console.error("[fish-audio-config] PUT error:", err);
@@ -304,9 +307,9 @@ export async function POST(request: Request) {
       apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
 
       try {
-        const isValid = await testFishAudioConnection(apiKey);
-        validationStatus = isValid ? "valid" : "invalid";
-        validationMessage = isValid ? "Connection successful" : "Connection failed - invalid key";
+        const result = await testFishAudioConnection(apiKey);
+        validationStatus = result.ok ? "valid" : "invalid";
+        validationMessage = result.ok ? "Connection successful" : (result.error || "Connection failed");
       } catch (e) {
         validationStatus = "error";
         validationMessage = e instanceof Error ? e.message : String(e);

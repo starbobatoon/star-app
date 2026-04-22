@@ -36,17 +36,41 @@ export async function POST(request: Request) {
 
     const { apiKey, voiceId } = parsed.data;
 
-    let isValid = false;
-    let message = "";
-
-    try {
-      isValid = await testFishAudioConnection(apiKey, voiceId);
-      message = isValid ? "Connection successful" : "Connection failed - invalid key";
-    } catch (e) {
-      message = e instanceof Error ? e.message : "Unknown error";
+    // If no voiceId provided, try to get default from DB
+    let resolvedVoiceId = voiceId;
+    if (!resolvedVoiceId) {
+      try {
+        const admin = createAdminClient();
+        const { data: integration } = await admin
+          .from("fish_audio_integration")
+          .select("default_voice_id")
+          .limit(1)
+          .maybeSingle();
+        if (integration?.default_voice_id) {
+          resolvedVoiceId = integration.default_voice_id;
+        }
+      } catch {
+        // ignore, let the library handle no voice ID
+      }
     }
 
-    return NextResponse.json({ ok: isValid, message });
+    let result: Awaited<ReturnType<typeof testFishAudioConnection>>;
+
+    try {
+      result = await testFishAudioConnection(apiKey, resolvedVoiceId);
+    } catch (e) {
+      result = {
+        ok: false,
+        category: "api" as const,
+        error: e instanceof Error ? e.message : "Unknown error",
+      };
+    }
+
+    return NextResponse.json({
+      ok: result.ok,
+      message: result.ok ? "Connection successful" : result.error,
+      ...(result.category && { category: result.category }),
+    });
   } catch (err) {
     console.error("[fish-audio-config] POST /test error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

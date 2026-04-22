@@ -101,9 +101,23 @@ export async function POST(request: Request) {
           `[voices.preview] Fish Audio error (${err.category}):`,
           err.message
         );
+
+        // Map error categories to appropriate HTTP status codes
+        const statusMap: Record<string, number> = {
+          auth: 401,
+          rate_limit: 429,
+          voice_invalid: 400,
+          api: 502,
+          network: 502,
+        };
+        const httpStatus = statusMap[err.category] ?? 500;
+
         return NextResponse.json(
-          { error: `Voice synthesis failed: ${err.message}` },
-          { status: 500 }
+          {
+            error: err.message,
+            category: err.category,
+          },
+          { status: httpStatus }
         );
       }
 

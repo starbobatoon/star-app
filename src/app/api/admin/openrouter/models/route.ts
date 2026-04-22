@@ -30,13 +30,37 @@ export async function GET() {
     }
 
     // List models from OpenRouter
-    const models = await listModels(apiKey);
+    try {
+      const models = await listModels(apiKey);
+      return NextResponse.json({ models });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("Error listing OpenRouter models:", msg);
 
-    return NextResponse.json({ models });
+      let category = "api";
+      let userMessage = msg;
+      let status = 502;
+
+      if (msg.includes("401") || msg.toLowerCase().includes("unauthorized")) {
+        category = "auth";
+        userMessage = "Cannot list models: API key is invalid or expired.";
+        status = 401;
+      } else if (msg.includes("429") || msg.toLowerCase().includes("rate limit")) {
+        category = "rate_limit";
+        userMessage = "Rate limit exceeded while fetching models. Try again later.";
+        status = 429;
+      } else if (msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch failed")) {
+        category = "network";
+        userMessage = "Cannot reach OpenRouter to list models. Check your connection.";
+        status = 502;
+      }
+
+      return NextResponse.json({ models: [], error: userMessage, category }, { status });
+    }
   } catch (err) {
     console.error("Error listing OpenRouter models:", err);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", category: "unknown" },
       { status: 500 }
     );
   }
