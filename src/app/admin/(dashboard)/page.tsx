@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { colors, typography, radius, spacing } from '@/lib/design-tokens';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -300,7 +301,9 @@ export default function AdminDashboard() {
               System telemetry and generation metrics.
             </p>
           </div>
-          <Button variant="primary">Generate Report</Button>
+          <Link href="/admin/analytics" style={{ textDecoration: 'none' }}>
+            <Button variant="primary">Generate Report</Button>
+          </Link>
         </header>
 
         {/* ── First-Run Setup Cards ── */}

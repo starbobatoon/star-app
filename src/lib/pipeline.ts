@@ -17,6 +17,7 @@ import { generateSpeechText } from "@/lib/speech-generator";
 import { generateSpeechAudio } from "@/lib/audio-generator";
 import { syncSpeechToGHL } from "@/lib/ghl-sync";
 import { writeAuditLog } from "@/lib/audit-log";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -142,6 +143,20 @@ export async function runSpeechPipeline(
     entityId: speechId,
     afterValue: { completedAt },
   });
+
+  // Mark the speech as complete in the database
+  const admin = createAdminClient();
+  const { error: updateError } = await admin
+    .from("speeches")
+    .update({ status: "complete", completed_at: completedAt })
+    .eq("id", speechId);
+
+  if (updateError) {
+    console.error(
+      `[pipeline] Failed to mark speech ${speechId} as complete:`,
+      updateError
+    );
+  }
 
   console.log(
     `[pipeline] Pipeline completed successfully for speech ${speechId} at ${completedAt}`

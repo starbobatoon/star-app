@@ -21,9 +21,27 @@ interface Question {
   updated_at: string;
 }
 
-// ─── Sidebar is provided by admin/layout.tsx ──────────────────────
+interface QuestionFormData {
+  question_text: string;
+  helper_text: string;
+  feeds_section: string;
+  is_required: boolean;
+  is_active: boolean;
+  ghl_field_key: string;
+  display_order: number;
+}
 
-// ─── Question Row Component ───────────────────────────────────────
+const EMPTY_FORM: QuestionFormData = {
+  question_text: '',
+  helper_text: '',
+  feeds_section: 'hook',
+  is_required: true,
+  is_active: true,
+  ghl_field_key: '',
+  display_order: 0,
+};
+
+const SECTION_OPTIONS = ['map', 'hook', 'story', 'point', 'cta', 'exit', 'meta'];
 
 const SECTION_TAG_VARIANT: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'success'> = {
   map: 'secondary',
@@ -35,36 +53,250 @@ const SECTION_TAG_VARIANT: Record<string, 'default' | 'primary' | 'secondary' | 
   meta: 'secondary',
 };
 
-interface QuestionRowProps {
-  question: Question;
-  onSave: (id: string, questionText: string) => Promise<void>;
+// ─── Confirm Dialog ───────────────────────────────────────────────
+
+interface ConfirmDialogProps {
+  title: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmDialog({ title, message, onConfirm, onCancel }: ConfirmDialogProps) {
+  const overlayStyle: CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  };
+
+  const dialogStyle: CSSProperties = {
+    backgroundColor: colors.surface.container,
+    border: `1px solid ${colors.outlineVariant}`,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    maxWidth: '420px',
+    width: '90%',
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onCancel}>
+      <div style={dialogStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ ...typography.h2, color: colors.onSurface, margin: 0, marginBottom: spacing.sm, fontSize: '20px' }}>
+          {title}
+        </h3>
+        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, margin: 0, marginBottom: spacing.lg }}>
+          {message}
+        </p>
+        <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button
+            variant="primary"
+            onClick={onConfirm}
+            style={{ backgroundColor: colors.error, color: colors.onError }}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Question Form Modal ──────────────────────────────────────────
+
+interface QuestionFormModalProps {
+  title: string;
+  initialData: QuestionFormData;
+  onSave: (data: QuestionFormData) => Promise<void>;
+  onCancel: () => void;
   isSaving: boolean;
 }
 
-function QuestionRow({ question, onSave, isSaving }: QuestionRowProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(question.question_text);
+function QuestionFormModal({ title, initialData, onSave, onCancel, isSaving }: QuestionFormModalProps) {
+  const [form, setForm] = useState<QuestionFormData>(initialData);
 
-  const handleSave = async () => {
-    if (editValue.trim() !== question.question_text) {
-      await onSave(question.id, editValue.trim());
-    }
-    setIsEditing(false);
+  const overlayStyle: CSSProperties = {
+    position: 'fixed',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
   };
 
-  const handleCancel = () => {
-    setEditValue(question.question_text);
-    setIsEditing(false);
+  const modalStyle: CSSProperties = {
+    backgroundColor: colors.surface.container,
+    border: `1px solid ${colors.outlineVariant}`,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    maxWidth: '560px',
+    width: '90%',
+    maxHeight: '90vh',
+    overflowY: 'auto',
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && e.metaKey) {
-      handleSave();
-    } else if (e.key === 'Escape') {
-      handleCancel();
-    }
+  const labelStyle: CSSProperties = {
+    ...typography.uiLabel,
+    color: colors.onSurfaceVariant,
+    display: 'block',
+    marginBottom: spacing.xs,
+    letterSpacing: '0.05em',
   };
 
+  const selectStyle: CSSProperties = {
+    fontFamily: `var(${typography.uiBody.fontFamily})`,
+    fontSize: typography.uiBody.fontSize,
+    color: colors.onSurface,
+    backgroundColor: colors.surface.containerHigh,
+    border: `1px solid ${colors.outlineVariant}`,
+    borderRadius: radius.DEFAULT,
+    padding: `${spacing.sm} ${spacing.md}`,
+    width: '100%',
+    outline: 'none',
+  };
+
+  const textareaStyle: CSSProperties = {
+    fontFamily: `var(${typography.uiBody.fontFamily})`,
+    fontSize: typography.uiBody.fontSize,
+    color: colors.onSurface,
+    backgroundColor: 'transparent',
+    border: 'none',
+    borderBottom: `1px solid ${colors.outlineVariant}`,
+    padding: `${spacing.sm} 0`,
+    width: '100%',
+    outline: 'none',
+    resize: 'vertical',
+    minHeight: '60px',
+  };
+
+  const checkboxRowStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.sm,
+  };
+
+  const handleSubmit = async () => {
+    if (!form.question_text.trim()) return;
+    await onSave(form);
+  };
+
+  return (
+    <div style={overlayStyle} onClick={onCancel}>
+      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ ...typography.h2, color: colors.onSurface, margin: 0, marginBottom: spacing.lg, fontSize: '20px' }}>
+          {title}
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+          {/* Question Text */}
+          <div>
+            <label style={labelStyle}>Question Text</label>
+            <textarea
+              value={form.question_text}
+              onChange={(e) => setForm((f) => ({ ...f, question_text: e.target.value }))}
+              style={textareaStyle}
+              placeholder="Enter the question text..."
+              rows={2}
+            />
+          </div>
+
+          {/* Helper Text */}
+          <div>
+            <label style={labelStyle}>Helper Text (optional)</label>
+            <Input
+              value={form.helper_text}
+              onChange={(e) => setForm((f) => ({ ...f, helper_text: e.target.value }))}
+              placeholder="Guidance text shown below the question"
+            />
+          </div>
+
+          {/* Section & Order Row */}
+          <div style={{ display: 'flex', gap: spacing.md }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Section</label>
+              <select
+                value={form.feeds_section}
+                onChange={(e) => setForm((f) => ({ ...f, feeds_section: e.target.value }))}
+                style={selectStyle}
+              >
+                {SECTION_OPTIONS.map((s) => (
+                  <option key={s} value={s}>{s.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Display Order</label>
+              <Input
+                type="number"
+                value={form.display_order}
+                onChange={(e) => setForm((f) => ({ ...f, display_order: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+          </div>
+
+          {/* GHL Field Key */}
+          <div>
+            <label style={labelStyle}>GHL Field Key (optional)</label>
+            <Input
+              value={form.ghl_field_key}
+              onChange={(e) => setForm((f) => ({ ...f, ghl_field_key: e.target.value }))}
+              placeholder="e.g. custom_question_1"
+            />
+          </div>
+
+          {/* Checkboxes */}
+          <div style={{ display: 'flex', gap: spacing.lg }}>
+            <div style={checkboxRowStyle}>
+              <input
+                type="checkbox"
+                id="is_required"
+                checked={form.is_required}
+                onChange={(e) => setForm((f) => ({ ...f, is_required: e.target.checked }))}
+              />
+              <label htmlFor="is_required" style={{ ...typography.uiBody, color: colors.onSurface, cursor: 'pointer' }}>
+                Required
+              </label>
+            </div>
+            <div style={checkboxRowStyle}>
+              <input
+                type="checkbox"
+                id="is_active"
+                checked={form.is_active}
+                onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+              />
+              <label htmlFor="is_active" style={{ ...typography.uiBody, color: colors.onSurface, cursor: 'pointer' }}>
+                Active
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end', marginTop: spacing.lg, paddingTop: spacing.lg, borderTop: `1px solid ${colors.surface.containerHigh}` }}>
+          <Button variant="secondary" onClick={onCancel} disabled={isSaving}>Cancel</Button>
+          <Button variant="primary" onClick={handleSubmit} disabled={isSaving || !form.question_text.trim()}>
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Question Row Component ───────────────────────────────────────
+
+interface QuestionRowProps {
+  question: Question;
+  onEdit: (question: Question) => void;
+  onDelete: (question: Question) => void;
+}
+
+function QuestionRow({ question, onEdit, onDelete }: QuestionRowProps) {
   const rowStyle: CSSProperties = {
     backgroundColor: colors.surface.container,
     border: `1px solid ${colors.outlineVariant}`,
@@ -107,16 +339,18 @@ function QuestionRow({ question, onSave, isSaving }: QuestionRowProps) {
     fontStyle: 'italic',
   };
 
-  const editContainerStyle: CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: spacing.sm,
-  };
-
-  const buttonRowStyle: CSSProperties = {
-    display: 'flex',
-    gap: spacing.sm,
-    justifyContent: 'flex-end',
+  const iconBtnStyle: CSSProperties = {
+    background: 'none',
+    border: `1px solid ${colors.outlineVariant}`,
+    cursor: 'pointer',
+    color: colors.outline,
+    padding: `${spacing.xs} ${spacing.sm}`,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderRadius: radius.DEFAULT,
+    ...typography.uiLabel,
+    transition: 'all 0.2s ease',
   };
 
   return (
@@ -124,55 +358,39 @@ function QuestionRow({ question, onSave, isSaving }: QuestionRowProps) {
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1 }}>
           <span style={orderBadgeStyle}>{question.display_order}</span>
-          {isEditing ? (
-            <div style={{ flex: 1, ...editContainerStyle }}>
-              <Input
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isSaving}
-                style={{ width: '100%' }}
-              />
-              <div style={buttonRowStyle}>
-                <Button
-                  variant="secondary"
-                  onClick={handleCancel}
-                  disabled={isSaving}
-                  style={{ padding: `${spacing.xs} ${spacing.sm}`, fontSize: '12px' }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleSave}
-                  disabled={isSaving || !editValue.trim()}
-                  style={{ padding: `${spacing.xs} ${spacing.sm}`, fontSize: '12px' }}
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setIsEditing(true)}>
-              <span
-                style={{
-                  ...typography.uiBody,
-                  color: colors.onSurface,
-                } as CSSProperties}
-              >
-                {question.question_text}
-              </span>
-              <span
-                style={{
-                  ...typography.caption,
-                  color: colors.outline,
-                  marginLeft: spacing.sm,
-                } as CSSProperties}
-              >
-                (click to edit)
-              </span>
-            </div>
-          )}
+          <span style={{ ...typography.uiBody, color: colors.onSurface, flex: 1 } as CSSProperties}>
+            {question.question_text}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: spacing.sm, flexShrink: 0 }}>
+          <button
+            style={iconBtnStyle}
+            onClick={() => onEdit(question)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = colors.secondary;
+              e.currentTarget.style.color = colors.secondary;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = colors.outlineVariant;
+              e.currentTarget.style.color = colors.outline;
+            }}
+          >
+            Edit
+          </button>
+          <button
+            style={{ ...iconBtnStyle, color: colors.error }}
+            onClick={() => onDelete(question)}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = colors.error;
+              e.currentTarget.style.backgroundColor = `${colors.error}15`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = colors.outlineVariant;
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            Delete
+          </button>
         </div>
       </div>
 
@@ -189,12 +407,7 @@ function QuestionRow({ question, onSave, isSaving }: QuestionRowProps) {
           <Tag variant="default">Inactive</Tag>
         )}
         {question.ghl_field_key && (
-          <span
-            style={{
-              ...typography.caption,
-              color: colors.outline,
-            } as CSSProperties}
-          >
+          <span style={{ ...typography.caption, color: colors.outline } as CSSProperties}>
             GHL: {question.ghl_field_key}
           </span>
         )}
@@ -213,7 +426,12 @@ export default function QuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editQuestion, setEditQuestion] = useState<Question | null>(null);
+  const [deleteQuestion, setDeleteQuestion] = useState<Question | null>(null);
 
   // Fetch questions on mount
   useEffect(() => {
@@ -248,14 +466,44 @@ export default function QuestionsPage() {
     }
   };
 
-  const handleSave = useCallback(async (id: string, questionText: string) => {
+  // CREATE
+  const handleCreate = useCallback(async (formData: QuestionFormData) => {
     try {
-      setSavingId(id);
-      
+      setSaving(true);
+
+      const response = await fetch('/api/admin/questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to create question (${response.status})`);
+      }
+
+      const data = await response.json();
+      setQuestions((prev) => [...prev, data.question].sort((a, b) => a.display_order - b.display_order));
+      setShowAddModal(false);
+    } catch (err) {
+      console.error('[QuestionsPage] Failed to create:', err);
+      alert(err instanceof Error ? err.message : 'Failed to create question');
+    } finally {
+      setSaving(false);
+    }
+  }, []);
+
+  // UPDATE
+  const handleUpdate = useCallback(async (formData: QuestionFormData) => {
+    if (!editQuestion) return;
+
+    try {
+      setSaving(true);
+
       const response = await fetch('/api/admin/questions', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, question_text: questionText }),
+        body: JSON.stringify({ id: editQuestion.id, ...formData }),
       });
 
       if (!response.ok) {
@@ -263,19 +511,58 @@ export default function QuestionsPage() {
         throw new Error(data.error || `Failed to update question (${response.status})`);
       }
 
-      // Update local state
+      const data = await response.json();
       setQuestions((prev) =>
-        prev.map((q) =>
-          q.id === id ? { ...q, question_text: questionText } : q
-        )
+        prev.map((q) => (q.id === editQuestion.id ? data.question : q))
+            .sort((a, b) => a.display_order - b.display_order)
       );
+      setEditQuestion(null);
     } catch (err) {
-      console.error('[QuestionsPage] Failed to save:', err);
-      alert(err instanceof Error ? err.message : 'Failed to save question');
+      console.error('[QuestionsPage] Failed to update:', err);
+      alert(err instanceof Error ? err.message : 'Failed to update question');
     } finally {
-      setSavingId(null);
+      setSaving(false);
     }
-  }, []);
+  }, [editQuestion]);
+
+  // DELETE
+  const handleDelete = useCallback(async () => {
+    if (!deleteQuestion) return;
+
+    try {
+      setSaving(true);
+
+      const response = await fetch(`/api/admin/questions?id=${deleteQuestion.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to delete question (${response.status})`);
+      }
+
+      setQuestions((prev) => prev.filter((q) => q.id !== deleteQuestion.id));
+      setDeleteQuestion(null);
+    } catch (err) {
+      console.error('[QuestionsPage] Failed to delete:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete question');
+    } finally {
+      setSaving(false);
+    }
+  }, [deleteQuestion]);
+
+  // Convert Question to form data for editing
+  const questionToForm = (q: Question): QuestionFormData => ({
+    question_text: q.question_text,
+    helper_text: q.helper_text || '',
+    feeds_section: q.feeds_section,
+    is_required: q.is_required,
+    is_active: q.is_active,
+    ghl_field_key: q.ghl_field_key || '',
+    display_order: q.display_order,
+  });
+
+  // ─── Styles ───────────────────────────────────────────────────
 
   const containerStyle: CSSProperties = {
     minHeight: '100vh',
@@ -350,12 +637,17 @@ export default function QuestionsPage() {
             <div>
               <h1 style={titleStyle}>Question Manager</h1>
               <p style={subtitleStyle}>
-                Click any question text to edit it inline. Changes are saved immediately.
+                Add, edit, and manage the questions shown on the compose page.
               </p>
             </div>
-            <Button variant="secondary" onClick={fetchQuestions} disabled={isLoading}>
-              {isLoading ? 'Loading...' : 'Refresh'}
-            </Button>
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              <Button variant="secondary" onClick={fetchQuestions} disabled={isLoading}>
+                {isLoading ? 'Loading...' : 'Refresh'}
+              </Button>
+              <Button variant="primary" onClick={() => setShowAddModal(true)}>
+                Add Question
+              </Button>
+            </div>
           </header>
 
           {/* Error */}
@@ -377,15 +669,15 @@ export default function QuestionsPage() {
                 <QuestionRow
                   key={question.id}
                   question={question}
-                  onSave={handleSave}
-                  isSaving={savingId === question.id}
+                  onEdit={(q) => setEditQuestion(q)}
+                  onDelete={(q) => setDeleteQuestion(q)}
                 />
               ))}
 
               {/* Empty State */}
               {questions.length === 0 && (
                 <div style={emptyStyle}>
-                  <p>No questions found in the database.</p>
+                  <p>No questions found. Click "Add Question" to create one.</p>
                 </div>
               )}
             </div>
@@ -401,18 +693,45 @@ export default function QuestionsPage() {
                 textAlign: 'center',
               } as CSSProperties}
             >
-              <span
-                style={{
-                  ...typography.caption,
-                  color: colors.onSurfaceVariant,
-                } as CSSProperties}
-              >
+              <span style={{ ...typography.caption, color: colors.onSurfaceVariant } as CSSProperties}>
                 {questions.length} question{questions.length !== 1 ? 's' : ''} total
               </span>
             </div>
           )}
         </div>
       </main>
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <QuestionFormModal
+          title="Add New Question"
+          initialData={{ ...EMPTY_FORM, display_order: questions.length > 0 ? Math.max(...questions.map((q) => q.display_order)) + 1 : 1 }}
+          onSave={handleCreate}
+          onCancel={() => setShowAddModal(false)}
+          isSaving={saving}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editQuestion && (
+        <QuestionFormModal
+          title="Edit Question"
+          initialData={questionToForm(editQuestion)}
+          onSave={handleUpdate}
+          onCancel={() => setEditQuestion(null)}
+          isSaving={saving}
+        />
+      )}
+
+      {/* Delete Confirmation */}
+      {deleteQuestion && (
+        <ConfirmDialog
+          title="Delete Question"
+          message={`Are you sure you want to delete "${deleteQuestion.question_text}"? This action cannot be undone.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteQuestion(null)}
+        />
+      )}
     </div>
   );
 }

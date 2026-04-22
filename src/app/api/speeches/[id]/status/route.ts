@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Used by the compose page to poll for speech generation progress
  * after the user submits their questionnaire.
  *
- * Returns: status, transcript (when complete), audioUrl (when complete)
+ * Returns: status, transcript (when available), audioUrl (signed URL when complete)
  */
 export async function GET(
   _request: Request,
@@ -34,12 +34,26 @@ export async function GET(
       completedAt: speech.completed_at,
     };
 
-    // Include transcript and audio URL when the speech is complete
-    if (speech.status === "complete" || speech.status === "completed") {
+    // Include transcript when text generation is done
+    // (status will be "generating_audio" or "complete")
+    const textReady =
+      speech.status === "generating_audio" ||
+      speech.status === "complete" ||
+      speech.status === "completed";
+
+    if (textReady && speech.transcript) {
       response.transcript = speech.transcript;
-      response.audioUrl = speech.audio_storage_path
-        ? `/api/speeches/${speech.id}/audio`
-        : null;
+    }
+
+    // Generate a signed URL for audio playback (valid for 1 hour)
+    if (speech.audio_storage_path) {
+      const { data: signedUrlData } = await supabase.storage
+        .from("speech-audio")
+        .createSignedUrl(speech.audio_storage_path, 3600);
+
+      if (signedUrlData?.signedUrl) {
+        response.audioUrl = signedUrlData.signedUrl;
+      }
     }
 
     return NextResponse.json(response);

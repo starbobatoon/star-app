@@ -9,19 +9,14 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { useVoiceInput } from "@/lib/voice-input";
 
-// ─── Mock Questions (Wave 3 will replace with /api/questions) ──────
-const MOCK_QUESTIONS = [
-  "What is the occasion for this speech?",
-  "Who is your audience? Describe them in detail.",
-  "What is the core emotional message you want your audience to feel?",
-  "What is the single most important takeaway you want the audience to remember?",
-  "Describe a personal story or anecdote that illustrates your main point.",
-  "What tone should the speech convey? (e.g., inspiring, solemn, celebratory, urgent)",
-  "Are there any key phrases, quotes, or mottos you want included?",
-  "What is the desired length of the speech?",
-  "Is there anything you want to avoid saying or any sensitive topics to steer clear of?",
-  "Anything else you want the AI to know before crafting your speech?",
-];
+// ─── Questions fetched from API ──────────────────────────────────
+interface ApiQuestion {
+  id: string;
+  question_text: string;
+  feeds_section: string;
+  is_required: boolean;
+  display_order: number;
+}
 
 // ─── Types ─────────────────────────────────────────────────────────
 interface ContactInfo {
@@ -96,8 +91,28 @@ export default function ComposePage() {
   const [brainstormStep, setBrainstormStep] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitComplete, setSubmitComplete] = useState(false);
+  const [questions, setQuestions] = useState<ApiQuestion[]>([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
 
-  const totalSteps = MOCK_QUESTIONS.length + 1; // +1 for contact step
+  // Fetch questions from API on mount
+  useEffect(() => {
+    async function loadQuestions() {
+      try {
+        const res = await fetch('/api/questions');
+        if (res.ok) {
+          const data = await res.json();
+          setQuestions(data.questions || []);
+        }
+      } catch (err) {
+        console.error('[Compose] Failed to load questions:', err);
+      } finally {
+        setQuestionsLoading(false);
+      }
+    }
+    loadQuestions();
+  }, []);
+
+  const totalSteps = questions.length + 1; // +1 for contact step
   const progressPercent = (step / totalSteps) * 100;
 
   // Auto-save draft every 2 seconds, keyed by email
@@ -227,6 +242,22 @@ export default function ComposePage() {
     );
   }
 
+  // ─── Loading State ──────────────────────────────────────────────
+  if (questionsLoading) {
+    return (
+      <div style={pageStyle}>
+        <ComposeNav />
+        <div style={mainContentStyle}>
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant }}>
+              Loading questions...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ─── Review Step ────────────────────────────────────────────────
   if (step === totalSteps) {
     return (
@@ -261,9 +292,9 @@ export default function ComposePage() {
                 </div>
               )}
             </Card>
-            {MOCK_QUESTIONS.map((q, i) => (
-              <Card key={i}>
-                <p style={reviewQuestionStyle}>{q}</p>
+            {questions.map((q, i) => (
+              <Card key={q.id || i}>
+                <p style={reviewQuestionStyle}>{q.question_text}</p>
                 <p style={reviewAnswerStyle}>
                   {answers[i] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
                 </p>
@@ -360,7 +391,7 @@ export default function ComposePage() {
 
   // ─── Question Steps (1–10) ──────────────────────────────────────
   const questionIndex = step - 1;
-  const question = MOCK_QUESTIONS[questionIndex];
+  const question = questions[questionIndex]?.question_text || '';
   const currentAnswer = answers[questionIndex] || "";
 
   return (
@@ -390,7 +421,7 @@ export default function ComposePage() {
       </div>
       {brainstormStep !== null && (
         <BrainstormModal
-          question={MOCK_QUESTIONS[brainstormStep]}
+          question={questions[brainstormStep]?.question_text || ''}
           currentAnswer={answers[brainstormStep] || ""}
           onApply={(text) => {
             handleAnswerChange(brainstormStep, text);
