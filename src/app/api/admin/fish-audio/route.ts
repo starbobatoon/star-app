@@ -369,9 +369,11 @@ export async function POST(request: Request) {
       voiceId,
     });
   } catch (err) {
-    console.error("[fish-audio-config] POST error:", err);
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errStack = err instanceof Error ? err.stack : undefined;
+    console.error("[fish-audio-config] POST error:", errMsg, errStack);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", detail: errMsg },
       { status: 500 }
     );
   }

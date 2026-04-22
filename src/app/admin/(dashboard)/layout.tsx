@@ -262,7 +262,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── Main Content Area ── */}
-      <main style={{ flex: 1, minWidth: 0 }}>
+      <main style={{ flex: 1, minWidth: 0, paddingBottom: '96px' }} className="md:pb-0">
         {/* Mobile Header */}
         <header
           className="md:hidden"
