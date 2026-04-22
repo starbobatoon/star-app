@@ -385,8 +385,10 @@ export default function VoiceConfigPage() {
   const [showFishAudioKey, setShowFishAudioKey] = useState(false);
   const [isSavingFishKey, setIsSavingFishKey] = useState(false);
   const [fishKeyStatus, setFishKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
+  const [fishKeyError, setFishKeyError] = useState<string | null>(null);
   const [defaultVoiceId, setDefaultVoiceId] = useState('e75e1618ff544059be71409c5126b4c0');
   const [testVoiceStatus, setTestVoiceStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [testVoiceError, setTestVoiceError] = useState<string | null>(null);
 
   // Audio Settings
   const [ttsModel, setTtsModel] = useState('s2-pro');
@@ -403,6 +405,7 @@ export default function VoiceConfigPage() {
   const [newLabel, setNewLabel] = useState('');
   const [previewTexts, setPreviewTexts] = useState<Record<string, string>>({});
   const [previewStates, setPreviewStates] = useState<Record<string, 'idle' | 'loading' | 'playing' | 'error'>>({});
+  const [previewErrors, setPreviewErrors] = useState<Record<string, string>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
@@ -488,13 +491,20 @@ export default function VoiceConfigPage() {
           isConfigured: true,
           apiKeyPreview: `****${fishAudioKey.slice(-4)}`,
           defaultVoiceId,
+          ttsModel,
+          volume,
+          speed,
+          loudnessNormalization: loudnessNorm,
+          textNormalization: textNorm,
         });
         setFishAudioKey('');
       } else {
         setFishKeyStatus('invalid');
+        setFishKeyError(data.validationMessage || 'Invalid API key. Please check and try again.');
       }
-    } catch {
+    } catch (err) {
       setFishKeyStatus('invalid');
+      setFishKeyError(err instanceof Error ? err.message : 'Network error. Check your connection.');
     } finally {
       setIsSavingFishKey(false);
     }
@@ -550,6 +560,7 @@ export default function VoiceConfigPage() {
 // ─── Test Voice Handler ───────────────────────────────────
   const handleTestVoice = async () => {
     setTestVoiceStatus('testing');
+    setTestVoiceError(null);
     try {
       const res = await fetch('/api/admin/fish-audio/test', {
         method: 'POST',
@@ -562,9 +573,11 @@ export default function VoiceConfigPage() {
         setTestVoiceStatus('success');
       } else {
         setTestVoiceStatus('failed');
+        setTestVoiceError(data.message || 'Voice test failed. Check your API key and Voice ID.');
       }
-    } catch {
+    } catch (err) {
       setTestVoiceStatus('failed');
+      setTestVoiceError(err instanceof Error ? err.message : 'Network error. Check your connection.');
     }
   };
 
@@ -673,7 +686,16 @@ export default function VoiceConfigPage() {
       });
 
       if (!res.ok) {
-        throw new Error('Preview failed');
+        let errorMsg = 'Preview failed';
+        try {
+          const errData = await res.json();
+          if (errData.error) errorMsg = errData.error;
+        } catch {
+          // response was not JSON
+        }
+        setPreviewErrors((prev) => ({ ...prev, [voiceId]: errorMsg }));
+        setPreviewStates((prev) => ({ ...prev, [voiceId]: 'error' }));
+        return;
       }
 
       const blob = await res.blob();
@@ -806,7 +828,7 @@ export default function VoiceConfigPage() {
                 </div>
                 {fishKeyStatus === 'invalid' && (
                   <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.xs }}>
-                    Invalid API key. Please check and try again.
+                    {fishKeyError || 'Invalid API key. Please check and try again.'}
                   </p>
                 )}
               </div>
@@ -827,11 +849,6 @@ export default function VoiceConfigPage() {
                     marginBottom: spacing.xs,
                   }}
                 />
-                {defaultVoiceId === 'e75e1618ff544059be71409c5126b4c0' && (
-                  <span style={{ ...typography.caption, color: colors.primary }}>
-                    Voice: Stefan
-                  </span>
-                )}
               </div>
 
               {/* Action Buttons */}
@@ -871,7 +888,7 @@ export default function VoiceConfigPage() {
 
               {testVoiceStatus === 'failed' && (
                 <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.xs }}>
-                  Voice test failed. Please check your API key and Voice ID.
+                  {testVoiceError || 'Voice test failed. Please check your API key and Voice ID.'}
                 </p>
               )}
             </div>
@@ -1059,7 +1076,7 @@ export default function VoiceConfigPage() {
                 <label style={labelStyle}>Voice Label</label>
                 <input
                   type="text"
-                  placeholder="e.g. Stefan (Default)"
+                  placeholder="e.g. Default Voice"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   style={textInputStyle}
@@ -1205,6 +1222,11 @@ export default function VoiceConfigPage() {
                       </>
                     )}
                   </button>
+                  {previewStates[voice.id] === 'error' && previewErrors[voice.id] && (
+                    <span style={{ ...typography.caption, color: colors.error, maxWidth: '320px' }}>
+                      {previewErrors[voice.id]}
+                    </span>
+                  )}
                   {previewStates[voice.id] === 'playing' && (
                     <span style={{ ...typography.caption, color: colors.primary, display: 'inline-flex', alignItems: 'center', gap: spacing.xs }}>
                       <VolumeUpIcon /> Playing...
