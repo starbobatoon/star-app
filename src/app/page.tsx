@@ -74,7 +74,7 @@ export default function LandingPage() {
             onClick={() => setMobileMenuOpen((prev) => !prev)}
             style={{
               display: 'none',
-              color: '#A0A0A0',
+              color: colors.outline,
               background: 'none',
               border: 'none',
               cursor: 'pointer',
@@ -120,7 +120,7 @@ export default function LandingPage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: spacing.xs,
-                color: item.active ? colors.primaryContainer : '#A0A0A0',
+                color: item.active ? colors.primaryContainer : colors.outline,
                 textDecoration: 'none',
                 fontFamily: `var(${typography.uiLabel.fontFamily}), Georgia, serif`,
                 fontSize: typography.uiLabel.fontSize,
@@ -334,7 +334,7 @@ export default function LandingPage() {
               gap: '4px',
               width: '100%',
               height: '100%',
-              color: item.active ? colors.primaryContainer : '#4A4A4A',
+              color: item.active ? colors.primaryContainer : colors.outlineVariant,
               textDecoration: 'none',
               fontFamily: `var(${typography.uiLabel.fontFamily}), system-ui, sans-serif`,
               fontSize: '10px',
@@ -407,7 +407,7 @@ export default function LandingPage() {
           filter: brightness(1.1);
         }
         .cta-group button:focus-visible {
-          outline: 2px solid #c0c1ff;
+          outline: 2px solid var(--color-secondary);
           outline-offset: 2px;
         }
       `}</style>
