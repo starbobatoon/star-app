@@ -9,15 +9,19 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Modal } from "@/components/ui/Modal";
 import { useVoiceInput } from "@/lib/voice-input";
 
-// ─── Questions fetched from API ──────────────────────────────────
-interface ApiQuestion {
-  id: string;
-  question_text: string;
-  feeds_section: string;
-  is_required: boolean;
-  display_order: number;
-  video_url: string | null;
-}
+// ─── Mock Questions (Wave 3 will replace with /api/questions) ──────
+const MOCK_QUESTIONS = [
+  "What is the occasion for this speech?",
+  "Who is your audience? Describe them in detail.",
+  "What is the core emotional message you want your audience to feel?",
+  "What is the single most important takeaway you want the audience to remember?",
+  "Describe a personal story or anecdote that illustrates your main point.",
+  "What tone should the speech convey? (e.g., inspiring, solemn, celebratory, urgent)",
+  "Are there any key phrases, quotes, or mottos you want included?",
+  "What is the desired length of the speech?",
+  "Is there anything you want to avoid saying or any sensitive topics to steer clear of?",
+  "Anything else you want the AI to know before crafting your speech?",
+];
 
 // ─── Types ─────────────────────────────────────────────────────────
 interface ContactInfo {
@@ -33,9 +37,17 @@ interface DraftData {
   currentStep: number;
 }
 
+interface SpeechStatus {
+  id: string;
+  status: string;
+  transcript?: string;
+  audioUrl?: string;
+  createdAt?: string;
+  completedAt?: string;
+}
+
 const STORAGE_KEY_PREFIX = "star-draft-";
 
-// ─── Main Component ───────────────────────────────────────────────
 // ─── Compose Nav Header ──────────────────────────────────────────
 function ComposeNav() {
   return (
@@ -59,7 +71,7 @@ function ComposeNav() {
           textDecoration: 'none',
         }}
       >
-        STAR
+        ELOCUTIONIST
       </a>
       <a
         href="/"
@@ -79,6 +91,445 @@ function ComposeNav() {
   );
 }
 
+// ─── Play Icon Component ─────────────────────────────────────────
+function PlayIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 5v14l11-7z" fill="currentColor" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" />
+    </svg>
+  );
+}
+
+// ─── Countdown Timer Component ───────────────────────────────────
+function CountdownTimer({ startSeconds, onComplete }: { startSeconds: number; onComplete?: () => void }) {
+  const [seconds, setSeconds] = useState(startSeconds);
+
+  useEffect(() => {
+    if (seconds <= 0) {
+      onComplete?.();
+      return;
+    }
+    const timer = setInterval(() => {
+      setSeconds((s) => {
+        if (s <= 1) {
+          clearInterval(timer);
+          onComplete?.();
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [seconds, onComplete]);
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+
+  return (
+    <span style={{ fontFamily: 'var(--font-inter)', fontSize: '48px', fontWeight: 600, color: colors.primary }}>
+      {mins}:{secs.toString().padStart(2, '0')}
+    </span>
+  );
+}
+
+// ─── Stand By Screen ─────────────────────────────────────────────
+function StandByScreen({ email, speechId }: { email: string; speechId: string }) {
+  const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Poll for speech status
+  useEffect(() => {
+    if (!speechId) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/speeches/${speechId}/status`);
+        if (!res.ok) throw new Error('Failed to fetch status');
+        const data = await res.json();
+        setSpeechStatus(data);
+      } catch (e) {
+        setError('Unable to check speech status. Please refresh the page.');
+      }
+    };
+
+    // Poll immediately, then every 5 seconds
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [speechId]);
+
+  // If transcript is available, show the speech viewer
+  if (speechStatus?.transcript) {
+    return <SpeechViewer speech={speechStatus} email={email} />;
+  }
+
+  return (
+    <div style={pageStyle}>
+      <ComposeNav />
+      <div style={{ ...mainContentStyle, textAlign: 'center' as const, maxWidth: 560 }}>
+        <div style={{
+          width: '64px',
+          height: '64px',
+          borderRadius: '50%',
+          background: `linear-gradient(135deg, ${colors.secondary}22, ${colors.primary}22)`,
+          border: `2px solid ${colors.outlineVariant}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          margin: '0 auto 24px',
+          animation: 'pulse 2s ease-in-out infinite',
+        }}>
+          <span style={{ fontSize: '28px' }}>✍️</span>
+        </div>
+        <style>{`
+          @keyframes pulse {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+          }
+        `}</style>
+
+        <h1 style={{ ...typography.h1, color: colors.onSurface, fontSize: '28px', marginBottom: spacing.lg }}>
+          Your Speech Is Being Written
+        </h1>
+
+        <div style={{ marginBottom: spacing.lg }}>
+          <CountdownTimer startSeconds={120} />
+        </div>
+
+        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
+          We&apos;re crafting your personalized speech now. This typically takes 2-3 minutes.
+        </p>
+
+        <p style={{ ...typography.caption, color: colors.outline }}>
+          If you have somewhere to be, don&apos;t worry — we&apos;ll also send this to you by email at <strong>{email}</strong> and text you when it&apos;s ready.
+        </p>
+
+        {error && (
+          <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.lg }}>
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Speech Viewer Component ─────────────────────────────────────
+function SpeechViewer({ speech, email }: { speech: SpeechStatus; email: string }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const toggleAudio = () => {
+    if (!speech.audioUrl) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(speech.audioUrl);
+      audioRef.current.onended = () => setIsPlaying(false);
+      audioRef.current.onerror = () => setIsPlaying(false);
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play();
+      setIsPlaying(true);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div style={pageStyle}>
+      <ComposeNav />
+      <div style={{ ...mainContentStyle, maxWidth: 720 }}>
+        <div style={{ marginBottom: spacing.xl }}>
+          <span style={{ ...typography.uiLabel, color: colors.outline }}>YOUR SPEECH IS READY</span>
+          <h1 style={{ ...typography.h2, color: colors.onSurface, marginTop: spacing.sm }}>
+            Here&apos;s Your Personalized Speech
+          </h1>
+          <p style={{ ...typography.caption, color: colors.onSurfaceVariant, marginTop: spacing.xs }}>
+            We&apos;ve also sent this to {email}
+          </p>
+        </div>
+
+        <Card cardStyle={{ marginBottom: spacing.lg }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
+            <button
+              onClick={toggleAudio}
+              disabled={!speech.audioUrl}
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: colors.primary,
+                color: colors.onPrimary,
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: speech.audioUrl ? 'pointer' : 'not-allowed',
+                opacity: speech.audioUrl ? 1 : 0.5,
+                transition: 'transform 0.15s ease',
+              }}
+              onMouseEnter={(e) => { if (speech.audioUrl) e.currentTarget.style.transform = 'scale(1.05)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+            >
+              {isPlaying ? <PauseIcon /> : <PlayIcon />}
+            </button>
+            <div>
+              <div style={{ ...typography.uiLabel, color: colors.onSurface }}>
+                {isPlaying ? 'Playing...' : 'Listen to Your Speech'}
+              </div>
+              <div style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
+                {speech.audioUrl ? 'Click to play audio version' : 'Audio generation in progress...'}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div style={{
+          background: colors.surface.container,
+          borderRadius: radius.lg,
+          padding: spacing.lg,
+          border: `1px solid ${colors.outlineVariant}`,
+        }}>
+          <div style={{ ...typography.uiLabel, color: colors.secondary, marginBottom: spacing.md, textTransform: 'uppercase' as const }}>
+            Transcript
+          </div>
+          <div
+            style={{
+              ...typography.transcriptBody,
+              color: colors.onSurface,
+              whiteSpace: 'pre-wrap',
+              lineHeight: '1.8',
+            }}
+          >
+            {speech.transcript}
+          </div>
+        </div>
+
+        <div style={{ marginTop: spacing.xl, display: 'flex', gap: spacing.md, justifyContent: 'center' }}>
+          <Button variant="secondary" onClick={() => window.location.href = '/'}>
+            ← Back to Home
+          </Button>
+          <Button variant="primary" onClick={() => window.location.reload()}>
+            Create Another Speech
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Brainstorm Modal ────────────────────────────────────────────
+interface BrainstormModalProps {
+  question: string;
+  currentAnswer: string;
+  onApply: (text: string) => void;
+  onClose: () => void;
+}
+
+function BrainstormModal({ question, currentAnswer, onApply, onClose }: BrainstormModalProps) {
+  const [suggestion, setSuggestion] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleBrainstorm = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/brainstorm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, currentAnswer }),
+      });
+      const data = await res.json();
+      setSuggestion(data.suggestion || 'Try thinking about personal experiences that relate to this topic.');
+    } catch {
+      setSuggestion('Think about your audience. What would resonate with them most?');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    handleBrainstorm();
+  }, []);
+
+  return (
+    <Modal open onClose={onClose} title="Brainstorm Ideas">
+      <div style={{ padding: spacing.md }}>
+        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
+          <strong>Question:</strong> {question}
+        </p>
+        <div style={{ background: colors.surface.container, padding: spacing.md, borderRadius: radius.DEFAULT, marginBottom: spacing.md }}>
+          {loading ? (
+            <p style={{ ...typography.caption, color: colors.outline }}>Generating ideas...</p>
+          ) : (
+            <p style={{ ...typography.uiBody, color: colors.onSurface }}>{suggestion}</p>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' }}>
+          <Button variant="secondary" onClick={handleBrainstorm} disabled={loading}>
+            Try Another
+          </Button>
+          <Button variant="primary" onClick={() => onApply(suggestion)} disabled={loading || !suggestion}>
+            Use This
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Question Input Component (with Voice) ───────────────────────
+function QuestionInput({
+  questionIndex,
+  value,
+  onChange,
+}: {
+  questionIndex: number;
+  value: string;
+  onChange: (val: string) => void;
+}) {
+  const { isListening, transcript, start, stop, isSupported, error } = useVoiceInput();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [showListening, setShowListening] = useState(false);
+
+  // When listening starts/stops, update UI state
+  useEffect(() => {
+    setShowListening(isListening);
+  }, [isListening]);
+
+  // When transcript changes from voice input, update the text
+  useEffect(() => {
+    if (transcript) {
+      // Combine existing text with new transcript
+      const separator = value.trim() && !value.endsWith(' ') ? ' ' : '';
+      const newValue = value + separator + transcript;
+      onChange(newValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transcript]);
+
+  const handleMicClick = () => {
+    if (isListening) {
+      stop();
+    } else {
+      start();
+    }
+  };
+
+  const isShortAnswer = questionIndex < 2;
+  const textareaRows = isShortAnswer ? 3 : 6;
+
+  return (
+    <div style={inputAreaStyle}>
+      <div style={textareaWrapperStyle}>
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Begin typing your thoughts here..."
+          rows={textareaRows}
+          spellCheck={false}
+          style={textareaStyle}
+          onFocus={(e) => {
+            e.currentTarget.style.borderBottomColor = colors.secondary;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderBottomColor = colors.outlineVariant;
+          }}
+        />
+        <div style={focusLineStyle} />
+
+        {/* Listening indicator overlay */}
+        {showListening && (
+          <div style={listeningOverlayStyle}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+              <div style={pulsingMicStyle}>
+                <MicIcon active />
+              </div>
+              <span style={{ ...typography.uiLabel, color: colors.primary }}>Listening...</span>
+            </div>
+            <p style={{ ...typography.caption, color: colors.onSurfaceVariant, marginTop: spacing.sm }}>
+              {transcript || 'Speak now'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Voice input button */}
+      {isSupported ? (
+        <button
+          type="button"
+          onClick={handleMicClick}
+          style={{
+            ...micButtonStyle,
+            background: isListening ? colors.error : colors.surface.containerHigh,
+            color: isListening ? colors.onError : colors.onSurfaceVariant,
+          }}
+          onMouseEnter={(e) => {
+            if (!isListening) e.currentTarget.style.backgroundColor = colors.surface.containerHighest;
+          }}
+          onMouseLeave={(e) => {
+            if (!isListening) e.currentTarget.style.backgroundColor = colors.surface.containerHigh;
+          }}
+          title={isListening ? 'Stop recording' : 'Use voice input'}
+        >
+          <MicIcon active={isListening} />
+          {isListening ? 'Stop' : 'Voice'}
+        </button>
+      ) : (
+        <div style={{ ...typography.caption, color: colors.outline, marginTop: spacing.sm }}>
+          Voice input not supported in this browser
+        </div>
+      )}
+
+      {error && (
+        <div style={{ ...typography.caption, color: colors.error, marginTop: spacing.sm }}>
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mic Icon Component ──────────────────────────────────────────
+function MicIcon({ active }: { active?: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ animation: active ? 'pulse 1s ease-in-out infinite' : undefined }}
+    >
+      <path
+        d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.58 14.48 17 12 17s-4.52-2.42-4.93-5.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3.34 3.18 5.98 6.41 6.36V21c0 .55.45 1 1 1s1-.45 1-1v-2.5c3.23-.38 5.92-3.02 6.41-6.36.1-.6-.39-1.14-1-1.14z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────
 export default function ComposePage() {
   const [step, setStep] = useState(0);
   const [contact, setContact] = useState<ContactInfo>({
@@ -88,51 +539,27 @@ export default function ComposePage() {
     phone: "",
   });
   const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [showBrainstorm, setShowBrainstorm] = useState(false);
   const [brainstormStep, setBrainstormStep] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitComplete, setSubmitComplete] = useState(false);
-  const [questions, setQuestions] = useState<ApiQuestion[]>([]);
-  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [speechId, setSpeechId] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Fetch questions from API on mount
-  useEffect(() => {
-    async function loadQuestions() {
-      try {
-        const res = await fetch('/api/questions');
-        if (res.ok) {
-          const data = await res.json();
-          setQuestions(data.questions || []);
-        }
-      } catch (err) {
-        console.error('[Compose] Failed to load questions:', err);
-      } finally {
-        setQuestionsLoading(false);
-      }
-    }
-    loadQuestions();
-  }, []);
-
-  const totalSteps = questions.length + 1; // +1 for contact step
+  const totalSteps = MOCK_QUESTIONS.length + 1;
   const progressPercent = (step / totalSteps) * 100;
 
-  // Auto-save draft every 2 seconds, keyed by email
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const saveDraft = useCallback(() => {
     if (!contact.email) return;
     try {
       const draft: DraftData = { contact, answers, currentStep: step };
-      localStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${contact.email}`,
-        JSON.stringify(draft)
-      );
+      localStorage.setItem(`${STORAGE_KEY_PREFIX}${contact.email}`, JSON.stringify(draft));
     } catch {
-      // localStorage may be full or unavailable — silent fail
+      // Silent fail
     }
   }, [contact, answers, step]);
 
-  // Load draft on mount (when email changes)
   useEffect(() => {
     if (!contact.email) return;
     try {
@@ -147,7 +574,6 @@ export default function ComposePage() {
           phone: draft.contact.phone || prev.phone,
         }));
         setAnswers((prev) => ({ ...prev, ...draft.answers }));
-        // Only restore step if user hasn't started navigating yet
         if (step === 0 && draft.currentStep > 0) {
           setStep(draft.currentStep);
         }
@@ -155,11 +581,9 @@ export default function ComposePage() {
     } catch {
       // Corrupt draft — ignore
     }
-    // Only run when email changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contact.email]);
 
-  // Auto-save interval
   useEffect(() => {
     if (autoSaveTimerRef.current) clearInterval(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setInterval(saveDraft, 2000);
@@ -168,7 +592,6 @@ export default function ComposePage() {
     };
   }, [saveDraft]);
 
-  // Save on unmount
   useEffect(() => {
     return () => saveDraft();
   }, [saveDraft]);
@@ -183,11 +606,6 @@ export default function ComposePage() {
 
   const canProceedFromContact =
     contact.email.trim().length > 0 && contact.phone.trim().length > 0;
-
-  const canProceedFromQuestion = (idx: number) => {
-    // All questions are optional for now — allow proceeding with empty answers
-    return true;
-  };
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -205,58 +623,46 @@ export default function ComposePage() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
-      // Mock API call — Wave 3 will replace with real POST to /api/speeches
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      // Clear draft on successful submit
+      // Prepare answers array
+      const answersArray = MOCK_QUESTIONS.map((_, i) => ({
+        questionId: i.toString(),
+        answer: answers[i] || '',
+      }));
+
+      const res = await fetch('/api/speeches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contact,
+          answers: answersArray,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to submit speech');
+      }
+
+      // Clear draft on success
       if (contact.email) {
         localStorage.removeItem(`${STORAGE_KEY_PREFIX}${contact.email}`);
       }
+
+      setSpeechId(data.speech?.id || null);
       setSubmitComplete(true);
-    } catch {
-      // Handle error in Wave 3
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : 'Something went wrong');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // ─── Success Screen ────────────────────────────────────────────
-  if (submitComplete) {
-    return (
-      <div style={pageStyle}>
-        <ComposeNav />
-        <div style={mainContentStyle}>
-          <div style={{ textAlign: "center" as const, maxWidth: 480 }}>
-            <div style={successIconStyle}>✓</div>
-            <h1 style={successTitleStyle}>Speech Submitted</h1>
-            <p style={successBodyStyle}>
-              Your responses have been received. We&apos;ll craft a compelling
-              5-minute speech based on your answers and deliver it to{" "}
-              <strong>{contact.email}</strong>.
-            </p>
-            <Button variant="primary" fullWidth onClick={() => window.location.reload()}>
-              Start a New Speech
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─── Loading State ──────────────────────────────────────────────
-  if (questionsLoading) {
-    return (
-      <div style={pageStyle}>
-        <ComposeNav />
-        <div style={mainContentStyle}>
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant }}>
-              Loading questions...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+  // ─── Stand By Screen (after submission) ─────────────────────────
+  if (submitComplete && speechId) {
+    return <StandByScreen email={contact.email} speechId={speechId} />;
   }
 
   // ─── Review Step ────────────────────────────────────────────────
@@ -269,18 +675,14 @@ export default function ComposePage() {
           <div style={reviewHeaderStyle}>
             <span style={stepLabelStyle}>Review</span>
             <h1 style={reviewTitleStyle}>Review Your Answers</h1>
-            <p style={reviewSubtitleStyle}>
-              Look over your responses before submitting.
-            </p>
+            <p style={reviewSubtitleStyle}>Look over your responses before submitting.</p>
           </div>
           <div style={reviewListStyle}>
             <Card>
               <h3 style={reviewSectionTitleStyle}>Contact Information</h3>
               <div style={reviewFieldStyle}>
                 <span style={reviewLabelStyle}>Name</span>
-                <span style={reviewValueStyle}>
-                  {contact.firstName} {contact.lastName}
-                </span>
+                <span style={reviewValueStyle}>{contact.firstName} {contact.lastName}</span>
               </div>
               <div style={reviewFieldStyle}>
                 <span style={reviewLabelStyle}>Email</span>
@@ -293,33 +695,20 @@ export default function ComposePage() {
                 </div>
               )}
             </Card>
-            {questions.map((q, i) => (
-              <Card key={q.id || i}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.md }}>
-                  <div style={{ flex: 1 }}>
-                    <p style={reviewQuestionStyle}>{q.question_text}</p>
-                    <p style={reviewAnswerStyle}>
-                      {answers[i] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setStep(i + 1)}
-                    style={editButtonStyle}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = colors.primary;
-                      e.currentTarget.style.borderColor = colors.primary;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = colors.outline;
-                      e.currentTarget.style.borderColor = colors.outlineVariant;
-                    }}
-                  >
-                    Edit
-                  </button>
-                </div>
+            {MOCK_QUESTIONS.map((q, i) => (
+              <Card key={i}>
+                <p style={reviewQuestionStyle}>{q}</p>
+                <p style={reviewAnswerStyle}>
+                  {answers[i] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
+                </p>
               </Card>
             ))}
           </div>
+          {submitError && (
+            <div style={{ color: colors.error, marginBottom: spacing.md, textAlign: 'center' }}>
+              {submitError}
+            </div>
+          )}
           <div style={navStyle}>
             <Button variant="secondary" onClick={handlePrevious} disabled={isSubmitting}>
               ← Back
@@ -410,7 +799,7 @@ export default function ComposePage() {
 
   // ─── Question Steps (1–10) ──────────────────────────────────────
   const questionIndex = step - 1;
-  const question = questions[questionIndex]?.question_text || '';
+  const question = MOCK_QUESTIONS[questionIndex];
   const currentAnswer = answers[questionIndex] || "";
 
   return (
@@ -423,7 +812,6 @@ export default function ComposePage() {
             Question {step} of {totalSteps}
           </span>
           <h1 style={questionTitleStyle}>{question}</h1>
-          <VideoPlaceholder videoUrl={questions[questionIndex]?.video_url || null} />
           <QuestionInput
             questionIndex={questionIndex}
             value={currentAnswer}
@@ -441,7 +829,7 @@ export default function ComposePage() {
       </div>
       {brainstormStep !== null && (
         <BrainstormModal
-          question={questions[brainstormStep]?.question_text || ''}
+          question={MOCK_QUESTIONS[brainstormStep]}
           currentAnswer={answers[brainstormStep] || ""}
           onApply={(text) => {
             handleAnswerChange(brainstormStep, text);
@@ -454,588 +842,195 @@ export default function ComposePage() {
   );
 }
 
-// ─── Video Placeholder Component ────────────────────────────────
-function VideoPlaceholder({ videoUrl }: { videoUrl: string | null }) {
-  if (videoUrl) {
-    return (
-      <div style={videoEmbedStyle}>
-        <iframe
-          src={videoUrl}
-          title="Question tutorial video"
-          style={videoIframeStyle}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div style={videoPlaceholderStyle}>
-      <div style={videoPlayIconStyle}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
-        </svg>
-      </div>
-      <span style={videoLabelStyle}>Watch tutorial</span>
-      <span style={videoComingSoonStyle}>Video coming soon</span>
-    </div>
-  );
-}
-
-// ─── Question Input Component ────────────────────────────────────
-function QuestionInput({
-  questionIndex,
-  value,
-  onChange,
-}: {
-  questionIndex: number;
-  value: string;
-  onChange: (val: string) => void;
-}) {
-  const { isListening, transcript, start, stop, isSupported, error } =
-    useVoiceInput();
-  const [localValue, setLocalValue] = useState(value);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Sync external value changes
-  useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
-
-  // When voice transcript changes, append to local value
-  useEffect(() => {
-    if (transcript && isListening) {
-      const separator = localValue.trim() ? " " : "";
-      setLocalValue((prev) => prev + separator + transcript);
-      onChange(localValue + separator + transcript);
-    }
-    // Only react to transcript changes while listening
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [transcript]);
-
-  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setLocalValue(e.target.value);
-    onChange(e.target.value);
-  };
-
-  const handleMicToggle = () => {
-    if (isListening) {
-      stop();
-    } else {
-      start();
-    }
-  };
-
-  // Determine if this is a short-answer question (first few) vs long-answer
-  const isShortAnswer = questionIndex < 2;
-  const textareaRows = isShortAnswer ? 3 : 6;
-
-  return (
-    <div style={inputAreaStyle}>
-      <div style={textareaWrapperStyle}>
-        <textarea
-          ref={textareaRef}
-          value={localValue}
-          onChange={handleTextChange}
-          placeholder="Begin typing your thoughts here..."
-          rows={textareaRows}
-          spellCheck={false}
-          style={textareaStyle}
-          onFocus={(e) => {
-            e.currentTarget.style.borderBottomColor = colors.secondary;
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.borderBottomColor = colors.outlineVariant;
-          }}
-        />
-        <div style={focusLineStyle} />
-      </div>
-
-      {/* Mic + Brainstorm row */}
-      <div style={actionRowStyle}>
-        {isSupported && (
-          <button
-            onClick={handleMicToggle}
-            style={micButtonStyle(isListening)}
-            aria-label={isListening ? "Stop voice input" : "Start voice input"}
-            title={isListening ? "Stop recording" : "Record your answer"}
-          >
-            {isListening ? "⏹ Stop" : "🎤 Voice"}
-          </button>
-        )}
-        {error && (
-          <span style={voiceErrorStyle}>{error}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Brainstorm Modal ─────────────────────────────────────────────
-function BrainstormModal({
-  question,
-  currentAnswer,
-  onApply,
-  onClose,
-}: {
-  question: string;
-  currentAnswer: string;
-  onApply: (text: string) => void;
-  onClose: () => void;
-}) {
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  // Mock brainstorm generation — Wave 3 will call /api/brainstorm
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setSuggestions([
-        "Think about a time when you felt this emotion strongly — what happened?",
-        "Consider your audience's perspective — what would move them?",
-        "Start with a vivid image or story, then connect it to your message.",
-        "What would you say if you were talking to just one person in the audience?",
-        "Jot down 3 keywords that capture the feeling you want to convey.",
-      ]);
-      setLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [customNote, setCustomNote] = useState("");
-
-  const toggleSuggestion = (idx: number) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
-  };
-
-  const handleApply = () => {
-    const parts: string[] = [];
-    if (currentAnswer.trim()) parts.push(currentAnswer.trim());
-    selected.forEach((idx) => parts.push(suggestions[idx]));
-    if (customNote.trim()) parts.push(customNote.trim());
-    onApply(parts.join("\n\n"));
-  };
-
-  return (
-    <Modal open onClose={onClose} title="Brainstorm Ideas">
-      <div style={{ padding: spacing.lg }}>
-        <p style={{ color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
-          {question}
-        </p>
-        {loading ? (
-          <div style={{ textAlign: "center" as const, padding: spacing.xl }}>
-            <p style={{ color: colors.onSurfaceVariant }}>Generating ideas...</p>
-          </div>
-        ) : (
-          <>
-            <div style={{ display: "flex", flexDirection: "column", gap: spacing.sm }}>
-              {suggestions.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => toggleSuggestion(i)}
-                  style={suggestionStyle(selected.has(i))}
-                >
-                  <span style={{ marginRight: spacing.sm }}>
-                    {selected.has(i) ? "✓" : "○"}
-                  </span>
-                  {s}
-                </button>
-              ))}
-            </div>
-            <div style={{ marginTop: spacing.lg }}>
-              <Input
-                label="Add your own idea"
-                placeholder="Type a thought or note..."
-                value={customNote}
-                onChange={(e) => setCustomNote(e.target.value)}
-              />
-            </div>
-            <div style={{ marginTop: spacing.lg, display: "flex", justifyContent: "flex-end", gap: spacing.sm }}>
-              <Button variant="secondary" onClick={onClose}>Cancel</Button>
-              <Button variant="primary" onClick={handleApply}>
-                Apply Selected
-              </Button>
-            </div>
-          </>
-        )}
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────
-
+// ─── Styles ──────────────────────────────────────────────────────
 const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  backgroundColor: colors.surface.base,
-  color: colors.onSurface,
-  display: "flex",
-  flexDirection: "column",
+  minHeight: '100vh',
+  background: colors.surface.containerLowest,
 };
 
 const mainContentStyle: React.CSSProperties = {
-  flex: 1,
-  width: "100%",
-  maxWidth: 720,
-  margin: "0 auto",
-  paddingLeft: spacing.md,
-  paddingRight: spacing.md,
-  paddingTop: spacing.xxl,
-  paddingBottom: spacing.xxl,
-  display: "flex",
-  flexDirection: "column",
+  maxWidth: '720px',
+  margin: '0 auto',
+  padding: `${spacing.xl} ${spacing.lg} ${spacing.xxl}`,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: spacing.lg,
 };
 
 const questionAreaStyle: React.CSSProperties = {
-  flex: 1,
-  display: "flex",
-  flexDirection: "column",
-  justifyContent: "center",
+  display: 'flex',
+  flexDirection: 'column',
+  gap: spacing.sm,
 };
 
 const stepLabelStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  lineHeight: typography.uiLabel.lineHeight,
-  color: colors.onSurfaceVariant,
-  textTransform: "uppercase",
-  display: "block",
-  marginBottom: spacing.md,
+  ...typography.uiLabel,
+  color: colors.outline,
+  textTransform: 'uppercase' as const,
 };
 
 const questionTitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.h2.fontFamily})`,
-  fontSize: typography.h2.fontSize,
-  fontWeight: typography.h2.fontWeight,
-  lineHeight: typography.h2.lineHeight,
-  letterSpacing: typography.h2.letterSpacing,
+  ...typography.h2,
   color: colors.onSurface,
-  maxWidth: "40rem",
-  marginBottom: spacing.xl,
 };
 
 const questionSubtitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiBody.fontFamily})`,
-  fontSize: typography.uiBody.fontSize,
-  fontWeight: typography.uiBody.fontWeight,
-  lineHeight: typography.uiBody.lineHeight,
+  ...typography.uiBody,
   color: colors.onSurfaceVariant,
-  marginTop: 0,
-  marginBottom: spacing.md,
+  marginTop: spacing.xs,
 };
 
 const inputAreaStyle: React.CSSProperties = {
-  width: "100%",
+  marginTop: spacing.md,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: spacing.sm,
 };
 
 const textareaWrapperStyle: React.CSSProperties = {
-  position: "relative",
-  width: "100%",
+  position: 'relative',
+  width: '100%',
 };
 
 const textareaStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: "12rem",
-  backgroundColor: `${colors.surface.dim}4D`,
-  backdropFilter: "blur(4px)",
-  border: "none",
-  borderBottom: `1px solid ${colors.outlineVariant}`,
+  width: '100%',
+  minHeight: '120px',
+  padding: `${spacing.md}`,
+  fontFamily: 'var(--font-inter)',
+  fontSize: typography.uiBody.fontSize,
+  lineHeight: '1.6',
   color: colors.onSurface,
-  fontFamily: `var(${typography.transcriptBody.fontFamily})`,
-  fontSize: typography.transcriptBody.fontSize,
-  fontWeight: typography.transcriptBody.fontWeight,
-  lineHeight: typography.transcriptBody.lineHeight,
-  letterSpacing: typography.transcriptBody.letterSpacing,
-  padding: `${spacing.md} 0`,
-  resize: "none" as const,
-  outline: "none",
-  transition: "border-bottom-color 0.2s ease",
-  caretColor: colors.secondary,
+  background: 'transparent',
+  border: 'none',
+  borderBottom: `1px solid ${colors.outlineVariant}`,
+  borderRadius: 0,
+  outline: 'none',
+  resize: 'vertical' as const,
 };
 
 const focusLineStyle: React.CSSProperties = {
-  position: "absolute",
+  position: 'absolute',
   bottom: 0,
   left: 0,
-  width: "100%",
-  height: "1px",
-  backgroundColor: colors.primary,
-  transform: "scaleX(0)",
-  transformOrigin: "left",
-  transition: "transform 0.3s ease",
+  width: '100%',
+  height: '1px',
+  background: colors.secondary,
+  transform: 'scaleX(0)',
+  transformOrigin: 'left',
+  transition: 'transform 0.3s ease',
 };
 
-const actionRowStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.sm,
-  marginTop: spacing.md,
+const listeningOverlayStyle: React.CSSProperties = {
+  position: 'absolute',
+  bottom: '8px',
+  left: '8px',
+  right: '8px',
+  background: colors.surface.containerHigh,
+  border: `1px solid ${colors.primary}`,
+  borderRadius: radius.md,
+  padding: spacing.md,
+  display: 'flex',
+  flexDirection: 'column',
 };
 
-const micButtonStyle = (listening: boolean): React.CSSProperties => ({
-  display: "inline-flex",
-  alignItems: "center",
+const pulsingMicStyle: React.CSSProperties = {
+  width: '32px',
+  height: '32px',
+  borderRadius: '50%',
+  background: colors.primary,
+  color: colors.onPrimary,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  animation: 'pulse 1.5s ease-in-out infinite',
+};
+
+const micButtonStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
   gap: spacing.xs,
-  padding: `${spacing.sm} ${spacing.md}`,
-  backgroundColor: listening ? colors.secondary : "transparent",
-  color: listening ? colors.onSecondary : colors.onSurfaceVariant,
-  border: `1px solid ${listening ? colors.secondary : colors.outlineVariant}`,
+  padding: `${spacing.xs} ${spacing.sm}`,
   borderRadius: radius.DEFAULT,
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  cursor: "pointer",
-  transition: "background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease",
-  textTransform: "uppercase" as const,
-});
+  border: 'none',
+  cursor: 'pointer',
+  ...typography.uiLabel,
+  transition: 'background-color 0.2s ease',
+  alignSelf: 'flex-start',
+};
 
-const voiceErrorStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.caption.fontFamily})`,
-  fontSize: typography.caption.fontSize,
-  fontWeight: typography.caption.fontWeight,
-  color: colors.error,
+const navStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: spacing.lg,
 };
 
 const contactGridStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
   gap: spacing.md,
 };
 
 const contactFieldStyle: React.CSSProperties = {
-  minWidth: 0, // prevent grid blowout
+  display: 'flex',
+  flexDirection: 'column',
 };
 
-const navStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-  width: "100%",
-  paddingTop: spacing.xl,
-  marginTop: "auto",
-  borderTop: `1px solid ${colors.outlineVariant}80`,
-};
-
-// Review step styles
 const reviewHeaderStyle: React.CSSProperties = {
-  marginBottom: spacing.xl,
+  textAlign: 'center' as const,
+  marginBottom: spacing.lg,
 };
 
 const reviewTitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.h2.fontFamily})`,
-  fontSize: typography.h2.fontSize,
-  fontWeight: typography.h2.fontWeight,
-  lineHeight: typography.h2.lineHeight,
-  letterSpacing: typography.h2.letterSpacing,
+  ...typography.h2,
   color: colors.onSurface,
-  margin: 0,
-};
-
-const reviewSubtitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiBody.fontFamily})`,
-  fontSize: typography.uiBody.fontSize,
-  color: colors.onSurfaceVariant,
   marginTop: spacing.sm,
 };
 
+const reviewSubtitleStyle: React.CSSProperties = {
+  ...typography.uiBody,
+  color: colors.onSurfaceVariant,
+  marginTop: spacing.xs,
+};
+
 const reviewListStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
+  display: 'flex',
+  flexDirection: 'column',
   gap: spacing.md,
-  maxHeight: "60vh",
-  overflowY: "auto",
-  paddingRight: spacing.xs,
 };
 
 const reviewSectionTitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  textTransform: "uppercase" as const,
-  color: colors.primary,
-  marginTop: 0,
-  marginBottom: spacing.md,
+  ...typography.uiLabel,
+  color: colors.outline,
+  marginBottom: spacing.sm,
+  textTransform: 'uppercase' as const,
 };
 
 const reviewFieldStyle: React.CSSProperties = {
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "baseline",
+  display: 'flex',
+  justifyContent: 'space-between',
   padding: `${spacing.xs} 0`,
-  borderBottom: `1px solid ${colors.outlineVariant}40`,
+  borderBottom: `1px solid ${colors.surface.containerHigh}`,
 };
 
 const reviewLabelStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
+  ...typography.uiLabel,
   color: colors.onSurfaceVariant,
-  textTransform: "uppercase" as const,
 };
 
 const reviewValueStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiBody.fontFamily})`,
-  fontSize: typography.uiBody.fontSize,
+  ...typography.uiBody,
   color: colors.onSurface,
-  textAlign: "right" as const,
+  textAlign: 'right' as const,
 };
 
 const reviewQuestionStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  color: colors.onSurfaceVariant,
-  textTransform: "uppercase" as const,
-  marginTop: 0,
-  marginBottom: spacing.sm,
+  ...typography.uiLabel,
+  color: colors.secondary,
+  marginBottom: spacing.xs,
 };
 
 const reviewAnswerStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.transcriptBody.fontFamily})`,
-  fontSize: typography.transcriptBody.fontSize,
-  lineHeight: typography.transcriptBody.lineHeight,
+  ...typography.uiBody,
   color: colors.onSurface,
-  whiteSpace: "pre-wrap" as const,
-  margin: 0,
 };
-
-const editButtonStyle: React.CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: `${spacing.xs} ${spacing.sm}`,
-  backgroundColor: "transparent",
-  color: colors.outline,
-  border: `1px solid ${colors.outlineVariant}`,
-  borderRadius: radius.DEFAULT,
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  textTransform: "uppercase" as const,
-  cursor: "pointer",
-  transition: "color 0.2s ease, border-color 0.2s ease",
-  flexShrink: 0,
-  marginTop: "2px",
-};
-
-// Success screen styles
-const successIconStyle: React.CSSProperties = {
-  width: 64,
-  height: 64,
-  borderRadius: "50%",
-  backgroundColor: colors.primary,
-  color: colors.onPrimary,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 32,
-  fontWeight: 700,
-  margin: "0 auto",
-  marginBottom: spacing.lg,
-};
-
-const successTitleStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.h1.fontFamily})`,
-  fontSize: typography.h1.fontSize,
-  fontWeight: typography.h1.fontWeight,
-  lineHeight: typography.h1.lineHeight,
-  letterSpacing: typography.h1.letterSpacing,
-  color: colors.onSurface,
-  margin: 0,
-  marginBottom: spacing.md,
-};
-
-const successBodyStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiBody.fontFamily})`,
-  fontSize: typography.uiBody.fontSize,
-  lineHeight: typography.uiBody.lineHeight,
-  color: colors.onSurfaceVariant,
-  marginBottom: spacing.xl,
-};
-
-// Video placeholder styles
-const videoEmbedStyle: React.CSSProperties = {
-  width: "100%",
-  maxWidth: 480,
-  aspectRatio: "16 / 9",
-  borderRadius: radius.lg,
-  overflow: "hidden",
-  marginBottom: spacing.lg,
-  border: `1px solid ${colors.outlineVariant}`,
-};
-
-const videoIframeStyle: React.CSSProperties = {
-  width: "100%",
-  height: "100%",
-  border: "none",
-};
-
-const videoPlaceholderStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: spacing.sm,
-  padding: `${spacing.sm} ${spacing.md}`,
-  backgroundColor: colors.surface.container,
-  border: `1px dashed ${colors.outlineVariant}`,
-  borderRadius: radius.DEFAULT,
-  marginBottom: spacing.lg,
-  cursor: "default",
-  maxWidth: 480,
-  width: "fit-content",
-};
-
-const videoPlayIconStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: "50%",
-  backgroundColor: `${colors.secondary}20`,
-  color: colors.secondary,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-};
-
-const videoLabelStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.uiLabel.fontFamily})`,
-  fontSize: typography.uiLabel.fontSize,
-  fontWeight: typography.uiLabel.fontWeight,
-  letterSpacing: typography.uiLabel.letterSpacing,
-  color: colors.onSurfaceVariant,
-  textTransform: "uppercase" as const,
-};
-
-const videoComingSoonStyle: React.CSSProperties = {
-  fontFamily: `var(${typography.caption.fontFamily})`,
-  fontSize: typography.caption.fontSize,
-  color: colors.outline,
-  fontStyle: "italic" as const,
-};
-
-const suggestionStyle = (selected: boolean): React.CSSProperties => ({
-  display: "flex",
-  alignItems: "flex-start",
-  gap: spacing.sm,
-  padding: spacing.md,
-  backgroundColor: selected ? `${colors.secondary}20` : "transparent",
-  border: `1px solid ${selected ? colors.secondary : colors.outlineVariant}`,
-  borderRadius: radius.DEFAULT,
-  cursor: "pointer",
-  textAlign: "left" as const,
-  fontFamily: `var(${typography.uiBody.fontFamily})`,
-  fontSize: typography.uiBody.fontSize,
-  lineHeight: typography.uiBody.lineHeight,
-  color: selected ? colors.secondary : colors.onSurface,
-  transition: "background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease",
-  width: "100%",
-});
