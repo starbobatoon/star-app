@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 import { notifyOnCompletion, type DeliveryStatus } from "@/lib/notify";
 
 /**
  * GET /api/speeches/[id]/delivery
  *
- * Returns the delivery status for a speech — which channels were
- * attempted, which succeeded, and any errors.
- *
- * If delivery_status was not persisted (e.g. column doesn't exist yet),
- * returns a best-effort summary from the speech status field.
+ * Returns the delivery status for a speech.
+ * Requires auth. Users can only view their own speeches; admins can view any.
  */
 export async function GET(
   _request: Request,
@@ -17,16 +15,28 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+
+    // Auth
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const admin = createAdminClient();
 
     const { data: speech, error } = await admin
       .from("speeches")
-      .select("id, status, delivery_status, email, phone, completed_at")
+      .select("id, status, delivery_status, email, phone, completed_at, user_id")
       .eq("id", id)
       .single();
 
     if (error || !speech) {
       return NextResponse.json({ error: "Speech not found" }, { status: 404 });
+    }
+
+    // Ownership check: user must own the speech or be admin
+    if (!isAdmin(user) && speech.user_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const deliveryStatus = speech.delivery_status as DeliveryStatus | null;
@@ -62,8 +72,8 @@ export async function GET(
  * POST /api/speeches/[id]/delivery
  *
  * Re-triggers delivery notification for a completed speech.
- * Useful if the initial delivery failed or the admin configured
- * new channels after the speech was generated.
+ * Admin-only. Blocks duplicate retrigger if delivery was already
+ * successfully completed within the last hour.
  */
 export async function POST(
   _request: Request,
@@ -71,12 +81,22 @@ export async function POST(
 ) {
   try {
     const { id: speechId } = await params;
+
+    // Auth — admin only for re-trigger
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 });
+    }
+
     const admin = createAdminClient();
 
     // Verify speech exists and is complete
     const { data: speech, error } = await admin
       .from("speeches")
-      .select("id, status")
+      .select("id, status, delivery_status, updated_at")
       .eq("id", speechId)
       .single();
 
@@ -92,6 +112,29 @@ export async function POST(
         },
         { status: 409 }
       );
+    }
+
+    // Duplicate retrigger guard: if delivery was already attempted successfully
+    // within the last hour, block to prevent abuse
+    const existingDelivery = speech.delivery_status as DeliveryStatus | null;
+    if (existingDelivery) {
+      const emailOk = existingDelivery.email?.attempted && existingDelivery.email?.success;
+      const smsOk = existingDelivery.sms?.attempted && existingDelivery.sms?.success;
+      const anyAttempted = existingDelivery.email?.attempted || existingDelivery.sms?.attempted;
+
+      if (anyAttempted && (emailOk || smsOk)) {
+        const updatedAt = new Date(speech.updated_at);
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        if (updatedAt > oneHourAgo) {
+          return NextResponse.json(
+            {
+              error: "Delivery was already triggered recently. Wait at least 1 hour before retriggering.",
+              delivery: existingDelivery,
+            },
+            { status: 429 }
+          );
+        }
+      }
     }
 
     // Re-trigger delivery
