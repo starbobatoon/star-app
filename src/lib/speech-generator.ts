@@ -204,7 +204,7 @@ export async function generateSpeechText(
     // -------------------------------------------------------------------------
     // Step 4: Build the user prompt from speech answers
     // -------------------------------------------------------------------------
-    const userPrompt = buildUserPrompt(speech);
+    const userPrompt = await buildUserPrompt(speech, admin);
 
     // -------------------------------------------------------------------------
     // Step 5: Call OpenRouter with the primary slot
@@ -336,7 +336,7 @@ export async function generateSpeechText(
 /**
  * Builds a user prompt from the speech answers and contact information.
  */
-function buildUserPrompt(speech: SpeechRecord): string {
+async function buildUserPrompt(speech: SpeechRecord, admin: ReturnType<typeof createAdminClient>): Promise<string> {
   const firstName = speech.first_name ?? "";
   const lastName = speech.last_name ?? "";
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
@@ -348,9 +348,21 @@ function buildUserPrompt(speech: SpeechRecord): string {
   }
 
   if (speech.answers && speech.answers.length > 0) {
+    // Resolve question text from DB so the prompt gets real questions, not UUIDs
+    const questionIds = speech.answers.map((a) => a.questionId);
+    const { data: questionRows } = await admin
+      .from("questions")
+      .select("id, question_text")
+      .in("id", questionIds);
+
+    const questionMap = Object.fromEntries(
+      (questionRows || []).map((q: { id: string; question_text: string }) => [q.id, q.question_text])
+    );
+
     prompt += "Questionnaire Answers:\n";
     for (const answer of speech.answers) {
-      prompt += `\nQuestion: ${answer.questionId}\nAnswer: ${answer.answer}\n`;
+      const label = questionMap[answer.questionId] || `Question ${answer.questionId}`;
+      prompt += `\nQuestion: ${label}\nAnswer: ${answer.answer}\n`;
     }
   } else {
     prompt += "No questionnaire answers provided. Please create a general motivational speech about owning your stage and embracing your real self.";
