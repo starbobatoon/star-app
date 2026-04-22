@@ -40,6 +40,49 @@ interface DraftData {
 const STORAGE_KEY_PREFIX = "star-draft-";
 
 // ─── Main Component ───────────────────────────────────────────────
+// ─── Compose Nav Header ──────────────────────────────────────────
+function ComposeNav() {
+  return (
+    <header
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: `${spacing.md} ${spacing.lg}`,
+        borderBottom: `1px solid ${colors.outlineVariant}`,
+        backgroundColor: colors.surface.containerLow,
+      }}
+    >
+      <a
+        href="/"
+        style={{
+          ...typography.h2,
+          color: colors.primary,
+          fontSize: '20px',
+          letterSpacing: '0.15em',
+          textDecoration: 'none',
+        }}
+      >
+        STAR
+      </a>
+      <a
+        href="/"
+        style={{
+          ...typography.uiLabel,
+          color: colors.outline,
+          textDecoration: 'none',
+          letterSpacing: '0.05em',
+          transition: 'color 0.2s ease',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = colors.primary; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = colors.outline; }}
+      >
+        Home
+      </a>
+    </header>
+  );
+}
+
 export default function ComposePage() {
   const [step, setStep] = useState(0);
   const [contact, setContact] = useState<ContactInfo>({
@@ -165,6 +208,7 @@ export default function ComposePage() {
   if (submitComplete) {
     return (
       <div style={pageStyle}>
+        <ComposeNav />
         <div style={mainContentStyle}>
           <div style={{ textAlign: "center" as const, maxWidth: 480 }}>
             <div style={successIconStyle}>✓</div>
@@ -187,6 +231,7 @@ export default function ComposePage() {
   if (step === totalSteps) {
     return (
       <div style={pageStyle}>
+        <ComposeNav />
         <ProgressBar value={100} height="2px" aria-label="Questionnaire progress" />
         <div style={mainContentStyle}>
           <div style={reviewHeaderStyle}>
@@ -242,6 +287,7 @@ export default function ComposePage() {
   if (step === 0) {
     return (
       <div style={pageStyle}>
+        <ComposeNav />
         <ProgressBar value={progressPercent} height="2px" aria-label="Questionnaire progress" />
         <div style={mainContentStyle}>
           <div style={questionAreaStyle}>
@@ -319,6 +365,7 @@ export default function ComposePage() {
 
   return (
     <div style={pageStyle}>
+      <ComposeNav />
       <ProgressBar value={progressPercent} height="2px" aria-label="Questionnaire progress" />
       <div style={mainContentStyle}>
         <div style={questionAreaStyle}>

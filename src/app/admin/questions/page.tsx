@@ -21,122 +21,7 @@ interface Question {
   updated_at: string;
 }
 
-// ─── Sidebar ───────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-  { icon: 'dashboard', label: 'Dashboard', href: '/admin', active: false },
-  { icon: 'settings_input_component', label: 'Model Settings', href: '/admin/settings', active: false },
-  { icon: 'settings_voice', label: 'Voice Config', href: '/admin/voices', active: false },
-  { icon: 'quiz', label: 'Question Manager', href: '/admin/questions', active: true },
-  { icon: 'analytics', label: 'Analytics', href: '/admin/analytics', active: false },
-];
-
-function AdminSidebar() {
-  return (
-    <nav
-      className="hidden md:flex"
-      style={{
-        backgroundColor: '#1A1A1A',
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        height: '100%',
-        width: 288,
-        borderRight: `1px solid #2A2A2A`,
-        flexDirection: 'column',
-        padding: spacing.lg,
-        zIndex: 40,
-      } as CSSProperties}
-    >
-      {/* Brand */}
-      <div style={{ marginBottom: spacing.xl }}>
-        <h2
-          style={{
-            ...typography.h2,
-            fontSize: '20px',
-            color: colors.primaryContainer,
-            margin: 0,
-            marginBottom: spacing.lg,
-          } as CSSProperties}
-        >
-          ELOCUTIONIST
-        </h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: radius.full,
-              backgroundColor: colors.surface.containerHigh,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: `1px solid ${colors.outlineVariant}`,
-            }}
-          >
-            <span
-              style={{
-                ...typography.uiBody,
-                color: colors.onSurface,
-                fontSize: '20px',
-              } as CSSProperties}
-            >
-              👤
-            </span>
-          </div>
-          <div>
-            <div
-              style={{
-                ...typography.uiLabel,
-                color: colors.onSurface,
-              } as CSSProperties}
-            >
-              Admin Console
-            </div>
-            <div
-              style={{
-                ...typography.caption,
-                color: colors.onSurfaceVariant,
-              } as CSSProperties}
-            >
-              Elocutionist v1.0
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav Items */}
-      <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: spacing.xs }}>
-        {NAV_ITEMS.map((item) => (
-          <li key={item.label}>
-            <a
-              href={item.href}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing.md,
-                padding: `${spacing.sm} ${spacing.md}`,
-                borderRadius: radius.DEFAULT,
-                color: item.active ? colors.primaryContainer : '#A0A0A0',
-                backgroundColor: item.active ? '#2A2A2A' : 'transparent',
-                borderLeft: item.active ? `2px solid ${colors.primaryContainer}` : '2px solid transparent',
-                textDecoration: 'none',
-                transition: 'all 0.2s ease',
-                ...typography.uiBody,
-                fontSize: '14px',
-              } as CSSProperties}
-            >
-              <span className="material-symbols-outlined" style={{ fontSize: '20px', fontVariationSettings: item.active ? "'FILL' 1" : undefined }}>
-                {item.icon}
-              </span>
-              {item.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
+// ─── Sidebar is provided by admin/layout.tsx ──────────────────────
 
 // ─── Question Row Component ───────────────────────────────────────
 
@@ -395,7 +280,8 @@ export default function QuestionsPage() {
   const containerStyle: CSSProperties = {
     minHeight: '100vh',
     backgroundColor: colors.surface.base,
-    padding: spacing.xl,
+    padding: spacing.lg,
+    paddingTop: spacing.xl,
   };
 
   const contentStyle: CSSProperties = {
@@ -457,8 +343,7 @@ export default function QuestionsPage() {
 
   return (
     <div>
-      <AdminSidebar />
-      <main style={containerStyle} className="md:ml-72 pb-28 md:pb-0 pt-16 md:pt-0">
+      <main style={containerStyle}>
         <div style={contentStyle}>
           {/* Header */}
           <header style={headerStyle}>
