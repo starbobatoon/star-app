@@ -26,18 +26,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const parsed = z.object({ apiKey: z.string().min(1) }).safeParse(body);
+    const parsed = z.object({
+      apiKey: z.string().min(1),
+      voiceId: z.string().optional(),
+    }).safeParse(body);
     if (!parsed.success) {
       return NextResponse.json({ error: "apiKey is required" }, { status: 400 });
     }
 
-    const { apiKey } = parsed.data;
+    const { apiKey, voiceId } = parsed.data;
 
     let isValid = false;
     let message = "";
 
     try {
-      isValid = await testFishAudioConnection(apiKey);
+      isValid = await testFishAudioConnection(apiKey, voiceId);
       message = isValid ? "Connection successful" : "Connection failed - invalid key";
     } catch (e) {
       message = e instanceof Error ? e.message : "Unknown error";

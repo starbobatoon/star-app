@@ -18,6 +18,11 @@ interface FishAudioConfig {
   isConfigured: boolean;
   apiKeyPreview: string | null;
   defaultVoiceId: string | null;
+  ttsModel: string;
+  volume: number;
+  speed: number;
+  loudnessNormalization: boolean;
+  textNormalization: boolean;
 }
 
 // ─── Icon Helpers ─────────────────────────────────────────────────
@@ -383,6 +388,15 @@ export default function VoiceConfigPage() {
   const [defaultVoiceId, setDefaultVoiceId] = useState('e75e1618ff544059be71409c5126b4c0');
   const [testVoiceStatus, setTestVoiceStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
 
+  // Audio Settings
+  const [ttsModel, setTtsModel] = useState('s2-pro');
+  const [volume, setVolume] = useState(0);
+  const [speed, setSpeed] = useState(1.0);
+  const [loudnessNorm, setLoudnessNorm] = useState(true);
+  const [textNorm, setTextNorm] = useState(false);
+  const [isSavingAudioSettings, setIsSavingAudioSettings] = useState(false);
+  const [audioSettingsStatus, setAudioSettingsStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
   // Voices
   const [voices, setVoices] = useState<Voice[]>([]);
   const [newVoiceId, setNewVoiceId] = useState('');
@@ -410,10 +424,20 @@ export default function VoiceConfigPage() {
             isConfigured: faData.integration.is_configured,
             apiKeyPreview: faData.integration.api_key_preview,
             defaultVoiceId: faData.integration.default_voice_id || null,
+            ttsModel: faData.integration.tts_model || 's2-pro',
+            volume: faData.integration.volume ?? 0,
+            speed: faData.integration.speed ?? 1.0,
+            loudnessNormalization: faData.integration.loudness_normalization ?? true,
+            textNormalization: faData.integration.text_normalization ?? false,
           });
           if (faData.integration.default_voice_id) {
             setDefaultVoiceId(faData.integration.default_voice_id);
           }
+          setTtsModel(faData.integration.tts_model || 's2-pro');
+          setVolume(faData.integration.volume ?? 0);
+          setSpeed(faData.integration.speed ?? 1.0);
+          setLoudnessNorm(faData.integration.loudness_normalization ?? true);
+          setTextNorm(faData.integration.text_normalization ?? false);
         }
       }
 
@@ -446,7 +470,15 @@ export default function VoiceConfigPage() {
       const res = await fetch('/api/admin/fish-audio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: fishAudioKey, voiceId: defaultVoiceId }),
+        body: JSON.stringify({
+          apiKey: fishAudioKey,
+          voiceId: defaultVoiceId,
+          ttsModel,
+          volume,
+          speed,
+          loudnessNormalization: loudnessNorm,
+          textNormalization: textNorm,
+        }),
       });
 
       const data = await res.json();
@@ -482,7 +514,40 @@ export default function VoiceConfigPage() {
     }
   };
 
-  // ─── Test Voice Handler ───────────────────────────────────
+  
+  // ─── Audio Settings Handler ───────────────────────────────────
+
+  const handleSaveAudioSettings = async () => {
+    setIsSavingAudioSettings(true);
+    setAudioSettingsStatus('idle');
+    try {
+      const res = await fetch('/api/admin/fish-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          apiKey: undefined,
+          voiceId: defaultVoiceId,
+          ttsModel,
+          volume,
+          speed,
+          loudnessNormalization: loudnessNorm,
+          textNormalization: textNorm,
+        }),
+      });
+
+      if (res.ok) {
+        setAudioSettingsStatus('saved');
+      } else {
+        setAudioSettingsStatus('error');
+      }
+    } catch {
+      setAudioSettingsStatus('error');
+    } finally {
+      setIsSavingAudioSettings(false);
+    }
+  };
+
+// ─── Test Voice Handler ───────────────────────────────────
   const handleTestVoice = async () => {
     setTestVoiceStatus('testing');
     try {
@@ -812,6 +877,156 @@ export default function VoiceConfigPage() {
             </div>
           )}
         </div>
+
+        {/* Audio Settings Section */}
+        {fishAudioConfig?.isConfigured && (
+          <div style={cardContainerStyle}>
+            <div style={sectionHeaderStyle}>
+              <div style={sectionTitleRowStyle}>
+                <span style={sectionIconStyle}><VolumeUpIcon /></span>
+                <h2 style={{...sectionTitleStyle}}>Audio Settings</h2>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+              {/* TTS Model */}
+              <div style={formRowStyle}>
+                <label style={labelStyle}>TTS Model</label>
+                <select
+                  value={ttsModel}
+                  onChange={(e) => setTtsModel(e.target.value)}
+                  style={{
+                    ...previewInputStyle,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <option value="s2-pro">S2 Pro</option>
+                  <option value="s2">S2</option>
+                </select>
+              </div>
+
+              {/* Volume Slider */}
+              <div style={formRowStyle}>
+                <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: spacing.xs}}>
+                  Volume <span style={{ color: colors.onSurface }}>({volume})</span>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  <span style={{...typography.caption, color: colors.onSurfaceVariant, minWidth: '24px', textAlign: 'right'}}>-5</span>
+                  <input
+                    type="range"
+                    min="-5"
+                    max="5"
+                    step="0.5"
+                    value={volume}
+                    onChange={(e) => setVolume(parseFloat(e.target.value))}
+                    style={{ flex: 1, accentColor: colors.primary }}
+                  />
+                  <span style={{...typography.caption, color: colors.onSurfaceVariant, minWidth: '24px'}}>5</span>
+                </div>
+              </div>
+
+              {/* Speed Slider */}
+              <div style={formRowStyle}>
+                <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: spacing.xs}}>
+                  Speed <span style={{ color: colors.onSurface }}>({speed.toFixed(1)}x)</span>
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  <span style={{...typography.caption, color: colors.onSurfaceVariant, minWidth: '24px', textAlign: 'right'}}>0.7</span>
+                  <input
+                    type="range"
+                    min="0.7"
+                    max="1.3"
+                    step="0.1"
+                    value={speed}
+                    onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                    style={{ flex: 1, accentColor: colors.primary }}
+                  />
+                  <span style={{...typography.caption, color: colors.onSurfaceVariant, minWidth: '24px'}}>1.3</span>
+                </div>
+              </div>
+
+              {/* Loudness Normalization Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `${spacing.sm} 0` }}>
+                <div>
+                  <span style={{...labelStyle}}>Loudness Normalization</span>
+                  <p style={{...typography.caption, color: colors.onSurfaceVariant, margin: 0}}>Normalize audio loudness across different voices</p>
+                </div>
+                <button
+                  onClick={() => setLoudnessNorm(!loudnessNorm)}
+                  style={{
+                    width: '48px',
+                    height: '26px',
+                    borderRadius: radius.full,
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: loudnessNorm ? colors.primary : colors.surface.containerHighest,
+                    position: 'relative',
+                    transition: 'background-color 0.2s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: loudnessNorm ? '25px' : '3px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: radius.full,
+                    backgroundColor: loudnessNorm ? colors.onPrimary : colors.onSurfaceVariant,
+                    transition: 'left 0.2s ease',
+                  }} />
+                </button>
+              </div>
+
+              {/* Text Normalization Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `${spacing.sm} 0` }}>
+                <div>
+                  <span style={{...labelStyle}}>Text Normalization</span>
+                  <p style={{...typography.caption, color: colors.onSurfaceVariant, margin: 0}}>Normalize text before synthesis (numbers, dates, etc.)</p>
+                </div>
+                <button
+                  onClick={() => setTextNorm(!textNorm)}
+                  style={{
+                    width: '48px',
+                    height: '26px',
+                    borderRadius: radius.full,
+                    border: 'none',
+                    cursor: 'pointer',
+                    backgroundColor: textNorm ? colors.primary : colors.surface.containerHighest,
+                    position: 'relative',
+                    transition: 'background-color 0.2s ease',
+                    flexShrink: 0,
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute',
+                    top: '3px',
+                    left: textNorm ? '25px' : '3px',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: radius.full,
+                    backgroundColor: textNorm ? colors.onPrimary : colors.onSurfaceVariant,
+                    transition: 'left 0.2s ease',
+                  }} />
+                </button>
+              </div>
+
+              {/* Save Button */}
+              <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end', paddingTop: spacing.sm }}>
+                <button
+                  style={primaryButtonStyle}
+                  onClick={handleSaveAudioSettings}
+                  disabled={isSavingAudioSettings}
+                >
+                  {isSavingAudioSettings ? 'Saving...' : audioSettingsStatus === 'saved' ? '✓ Saved' : 'Save Audio Settings'}
+                </button>
+              </div>
+              {audioSettingsStatus === 'error' && (
+                <p style={{...typography.caption, color: colors.error}}>Failed to save audio settings.</p>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Voices Section */}
         <div style={cardContainerStyle}>

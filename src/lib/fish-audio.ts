@@ -31,6 +31,16 @@ export interface SynthesizeSpeechParams {
   format?: "mp3" | "wav";
   /** Optional API key to use instead of the environment variable. */
   apiKey?: string;
+  /** TTS model name. Defaults to "s2-pro". */
+  model?: string;
+  /** Volume adjustment from -5 to 5. Defaults to 0. */
+  volume?: number;
+  /** Playback speed from 0.7 to 1.3. Defaults to 1.0. */
+  speed?: number;
+  /** Whether to normalize loudness. Defaults to true. */
+  loudnessNormalization?: boolean;
+  /** Whether to normalize text. Defaults to false. */
+  textNormalization?: boolean;
 }
 
 /**
@@ -86,16 +96,15 @@ function getEnvApiKey(): string {
  * @param apiKey - Optional API key to test. If not provided, uses FISH_AUDIO_API_KEY env var.
  * @returns true if connection is valid, false otherwise.
  */
-export async function testFishAudioConnection(apiKey?: string): Promise<boolean> {
+export async function testFishAudioConnection(apiKey?: string, voiceId?: string): Promise<boolean> {
   const key = apiKey || process.env.FISH_AUDIO_API_KEY;
   if (!key) {
     return false;
   }
 
+  const refId = voiceId || "e75e1618ff544059be71409c5126b4c0";
+
   try {
-    // Try to get user info or models to validate the key
-    // Fish Audio doesn't have a simple auth check endpoint, so we'll try a minimal TTS request
-    // with a very short text
     const response = await fetch(FISH_AUDIO_API_URL, {
       method: "POST",
       headers: {
@@ -104,7 +113,8 @@ export async function testFishAudioConnection(apiKey?: string): Promise<boolean>
       },
       body: JSON.stringify({
         text: "Hi",
-        reference_id: "e75e1618ff544059be71409c5126b4c0",
+        reference_id: refId,
+        model: "s2-pro",
       }),
     });
 
@@ -152,12 +162,27 @@ export async function testFishAudioConnection(apiKey?: string): Promise<boolean>
 export async function synthesizeSpeech(
   params: SynthesizeSpeechParams
 ): Promise<Buffer> {
-  const { text, voiceId, format = "mp3", apiKey } = params;
+  const {
+    text,
+    voiceId,
+    format = "mp3",
+    apiKey,
+    model = "s2-pro",
+    volume = 0,
+    speed = 1.0,
+    loudnessNormalization = true,
+    textNormalization = false,
+  } = params;
   const key = apiKey || getEnvApiKey();
 
   const body: Record<string, unknown> = {
     text,
     reference_id: voiceId,
+    model,
+    volume,
+    speed,
+    loudness_normalization: loudnessNormalization,
+    text_normalization: textNormalization,
   };
 
   let response: Response;

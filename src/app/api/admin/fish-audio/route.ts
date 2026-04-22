@@ -38,7 +38,7 @@ export async function GET() {
 
     const { data, error } = await admin
       .from("fish_audio_integration")
-      .select("id, api_key_preview, is_configured, default_voice_id, last_validated_at, last_validation_status, last_validation_message, created_at, updated_at")
+      .select("id, api_key_preview, is_configured, default_voice_id, tts_model, volume, speed, loudness_normalization, text_normalization, last_validated_at, last_validation_status, last_validation_message, created_at, updated_at")
       .limit(1)
       .maybeSingle();
 
@@ -220,8 +220,13 @@ export async function PUT(request: Request) {
 // Saves Fish Audio config (api_key + voice_id)
 
 const postSchema = z.object({
-  apiKey: z.string().min(1, "API key is required"),
-  voiceId: z.string().min(1, "Voice ID is required"),
+  apiKey: z.string().min(1).optional(),
+  voiceId: z.string().min(1, "Voice ID is required").optional(),
+  ttsModel: z.string().optional().default("s2-pro"),
+  volume: z.number().min(-5).max(5).optional().default(0),
+  speed: z.number().min(0.7).max(1.3).optional().default(1.0),
+  loudnessNormalization: z.boolean().optional().default(true),
+  textNormalization: z.boolean().optional().default(false),
 });
 
 export async function POST(request: Request) {
@@ -252,33 +257,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { apiKey, voiceId } = parsed.data;
-
-    // Encrypt the API key
-    let apiKeyEncrypted: string;
-    try {
-      apiKeyEncrypted = encrypt(apiKey);
-    } catch (err) {
-      console.error("[fish-audio-config] Encryption failed:", err);
-      return NextResponse.json(
-        { error: "Failed to encrypt API key. Ensure ENCRYPTION_KEY is configured." },
-        { status: 500 }
-      );
-    }
-
-    const apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
-
-    // Test the connection first
-    let validationStatus = "unknown";
-    let validationMessage = "";
-    try {
-      const isValid = await testFishAudioConnection(apiKey);
-      validationStatus = isValid ? "valid" : "invalid";
-      validationMessage = isValid ? "Connection successful" : "Connection failed - invalid key";
-    } catch (e) {
-      validationStatus = "error";
-      validationMessage = e instanceof Error ? e.message : String(e);
-    }
+    const { apiKey, voiceId, ttsModel, volume, speed, loudnessNormalization, textNormalization } = parsed.data;
 
     const admin = createAdminClient();
 
@@ -296,15 +275,52 @@ export async function POST(request: Request) {
       );
     }
 
-    const integrationData = {
-      api_key_encrypted: apiKeyEncrypted,
-      api_key_preview: apiKeyPreview,
-      is_configured: validationStatus === "valid",
-      default_voice_id: voiceId,
-      last_validated_at: new Date().toISOString(),
-      last_validation_status: validationStatus,
-      last_validation_message: validationMessage,
+    const integrationData: Record<string, unknown> = {
+      tts_model: ttsModel,
+      volume,
+      speed,
+      loudness_normalization: loudnessNormalization,
+      text_normalization: textNormalization,
     };
+
+    // Only update voiceId if provided
+    if (voiceId) {
+      integrationData.default_voice_id = voiceId;
+    }
+
+    // Only process API key if provided
+    if (apiKey) {
+      let apiKeyEncrypted: string;
+      try {
+        apiKeyEncrypted = encrypt(apiKey);
+      } catch (err) {
+        console.error("[fish-audio-config] Encryption failed:", err);
+        return NextResponse.json(
+          { error: "Failed to encrypt API key. Ensure ENCRYPTION_KEY is configured." },
+          { status: 500 }
+        );
+      }
+
+      const apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
+
+      let validationStatus = "unknown";
+      let validationMessage = "";
+      try {
+        const isValid = await testFishAudioConnection(apiKey);
+        validationStatus = isValid ? "valid" : "invalid";
+        validationMessage = isValid ? "Connection successful" : "Connection failed - invalid key";
+      } catch (e) {
+        validationStatus = "error";
+        validationMessage = e instanceof Error ? e.message : String(e);
+      }
+
+      integrationData.api_key_encrypted = apiKeyEncrypted;
+      integrationData.api_key_preview = apiKeyPreview;
+      integrationData.is_configured = validationStatus === "valid";
+      integrationData.last_validated_at = new Date().toISOString();
+      integrationData.last_validation_status = validationStatus;
+      integrationData.last_validation_message = validationMessage;
+    }
 
     if (existingRow) {
       const { error: updateError } = await admin
@@ -341,6 +357,7 @@ export async function POST(request: Request) {
         api_key_preview: apiKeyPreview,
         is_configured: validationStatus === "valid",
         default_voice_id: voiceId,
+        tts_model: ttsModel,
         validation_status: validationStatus,
       },
     });
