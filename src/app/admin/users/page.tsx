@@ -151,7 +151,7 @@ export default function UsersPage() {
                       {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'Never'}
                     </td>
                     <td style={{ padding: `${spacing.md} 0`, display: 'flex', gap: spacing.sm }}>
-                      <Button variant="secondary" size="sm" onClick={() => handleChangePassword(user.id)}>
+                      <Button variant="secondary" onClick={() => handleChangePassword(user.id)}>
                         Reset PW
                       </Button>
                       <Button variant="tertiary" onClick={() => handleDelete(user.id)} style={{ color: colors.error }}>

@@ -8,7 +8,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = cookies();
     const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -36,8 +36,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       return NextResponse.json({ error: 'Invalid password' }, { status: 400 });
     }
 
+    const { id } = await params;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-    const { error } = await supabaseAdmin.auth.admin.updateUserById(params.id, { password });
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(id, { password });
 
     if (error) {
       console.error('Update password error:', error);
