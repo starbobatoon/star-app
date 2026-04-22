@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Auth check: must be authenticated and admin
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
+    
     const { id } = await params;
     const supabase = createAdminClient();
 
@@ -22,7 +32,8 @@ export async function GET(
     }
 
     return NextResponse.json({ speech });
-  } catch {
+  } catch (err) {
+    console.error("[speeches/[id]] Error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

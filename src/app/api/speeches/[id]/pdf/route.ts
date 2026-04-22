@@ -23,7 +23,7 @@ export async function GET(
     const { data: speech, error } = await supabase
       .from("speeches")
       .select(
-        "id, user_first_name, user_last_name, hook, story, point, cta, exit"
+        "id, first_name, last_name, hook, story, point, cta, exit"
       )
       .eq("id", id)
       .single();
@@ -47,12 +47,12 @@ export async function GET(
       cta: speech.cta ?? "",
       exit: speech.exit ?? "",
       title: undefined,
-      authorName: [speech.user_first_name, speech.user_last_name]
+      authorName: [speech.first_name, speech.last_name]
         .filter(Boolean)
         .join(" ") || undefined,
     });
 
-    const lastName = speech.user_last_name ?? "Speech";
+    const lastName = speech.last_name ?? "Speech";
     const filename = `STAR_Speech_${lastName}_${id}.pdf`;
 
     return new NextResponse(new Uint8Array(pdfBuffer), {

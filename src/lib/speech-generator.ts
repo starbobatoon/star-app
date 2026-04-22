@@ -24,8 +24,6 @@ interface SpeechRecord {
   last_name: string | null;
   email: string | null;
   phone: string | null;
-  user_first_name: string | null;
-  user_last_name: string | null;
   answers: Array<{
     questionId: string;
     answer: string;
@@ -175,7 +173,7 @@ export async function generateSpeechText(
     const { data: speech, error: speechError } = await admin
       .from("speeches")
       .select(
-        "id, first_name, last_name, email, phone, user_first_name, user_last_name, answers, status"
+        "id, first_name, last_name, email, phone, answers, status"
       )
       .eq("id", speechId)
       .single<SpeechRecord>();
@@ -339,8 +337,8 @@ export async function generateSpeechText(
  * Builds a user prompt from the speech answers and contact information.
  */
 function buildUserPrompt(speech: SpeechRecord): string {
-  const firstName = speech.first_name ?? speech.user_first_name ?? "";
-  const lastName = speech.last_name ?? speech.user_last_name ?? "";
+  const firstName = speech.first_name ?? "";
+  const lastName = speech.last_name ?? "";
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
 
   let prompt = "";
