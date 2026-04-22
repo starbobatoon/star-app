@@ -100,21 +100,7 @@ const AVAILABLE_MODELS: ModelInfo[] = [
     promptPrice: '$0.30/M',
     completionPrice: '$1.20/M',
   },
-  {
-    id: 'xiaomi/mimo-flash',
-    label: 'Xiaomi: MiMo Flash',
-    contextWindow: '128K',
-    promptPrice: '$0.10/M',
-    completionPrice: '$0.40/M',
-  },
-  // GLM
-  {
-    id: 'ollama/glm-5.1:cloud',
-    label: 'Zhipu AI: GLM 5.1 (via Ollama)',
-    contextWindow: '128K',
-    promptPrice: '$0.50/M',
-    completionPrice: '$1.50/M',
-  },
+
   // MiniMax
   {
     id: 'openrouter/minimax/minimax-m2.7',
