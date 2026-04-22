@@ -1,26 +1,204 @@
 @import "tailwindcss";
 
+/* ─── Elocutionist Design Tokens ──────────────────────────────────── */
+/* Single source of truth for all visual values. Derived from DESIGN.md. */
+/* Dark mode only — no light mode / prefers-color-scheme rules. */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* ── Font variables (set by next/font in layout.tsx) ── */
+  --font-inter: var(--font-inter);
+  --font-newsreader: var(--font-newsreader);
+
+  /* ── Surface hierarchy ── */
+  --color-surface-base: #0A0A0A;
+  --color-surface-dim: #131313;
+  --color-surface-bright: #393939;
+  --color-surface-container-lowest: #0e0e0e;
+  --color-surface-container-low: #1c1b1b;
+  --color-surface-container: #201f1f;
+  --color-surface-container-high: #2a2a2a;
+  --color-surface-container-highest: #353534;
+  --color-surface-default: #131313;
+
+  /* ── Content colors ── */
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #d0c5af;
+  --color-inverse-surface: #e5e2e1;
+  --color-inverse-on-surface: #313030;
+
+  /* ── Outlines ── */
+  --color-outline: #99907c;
+  --color-outline-variant: #4d4635;
+
+  /* ── Surface tint ── */
+  --color-surface-tint: #e9c349;
+
+  /* ── Primary — Soft Gold ── */
+  --color-primary: #f2ca50;
+  --color-on-primary: #3c2f00;
+  --color-primary-container: #d4af37;
+  --color-on-primary-container: #554300;
+  --color-inverse-primary: #735c00;
+
+  /* ── Secondary — Electric Indigo ── */
+  --color-secondary: #c0c1ff;
+  --color-on-secondary: #1000a9;
+  --color-secondary-container: #3131c0;
+  --color-on-secondary-container: #b0b2ff;
+
+  /* ── Tertiary — cool blue ── */
+  --color-tertiary: #bfcdff;
+  --color-on-tertiary: #082b72;
+  --color-tertiary-container: #97b0ff;
+  --color-on-tertiary-container: #254188;
+
+  /* ── Error states ── */
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+
+  /* ── Fixed variants ── */
+  --color-primary-fixed: #ffe088;
+  --color-primary-fixed-dim: #e9c349;
+  --color-on-primary-fixed: #241a00;
+  --color-on-primary-fixed-variant: #574500;
+
+  --color-secondary-fixed: #e1e0ff;
+  --color-secondary-fixed-dim: #c0c1ff;
+  --color-on-secondary-fixed: #07006c;
+  --color-on-secondary-fixed-variant: #2f2ebe;
+
+  --color-tertiary-fixed: #dbe1ff;
+  --color-tertiary-fixed-dim: #b4c5ff;
+  --color-on-tertiary-fixed: #00174b;
+  --color-on-tertiary-fixed-variant: #27438a;
+
+  /* ── Background ── */
+  --color-background: #131313;
+  --color-on-background: #e5e2e1;
+
+  /* ── Surface variant ── */
+  --color-surface-variant: #353534;
+
+  /* ── Elevation (tonal layering — no shadows) ── */
+  --color-elevation-base: #0A0A0A;
+  --color-elevation-surface: #1A1A1A;
+  --color-elevation-accent: #2A2A2A;
+  --color-elevation-border: #2A2A2A;
+
+  /* ── Glassmorphism ── */
+  --glass-backdrop-blur: 12px;
+  --glass-background: rgba(255, 255, 255, 0.10);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+
+  /* ── Progress bar ── */
+  --progress-fill-from: #c0c1ff;
+  --progress-fill-to: #f2ca50;
+
+  /* ── Spacing ── */
+  --spacing-unit: 4px;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 48px;
+  --spacing-xxl: 80px;
+  --spacing-container-max: 1200px;
+  --spacing-gutter: 24px;
+
+  /* ── Border Radius ── */
+  --radius-sm: 0.125rem;
+  --radius-default: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
 }
 
+/* ─── Tailwind v4 Theme Mapping ─────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-on-surface);
+  --color-primary: var(--color-primary);
+  --color-on-primary: var(--color-on-primary);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-secondary: var(--color-secondary);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  --color-tertiary: var(--color-tertiary);
+  --color-on-tertiary: var(--color-on-tertiary);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  --color-error: var(--color-error);
+  --color-on-error: var(--color-on-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-error-container: var(--color-on-error-container);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
+  --color-surface: var(--color-surface-dim);
+  --color-surface-variant: var(--color-surface-variant);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-low: var(--color-surface-container-low);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  --color-on-surface: var(--color-on-surface);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-inverse-surface: var(--color-inverse-surface);
+  --color-inverse-on-surface: var(--color-inverse-on-surface);
+  --color-inverse-primary: var(--color-inverse-primary);
+  --color-elevation-base: var(--color-elevation-base);
+  --color-elevation-surface: var(--color-elevation-surface);
+  --color-elevation-accent: var(--color-elevation-accent);
+  --color-elevation-border: var(--color-elevation-border);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-newsreader);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ─── Base Styles ───────────────────────────────────────────────── */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #131313;
+  color: #e5e2e1;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Glassmorphism ──────────────────────────────────────────────── */
+/* Reserved for Audio Player & sticky navigation bars. */
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Progress Bar Fill ──────────────────────────────────────────── */
+/* Horizontal bar at top of viewport during questionnaires. */
+/* Gradient: Electric Indigo → Soft Gold. */
+.progress-fill {
+  background: linear-gradient(
+    90deg,
+    var(--progress-fill-from) 0%,
+    var(--progress-fill-to) 100%
+  );
+}
+
+/* ─── Transcript Content ────────────────────────────────────────── */
+/* Speech content uses Newsreader serif for literary, authoritative feel. */
+.transcript-content {
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1.8;
+  letter-spacing: 0;
+}
+
+/* ─── Focus Ring ────────────────────────────────────────────────── */
+/* Electric Indigo focus indicator for keyboard navigation. */
+*:focus-visible {
+  outline: 2px solid #c0c1ff;
+  outline-offset: 2px;
 }
