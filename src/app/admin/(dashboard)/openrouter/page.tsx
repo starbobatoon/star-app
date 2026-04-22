@@ -326,7 +326,35 @@ export default function OpenRouterPage() {
       const data = await res.json();
       if (res.ok) {
         if (data.models && data.models.length > 0) {
-          const newModels = data.models
+          // Build a lookup map from API results by model ID
+          const apiModelMap = new Map<string, { name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }>();
+          for (const m of data.models) {
+            apiModelMap.set(m.id, m);
+          }
+
+          // Update existing hardcoded models with live API pricing/metadata
+          const updatedModels: ModelInfo[] = AVAILABLE_MODELS.map((hardcoded) => {
+            const apiData = apiModelMap.get(hardcoded.id);
+            if (apiData) {
+              return {
+                id: hardcoded.id,
+                label: apiData.name || hardcoded.label,
+                contextWindow: apiData.context_length
+                  ? `${apiData.context_length / 1000}K`
+                  : hardcoded.contextWindow,
+                promptPrice: apiData.pricing?.prompt
+                  ? `$${(parseFloat(apiData.pricing.prompt) * 1000000).toFixed(2)}/M`
+                  : hardcoded.promptPrice,
+                completionPrice: apiData.pricing?.completion
+                  ? `$${(parseFloat(apiData.pricing.completion) * 1000000).toFixed(2)}/M`
+                  : hardcoded.completionPrice,
+              };
+            }
+            return hardcoded;
+          });
+
+          // Append any truly new models not in our hardcoded list
+          const newModels: ModelInfo[] = data.models
             .filter((m: { id: string }) => !AVAILABLE_MODELS.some(am => am.id === m.id))
             .map((m: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }) => ({
               id: m.id,
@@ -335,7 +363,8 @@ export default function OpenRouterPage() {
               promptPrice: m.pricing?.prompt ? `$${(parseFloat(m.pricing.prompt) * 1000000).toFixed(2)}/M` : 'N/A',
               completionPrice: m.pricing?.completion ? `$${(parseFloat(m.pricing.completion) * 1000000).toFixed(2)}/M` : 'N/A',
             }));
-          setModels([...AVAILABLE_MODELS, ...newModels]);
+
+          setModels([...updatedModels, ...newModels]);
         }
       } else {
         setModelsError(data.error || 'Failed to fetch models from OpenRouter.');
