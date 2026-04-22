@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { createServerClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
+import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
 // GET /api/admin/dashboard-stats
 // Returns aggregated stats for the admin dashboard.
 export async function GET() {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const user = await getAuthenticatedUser();
+    if (!user || !isAdmin(user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const admin = createAdminClient();
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+    const admin = createClient(supabaseUrl, supabaseServiceKey);
 
     // -- Speeches stats (via RPC or manual queries) --
     const { data: speeches, error: speechesError } = await admin
