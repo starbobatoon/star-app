@@ -409,6 +409,12 @@ export default function VoiceConfigPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
+  // Fish Audio Account Voices (from API)
+  const [fishAudioVoices, setFishAudioVoices] = useState<FishAudioVoice[]>([]);
+  const [isLoadingFishVoices, setIsLoadingFishVoices] = useState(false);
+  const [fishVoicesError, setFishVoicesError] = useState<string | null>(null);
+  const [importingVoiceId, setImportingVoiceId] = useState<string | null>(null);
+
   // ─── Load Data on Mount ─────────────────────────────────────
   useEffect(() => {
     loadData();
@@ -456,10 +462,69 @@ export default function VoiceConfigPage() {
           createdAt: v.created_at?.split('T')[0] || 'Unknown',
         })) || []);
       }
+
+      // Load Fish Audio account voices (from API) if configured
+      const isConfigured = faRes.ok && faData?.integration?.is_configured;
+      if (isConfigured) {
+        loadFishAudioVoices();
+      }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ─── Load Fish Audio Account Voices ───────────────────────
+  const loadFishAudioVoices = async () => {
+    setIsLoadingFishVoices(true);
+    setFishVoicesError(null);
+    try {
+      const res = await fetch('/api/admin/fish-audio/voices');
+      if (res.ok) {
+        const data = await res.json();
+        setFishAudioVoices(data.voices || []);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setFishVoicesError(errData.error || 'Failed to load voices from Fish Audio');
+      }
+    } catch {
+      setFishVoicesError('Network error loading Fish Audio voices');
+    } finally {
+      setIsLoadingFishVoices(false);
+    }
+  };
+
+  // ─── Import Fish Audio Voice to Local DB ─────────────────
+  const handleImportVoice = async (faVoice: FishAudioVoice) => {
+    setImportingVoiceId(faVoice.id);
+    try {
+      const res = await fetch('/api/admin/voices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fishAudioVoiceId: faVoice.id,
+          label: faVoice.title,
+          isActive: voices.length === 0,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVoices((prev) => [
+          ...prev,
+          {
+            id: data.voice.id,
+            voiceId: data.voice.fish_audio_voice_id,
+            label: data.voice.label,
+            isActive: data.voice.is_active,
+            createdAt: data.voice.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          },
+        ]);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setImportingVoiceId(null);
     }
   };
 
@@ -604,7 +669,11 @@ export default function VoiceConfigPage() {
   };
 
   const handleDeleteVoice = async (voiceId: string) => {
-    if (!confirm('Delete this voice?')) return;
+    const voice = voices.find(v => v.id === voiceId);
+    const confirmMsg = voice?.isActive
+      ? 'Delete this active voice? Another voice will be activated automatically if available.'
+      : 'Delete this voice?';
+    if (!confirm(confirmMsg)) return;
 
     try {
       const res = await fetch(`/api/admin/voices/${voiceId}`, { method: 'DELETE' });
@@ -1237,17 +1306,116 @@ export default function VoiceConfigPage() {
 
               {/* Actions Row */}
               <div style={actionsRowStyle}>
-                {!voice.isActive && (
-                  <button
-                    style={dangerButtonStyle}
-                    onClick={() => handleDeleteVoice(voice.id)}
-                  >
-                    <DeleteIcon /> Delete
-                  </button>
-                )}
+                <button
+                  style={dangerButtonStyle}
+                  onClick={() => handleDeleteVoice(voice.id)}
+                >
+                  <DeleteIcon /> Delete
+                </button>
               </div>
             </div>
           ))}
+
+          {/* Fish Audio Account Voices (from API) */}
+          {fishAudioConfig?.isConfigured && (
+            <>
+              <div style={{
+                ...sectionHeaderStyle,
+                borderTop: `1px solid ${colors.outlineVariant}`,
+                paddingTop: spacing.md,
+                marginTop: spacing.md,
+              }}>
+                <div style={sectionTitleRowStyle}>
+                  <span style={sectionIconStyle}><CloudSyncIcon /></span>
+                  <h2 style={sectionTitleStyle}>Voices in Your Fish Audio Account</h2>
+                </div>
+                <button
+                  style={secondaryButtonStyle}
+                  onClick={loadFishAudioVoices}
+                  disabled={isLoadingFishVoices}
+                >
+                  {isLoadingFishVoices ? 'Refreshing...' : <><CloudSyncIcon /> Refresh</>}
+                </button>
+              </div>
+
+              {fishVoicesError && (
+                <div style={alertStyle('error')}>{fishVoicesError}</div>
+              )}
+
+              {fishAudioVoices.length === 0 && !isLoadingFishVoices && !fishVoicesError && (
+                <div style={infoBoxStyle}>
+                  <VolumeUpIcon />
+                  <p style={infoTextStyle}>
+                    No trained voices found in your Fish Audio account.
+                    Create or train voices at{' '}<a href="https://fish.audio" target="_blank" rel="noopener noreferrer" style={{ color: colors.primary }}>fish.audio</a>,
+                    then click Refresh.
+                  </p>
+                </div>
+              )}
+
+              {fishAudioVoices.map((fv) => {
+                const isSaved = voices.some((v) => v.voiceId === fv.id);
+                return (
+                  <div
+                    key={fv.id}
+                    style={{
+                      backgroundColor: isSaved ? `${colors.primary}05` : colors.surface.container,
+                      border: `1px solid ${isSaved ? colors.primary + '40' : colors.outlineVariant}`,
+                      borderRadius: radius.lg,
+                      padding: spacing.md,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: spacing.md,
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                        <span style={{ ...voiceLabelStyle, fontSize: '14px' }}>{fv.title}</span>
+                        {isSaved && (
+                          <span style={{
+                            ...typography.caption,
+                            color: colors.primary,
+                            backgroundColor: `${colors.primary}15`,
+                            padding: `${spacing.xs} ${spacing.sm}`,
+                            borderRadius: radius.DEFAULT,
+                          }}>
+                            Saved locally
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ ...typography.caption, color: colors.onSurfaceVariant, fontFamily: 'monospace', marginTop: spacing.xs }}>
+                        {fv.id}
+                      </div>
+                      {fv.description && (
+                        <p style={{ ...typography.caption, color: colors.onSurfaceVariant, margin: 0, marginTop: spacing.xs }}>
+                          {fv.description.slice(0, 120)}{fv.description.length > 120 ? '...' : ''}
+                        </p>
+                      )}
+                    </div>
+                    {!isSaved ? (
+                      <button
+                        style={{
+                          ...primaryButtonStyle,
+                          fontSize: '11px',
+                          padding: `${spacing.xs} ${spacing.sm}`,
+                          opacity: importingVoiceId === fv.id ? 0.6 : 1,
+                        }}
+                        onClick={() => handleImportVoice(fv)}
+                        disabled={importingVoiceId === fv.id}
+                      >
+                        {importingVoiceId === fv.id ? 'Adding...' : <><AddIcon /> Add to Saved</>}
+                      </button>
+                    ) : (
+                      <span style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
+                        Already saved
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </>
+          )}
 
           {/* Info Box */}
           <div style={infoBoxStyle}>
