@@ -189,6 +189,10 @@ export default function OpenRouterPage() {
   });
   const [usePrimaryForBrainstorm, setUsePrimaryForBrainstorm] = useState(false);
 
+  // Section D: Custom Prompts
+  const [brainstormPrompt, setBrainstormPrompt] = useState('');
+  const [speechwriterPrompt, setSpeechwriterPrompt] = useState('');
+
   // ─── Load Config on Mount ────────────────────────────────────
   useEffect(() => {
     loadConfig();
@@ -224,12 +228,19 @@ export default function OpenRouterPage() {
             temperature: brainstormData.temperature,
             maxTokens: brainstormData.max_output_tokens,
           });
+          setBrainstormPrompt(brainstormData.custom_prompt || '');
           // Check if brainstorm uses primary
           if (primaryData && brainstormData.model_id === primaryData.model_id &&
               brainstormData.temperature === primaryData.temperature &&
               brainstormData.max_output_tokens === primaryData.max_output_tokens) {
             setUsePrimaryForBrainstorm(true);
           }
+        }
+
+        // Load speechwriter prompt
+        const speechwriterData = data.slots.find((s: { slot: string }) => s.slot === 'speechwriter');
+        if (speechwriterData) {
+          setSpeechwriterPrompt(speechwriterData.custom_prompt || '');
         }
       }
     } catch (err) {
@@ -360,6 +371,10 @@ export default function OpenRouterPage() {
             usePrimary: usePrimaryForBrainstorm,
           },
         },
+        prompts: {
+          brainstorm: brainstormPrompt,
+          speechwriter: speechwriterPrompt,
+        },
       };
 
       const res = await fetch('/api/admin/openrouter', {
@@ -382,7 +397,7 @@ export default function OpenRouterPage() {
       setSaveStatus('error');
       alert('Failed to save configuration');
     }
-  }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm]);
+  }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm, brainstormPrompt, speechwriterPrompt]);
 
   // ─── Styles ──────────────────────────────────────────────────
 
@@ -1027,6 +1042,125 @@ export default function OpenRouterPage() {
                     Default: 2048
                   </span>
                 </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* ═══════ Section D: Custom Prompts ═══════ */}
+          <Card>
+            <div style={sectionHeaderStyle}>
+              <h2 style={sectionTitleStyle}>
+                <span style={{ fontSize: '18px' }}>🧠</span>
+                Custom Bot Prompts
+              </h2>
+            </div>
+            <p
+              style={{
+                ...typography.uiBody,
+                color: colors.onSurfaceVariant,
+                marginBottom: spacing.lg,
+              }}
+            >
+              Define guiding prompts that shape how each bot thinks. Use these to embed your beliefs, instructions, framework, and intellectual IP into the AI behavior.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.xl }}>
+              {/* Brainstorm Prompt */}
+              <div>
+                <label
+                  style={{
+                    ...typography.uiLabel,
+                    color: colors.onSurface,
+                    display: 'block',
+                    marginBottom: spacing.xs,
+                  }}
+                >
+                  Brainstorming Bot Prompt
+                </label>
+                <span
+                  style={{
+                    ...typography.caption,
+                    color: colors.onSurfaceVariant,
+                    display: 'block',
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  Overall instructions and framework for the brainstorming assistant. This prompt shapes how the AI approaches ideation, creative thinking, and collaborative problem-solving.
+                </span>
+                <textarea
+                  value={brainstormPrompt}
+                  onChange={(e) => setBrainstormPrompt(e.target.value)}
+                  placeholder="Example: You are a strategic brainstorming partner. Always consider multiple perspectives before suggesting ideas. Challenge assumptions constructively. Focus on actionable outcomes..."
+                  rows={5}
+                  style={{
+                    ...typography.uiBody,
+                    backgroundColor: colors.surface.containerLow,
+                    color: colors.onSurface,
+                    border: `1px solid ${colors.outlineVariant}`,
+                    borderRadius: radius.DEFAULT,
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    outline: 'none',
+                    width: '100%',
+                    resize: 'vertical',
+                    fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = colors.primary;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = colors.outlineVariant;
+                  }}
+                />
+              </div>
+
+              {/* Speechwriter Prompt */}
+              <div>
+                <label
+                  style={{
+                    ...typography.uiLabel,
+                    color: colors.onSurface,
+                    display: 'block',
+                    marginBottom: spacing.xs,
+                  }}
+                >
+                  Speechwriter Bot Prompt
+                </label>
+                <span
+                  style={{
+                    ...typography.caption,
+                    color: colors.onSurfaceVariant,
+                    display: 'block',
+                    marginBottom: spacing.sm,
+                  }}
+                >
+                  Overall instructions and framework for the speechwriter. This prompt defines your voice, rhetorical style, values, and the intellectual foundation behind every speech generated.
+                </span>
+                <textarea
+                  value={speechwriterPrompt}
+                  onChange={(e) => setSpeechwriterPrompt(e.target.value)}
+                  placeholder="Example: Write speeches that are bold, clear, and rooted in lived experience. Use vivid storytelling over abstract language. Lead with conviction. Every speech should move the audience to action..."
+                  rows={5}
+                  style={{
+                    ...typography.uiBody,
+                    backgroundColor: colors.surface.containerLow,
+                    color: colors.onSurface,
+                    border: `1px solid ${colors.outlineVariant}`,
+                    borderRadius: radius.DEFAULT,
+                    padding: `${spacing.sm} ${spacing.md}`,
+                    outline: 'none',
+                    width: '100%',
+                    resize: 'vertical',
+                    fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
+                    transition: 'border-color 0.2s',
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = colors.secondary;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = colors.outlineVariant;
+                  }}
+                />
               </div>
             </div>
           </Card>

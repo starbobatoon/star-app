@@ -18,11 +18,15 @@ const brainstormSlotSchema = slotConfigSchema.extend({
 });
 
 const putOpenRouterConfigSchema = z.object({
-  apiKey: z.string().min(1, "apiKey is required"),
+  apiKey: z.string().optional(),
   slots: z.object({
     primary: slotConfigSchema,
     brainstorm: brainstormSlotSchema,
   }),
+  prompts: z.object({
+    brainstorm: z.string().optional().default(''),
+    speechwriter: z.string().optional().default(''),
+  }).optional().default({ brainstorm: '', speechwriter: '' }),
 });
 
 // ─── GET /api/admin/openrouter ─────────────────────────────────────
@@ -59,7 +63,7 @@ export async function GET() {
     // Get model slots
     const { data: slots, error: slotsError } = await admin
       .from("model_slots")
-      .select("slot, model_id, label, temperature, max_output_tokens");
+      .select("slot, model_id, label, temperature, max_output_tokens, custom_prompt");
 
     if (slotsError) {
       console.error("[openrouter-config] Failed to fetch slots:", slotsError);
@@ -113,7 +117,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  const { apiKey, slots } = parsed.data;
+  const { apiKey, slots, prompts } = parsed.data;
 
   // ── Resolve brainstorm slot config ──────────────────────────────
   const brainstormConfig = slots.brainstorm.usePrimary
@@ -128,68 +132,69 @@ export async function PUT(request: Request) {
         maxTokens: slots.brainstorm.maxTokens,
       };
 
-  // ── Encrypt API key ────────────────────────────────────────────
-  let apiKeyEncrypted: string;
-  try {
-    apiKeyEncrypted = encrypt(apiKey);
-  } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    console.error("[openrouter-config] Encryption failed:", errMsg);
-    return NextResponse.json(
-      { error: "Failed to encrypt API key. Ensure ENCRYPTION_KEY is configured." },
-      { status: 500 }
-    );
-  }
-
-  const apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
-
   const admin = createAdminClient();
 
-  // ── Upsert openrouter_integration ──────────────────────────────
-  const { data: existingRow, error: fetchError } = await admin
-    .from("openrouter_integration")
-    .select("id")
-    .limit(1)
-    .maybeSingle();
-
-  if (fetchError) {
-    console.error("[openrouter-config] Failed to check existing row:", fetchError);
-    return NextResponse.json(
-      { error: "Failed to check existing configuration." },
-      { status: 500 }
-    );
-  }
-
-  const integrationData = {
-    api_key_encrypted: apiKeyEncrypted,
-    api_key_preview: apiKeyPreview,
-    is_configured: true,
-  };
-
-  if (existingRow) {
-    const { error: updateError } = await admin
-      .from("openrouter_integration")
-      .update(integrationData)
-      .eq("id", existingRow.id);
-
-    if (updateError) {
-      console.error("[openrouter-config] Failed to update integration:", updateError);
+  // ── Upsert openrouter_integration (only when apiKey provided) ──
+  if (apiKey) {
+    let apiKeyEncrypted: string;
+    try {
+      apiKeyEncrypted = encrypt(apiKey);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("[openrouter-config] Encryption failed:", errMsg);
       return NextResponse.json(
-        { error: "Failed to save API key configuration." },
+        { error: "Failed to encrypt API key. Ensure ENCRYPTION_KEY is configured." },
         { status: 500 }
       );
     }
-  } else {
-    const { error: insertError } = await admin
-      .from("openrouter_integration")
-      .insert(integrationData);
 
-    if (insertError) {
-      console.error("[openrouter-config] Failed to insert integration:", insertError);
+    const apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
+
+    const { data: existingRow, error: fetchError } = await admin
+      .from("openrouter_integration")
+      .select("id")
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error("[openrouter-config] Failed to check existing row:", fetchError);
       return NextResponse.json(
-        { error: "Failed to save API key configuration." },
+        { error: "Failed to check existing configuration." },
         { status: 500 }
       );
+    }
+
+    const integrationData = {
+      api_key_encrypted: apiKeyEncrypted,
+      api_key_preview: apiKeyPreview,
+      is_configured: true,
+    };
+
+    if (existingRow) {
+      const { error: updateError } = await admin
+        .from("openrouter_integration")
+        .update(integrationData)
+        .eq("id", existingRow.id);
+
+      if (updateError) {
+        console.error("[openrouter-config] Failed to update integration:", updateError);
+        return NextResponse.json(
+          { error: "Failed to save API key configuration." },
+          { status: 500 }
+        );
+      }
+    } else {
+      const { error: insertError } = await admin
+        .from("openrouter_integration")
+        .insert(integrationData);
+
+      if (insertError) {
+        console.error("[openrouter-config] Failed to insert integration:", insertError);
+        return NextResponse.json(
+          { error: "Failed to save API key configuration." },
+          { status: 500 }
+        );
+      }
     }
   }
 
@@ -206,6 +211,15 @@ export async function PUT(request: Request) {
     model_id: brainstormConfig.modelId,
     temperature: brainstormConfig.temperature,
     max_output_tokens: brainstormConfig.maxTokens,
+    custom_prompt: prompts.brainstorm || null,
+  };
+
+  const speechwriterSlot = {
+    slot: "speechwriter",
+    model_id: slots.primary.modelId,
+    temperature: slots.primary.temperature,
+    max_output_tokens: slots.primary.maxTokens,
+    custom_prompt: prompts.speechwriter || null,
   };
 
   const { error: primarySlotError } = await admin
@@ -232,17 +246,30 @@ export async function PUT(request: Request) {
     );
   }
 
+  const { error: speechwriterSlotError } = await admin
+    .from("model_slots")
+    .upsert(speechwriterSlot, { onConflict: "slot" });
+
+  if (speechwriterSlotError) {
+    console.error("[openrouter-config] Failed to upsert speechwriter slot:", speechwriterSlotError);
+    return NextResponse.json(
+      { error: "Failed to save speechwriter model slot." },
+      { status: 500 }
+    );
+  }
+
   // ── Audit log entry ────────────────────────────────────────────
   await writeAuditLog({
     actorEmail: user.email,
     action: "update",
     entityType: "openrouter_integration",
     afterValue: {
-      api_key_preview: apiKeyPreview,
-      is_configured: true,
+      api_key_updated: !!apiKey,
       primary_slot: slots.primary.modelId,
       brainstorm_slot: brainstormConfig.modelId,
       brainstorm_uses_primary: slots.brainstorm.usePrimary ?? false,
+      has_brainstorm_prompt: !!prompts.brainstorm,
+      has_speechwriter_prompt: !!prompts.speechwriter,
     },
   });
 
