@@ -60,9 +60,9 @@ export default function AdminLoginPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
-          <h1 style={{ ...typography.h2, color: colors.primary, margin: 0 }}>
-            STAR Admin
-          </h1>
+          <div style={{ marginBottom: spacing.md }}>
+            <img src="/logo.png" alt="Elocutionist" style={{ height: '48px', objectFit: 'contain' }} />
+          </div>
           <p
             style={{
               ...typography.uiBody,

@@ -167,16 +167,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         {/* Brand */}
         <div style={{ marginBottom: spacing.xl }}>
-          <div
-            style={{
-              ...typography.h2,
-              color: colors.primary,
-              fontSize: '20px',
-              letterSpacing: '0.15em',
-              marginBottom: spacing.lg,
-            }}
-          >
-            ELOCUTIONIST
+          <div style={{ marginBottom: spacing.lg }}>
+            <img src="/logo.png" alt="Elocutionist" style={{ height: '40px', objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
             <div

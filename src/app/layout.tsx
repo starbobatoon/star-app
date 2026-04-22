@@ -15,9 +15,26 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "STAR App — 5-Minute Speech Writer",
+  title: "Elocutionist",
   description:
     "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+  icons: {
+    icon: "/favicon.png",
+  },
+  openGraph: {
+    title: "Elocutionist",
+    description:
+      "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+    images: ["/logo.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Elocutionist",
+    description:
+      "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+    images: ["/logo.png"],
+  },
 };
 
 export default function RootLayout({

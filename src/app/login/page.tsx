@@ -98,19 +98,8 @@ export default function UserLoginPage() {
       >
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: spacing.lg }}>
-          <a
-            href="/"
-            style={{
-              ...typography.h2,
-              color: colors.primary,
-              margin: 0,
-              display: "block",
-              textDecoration: "none",
-              fontSize: "24px",
-              letterSpacing: "0.15em",
-            }}
-          >
-            ELLOCUTIONIST
+          <a href="/" style={{ display: "inline-block", marginBottom: spacing.md }}>
+            <img src="/logo.png" alt="Elocutionist" style={{ height: '48px', objectFit: 'contain' }} />
           </a>
           <p
             style={{
