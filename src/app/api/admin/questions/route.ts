@@ -25,7 +25,7 @@ export async function GET() {
     
     const { data, error } = await supabase
       .from("questions")
-      .select("id, question_text, helper_text, feeds_section, is_required, is_active, ghl_field_key, display_order, created_at, updated_at")
+      .select("id, question_text, helper_text, feeds_section, is_required, is_active, ghl_field_key, display_order, video_url, created_at, updated_at")
       .order("display_order", { ascending: true });
 
     if (error) {
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { question_text, helper_text, feeds_section, is_required, is_active, ghl_field_key, display_order } = body;
+    const { question_text, helper_text, feeds_section, is_required, is_active, ghl_field_key, display_order, video_url } = body;
 
     if (!question_text || typeof question_text !== 'string' || !question_text.trim()) {
       return NextResponse.json(
@@ -106,6 +106,7 @@ export async function POST(request: Request) {
         is_active: is_active ?? true,
         ghl_field_key: ghl_field_key || null,
         display_order: order,
+        video_url: video_url || null,
       })
       .select()
       .single();
@@ -180,7 +181,7 @@ export async function PATCH(request: Request) {
     }
 
     // Only allow known fields
-    const allowedFields = ['question_text', 'helper_text', 'feeds_section', 'is_required', 'is_active', 'ghl_field_key', 'display_order'];
+    const allowedFields = ['question_text', 'helper_text', 'feeds_section', 'is_required', 'is_active', 'ghl_field_key', 'display_order', 'video_url'];
     const filteredUpdates: Record<string, unknown> = {};
     for (const key of allowedFields) {
       if (key in updates) {

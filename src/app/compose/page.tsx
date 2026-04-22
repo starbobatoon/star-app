@@ -16,6 +16,7 @@ interface ApiQuestion {
   feeds_section: string;
   is_required: boolean;
   display_order: number;
+  video_url: string | null;
 }
 
 // ─── Types ─────────────────────────────────────────────────────────

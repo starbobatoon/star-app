@@ -19,7 +19,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("questions")
-      .select("id, question_text, feeds_section, is_required, display_order")
+      .select("id, question_text, feeds_section, is_required, display_order, video_url")
       .eq("is_active", true)
       .order("display_order", { ascending: true });
 
