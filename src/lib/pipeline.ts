@@ -17,7 +17,7 @@ import "server-only";
 import { generateSpeechText } from "@/lib/speech-generator";
 import { generateSpeechAudio } from "@/lib/audio-generator";
 import { syncSpeechToGHL } from "@/lib/ghl-sync";
-import { notifyOnCompletion } from "@/lib/notify";
+import { sendDeliveryNotifications } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -138,7 +138,7 @@ export async function runSpeechPipeline(
 
   console.log(`[pipeline] GHL sync complete for speech ${speechId}`);
 
-  // ── Stage 4: Delivery notification ──────────────────────────────
+  // ── Stage 4: Delivery notification (auto-trigger after audio complete) ──
   await writeAuditLog({
     action: "pipeline_stage_start",
     entityType: "speeches",
@@ -147,9 +147,9 @@ export async function runSpeechPipeline(
   });
 
   try {
-    const deliveryResult = await notifyOnCompletion(speechId);
+    const deliveryResult = await sendDeliveryNotifications(speechId);
     console.log(
-      `[pipeline] Delivery notification complete for speech ${speechId}: email=${deliveryResult.email.success} sms=${deliveryResult.sms.success}`
+      `[pipeline] Delivery notification complete for speech ${speechId}: status=${deliveryResult.status}`
     );
   } catch (deliveryErr) {
     // Delivery failure is non-fatal — speech is complete, notification is best-effort

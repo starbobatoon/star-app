@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
+import { sendDeliveryNotifications } from "@/lib/notify";
 
 export async function GET(
   request: NextRequest,
@@ -101,6 +102,87 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error streaming speech audio:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/speeches/[id]/audio
+ *
+ * Auto-triggers delivery notifications after audio generation completes.
+ * Checks that audio exists and speech is in a valid completed state,
+ * then calls sendDeliveryNotifications.
+ * Admin-only.
+ */
+export async function POST(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: speechId } = await params;
+
+    // Admin auth guard
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(user)) {
+      return NextResponse.json(
+        { error: "Forbidden: Admin access required" },
+        { status: 403 }
+      );
+    }
+
+    const supabase = createAdminClient();
+
+    // Verify speech exists with audio ready
+    const { data: speech, error } = await supabase
+      .from("speeches")
+      .select("id, status, audio_storage_path, delivery_status")
+      .eq("id", speechId)
+      .single();
+
+    if (error || !speech) {
+      return NextResponse.json(
+        { error: "Speech not found" },
+        { status: 404 }
+      );
+    }
+
+    if (!speech.audio_storage_path) {
+      return NextResponse.json(
+        {
+          error: "Audio not yet generated — cannot trigger delivery",
+          status: speech.status,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Block if delivery was already successfully triggered
+    const existing = speech.delivery_status as Record<string, any> | null;
+    if (existing?.email?.success || existing?.sms?.success) {
+      return NextResponse.json(
+        {
+          message: "Delivery already triggered",
+          delivery: existing,
+        },
+        { status: 200 }
+      );
+    }
+
+    // Auto-trigger delivery notifications
+    const result = await sendDeliveryNotifications(speechId);
+
+    return NextResponse.json({
+      success: result.status !== "skipped",
+      delivery: result,
+    });
+  } catch (err) {
+    console.error("[speeches/[id]/audio] POST error:", err);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

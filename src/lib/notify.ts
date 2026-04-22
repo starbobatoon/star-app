@@ -45,7 +45,7 @@ export interface DeliveryStatus {
 }
 
 // ---------------------------------------------------------------------------
-// Main notification function
+// Main notification function (legacy — used by pipeline stage 4)
 // ---------------------------------------------------------------------------
 
 /**
@@ -173,6 +173,163 @@ export async function notifyOnCompletion(
   });
 
   return status;
+}
+
+// ---------------------------------------------------------------------------
+// sendDeliveryNotifications — primary entrypoint for /deliver endpoint
+// ---------------------------------------------------------------------------
+
+/**
+ * Primary delivery notification entrypoint.
+ *
+ * Fetches the speech + ghl_integration config, upserts a GHL contact
+ * with speech data and media URLs, triggers the GHL workflow if one
+ * is configured, and falls back to an n8n POST webhook.  Finally
+ * updates the speech `delivery_status` column with per-channel results.
+ *
+ * @param speechId - UUID of the completed speech
+ * @returns `{ status, details }` where status is `"delivered"`,
+ *          `"partial"`, or `"skipped"` and details contains per-channel
+ *          breakdowns.
+ */
+export async function sendDeliveryNotifications(
+  speechId: string
+): Promise<{ status: string; details: any }> {
+  const admin = createAdminClient();
+
+  // 1. Fetch speech + ghl_integration
+  const { data: speech, error: speechErr } = await admin
+    .from("speeches")
+    .select(
+      "id, first_name, last_name, email, phone, ghl_contact_id, audio_ghl_url, pdf_ghl_url, status"
+    )
+    .eq("id", speechId)
+    .maybeSingle();
+
+  if (speechErr || !speech) {
+    return { status: "skipped", details: { error: "Speech not found" } };
+  }
+
+  const { data: config, error: cfgErr } = await admin
+    .from("ghl_integration")
+    .select(
+      "id, pit_encrypted, location_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (cfgErr || !config) {
+    const details = {
+      email: { attempted: false, success: false, reason: "no_config" },
+      sms: { attempted: false, success: false, reason: "no_config" },
+    };
+    await recordDelivery(admin, speechId, details as unknown as DeliveryStatus);
+    return { status: "skipped", details };
+  }
+
+  const channelDetails: Record<string, any> = {
+    email: { attempted: false, success: false },
+    sms: { attempted: false, success: false },
+  };
+
+  // 2. GHL upsert contact with speech data / media URLs
+  let contactId = speech.ghl_contact_id;
+  if (config.pit_encrypted) {
+    try {
+      const { upsertByEmail } = await import("@/lib/ghl/contacts");
+      const result = await upsertByEmail({
+        email: speech.email,
+        firstName: speech.first_name ?? undefined,
+        lastName: speech.last_name ?? undefined,
+        phone: speech.phone ?? undefined,
+      });
+      contactId = result.contactId;
+      if (!speech.ghl_contact_id) {
+        await admin
+          .from("speeches")
+          .update({ ghl_contact_id: contactId })
+          .eq("id", speechId);
+      }
+    } catch (err) {
+      console.error(
+        "[notify.sendDeliveryNotifications] GHL upsert failed:",
+        err
+      );
+    }
+  }
+
+  // 3. Trigger GHL workflow if id is set
+  if (config.email_workflow_id && contactId && config.pit_encrypted) {
+    channelDetails.email.attempted = true;
+    try {
+      const { triggerWorkflow } = await import("@/lib/ghl/workflows");
+      await triggerWorkflow({
+        workflowId: config.email_workflow_id,
+        contactId,
+      });
+      channelDetails.email.success = true;
+      channelDetails.email.method = "ghl_workflow";
+    } catch (err) {
+      channelDetails.email.error =
+        err instanceof Error ? err.message : String(err);
+      console.error(
+        "[notify.sendDeliveryNotifications] GHL workflow failed:",
+        channelDetails.email.error
+      );
+    }
+  }
+
+  // 4. Fallback: n8n POST webhook
+  if (config.n8n_enabled && config.n8n_webhook_url) {
+    // Email fallback — only if GHL workflow didn't succeed
+    if (!channelDetails.email.success && speech.email) {
+      channelDetails.email.attempted = true;
+      try {
+        await dispatchToN8n(config.n8n_webhook_url, "email", speech);
+        channelDetails.email.success = true;
+        channelDetails.email.method = "n8n_webhook";
+      } catch (err) {
+        channelDetails.email.error =
+          err instanceof Error ? err.message : String(err);
+      }
+    }
+    // SMS path
+    if (speech.phone) {
+      channelDetails.sms.attempted = true;
+      try {
+        await dispatchToN8n(config.n8n_webhook_url, "sms", speech);
+        channelDetails.sms.success = true;
+        channelDetails.sms.method = "n8n_webhook";
+      } catch (err) {
+        channelDetails.sms.error =
+          err instanceof Error ? err.message : String(err);
+      }
+    }
+  }
+
+  // 5. Update speech delivery_status
+  await recordDelivery(
+    admin,
+    speechId,
+    channelDetails as unknown as DeliveryStatus
+  );
+
+  await writeAuditLog({
+    action: "send_delivery_notifications",
+    entityType: "speeches",
+    entityId: speechId,
+    afterValue: channelDetails,
+  });
+
+  const emailOk = channelDetails.email.success;
+  const smsOk = channelDetails.sms.success;
+  const overall = emailOk || smsOk
+    ? emailOk && smsOk
+      ? "delivered"
+      : "partial"
+    : "skipped";
+
+  return { status: overall, details: channelDetails };
 }
 
 // ---------------------------------------------------------------------------

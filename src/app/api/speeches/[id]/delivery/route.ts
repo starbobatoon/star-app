@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
-import { notifyOnCompletion, type DeliveryStatus } from "@/lib/notify";
+import { notifyOnCompletion, sendDeliveryNotifications, type DeliveryStatus } from "@/lib/notify";
 
 /**
  * GET /api/speeches/[id]/delivery
@@ -137,12 +137,12 @@ export async function POST(
       }
     }
 
-    // Re-trigger delivery
-    const deliveryResult = await notifyOnCompletion(speechId);
+    // Re-trigger delivery via sendDeliveryNotifications
+    const result = await sendDeliveryNotifications(speechId);
 
     return NextResponse.json({
-      success: true,
-      delivery: deliveryResult,
+      success: result.status !== "skipped",
+      delivery: result,
     });
   } catch (err) {
     console.error("[speeches/[id]/delivery] POST Error:", err);
