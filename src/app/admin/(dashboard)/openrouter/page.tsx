@@ -169,7 +169,9 @@ export default function OpenRouterPage() {
   const [showKey, setShowKey] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
   const [credits, setCredits] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Section B: Available Models
   const [models, setModels] = useState<ModelInfo[]>(AVAILABLE_MODELS);
@@ -267,6 +269,7 @@ export default function OpenRouterPage() {
     if (!apiKey) return;
     setConnectionStatus('testing');
     setCredits(null);
+    setConnectionError(null);
 
     try {
       const res = await fetch('/api/admin/openrouter/test', {
@@ -283,9 +286,11 @@ export default function OpenRouterPage() {
         }
       } else {
         setConnectionStatus('error');
+        setConnectionError(data.error || 'Connection failed. Please check your API key.');
       }
-    } catch {
+    } catch (err) {
       setConnectionStatus('error');
+      setConnectionError(err instanceof Error ? err.message : 'Network error. Check your connection.');
     }
   }, [apiKey]);
 
@@ -311,15 +316,16 @@ export default function OpenRouterPage() {
   }, []);
 
   // ─── Section B: Refresh Models ────────────────────────────────
+  const [modelsError, setModelsError] = useState<string | null>(null);
+
   const handleRefreshModels = useCallback(async () => {
     setRefreshingModels(true);
+    setModelsError(null);
     try {
       const res = await fetch('/api/admin/openrouter/models');
+      const data = await res.json();
       if (res.ok) {
-        const data = await res.json();
         if (data.models && data.models.length > 0) {
-          // Merge with our known models
-          const apiModelIds = new Set(data.models.map((m: { id: string }) => m.id));
           const newModels = data.models
             .filter((m: { id: string }) => !AVAILABLE_MODELS.some(am => am.id === m.id))
             .map((m: { id: string; name?: string; context_length?: number; pricing?: { prompt?: string; completion?: string } }) => ({
@@ -331,7 +337,11 @@ export default function OpenRouterPage() {
             }));
           setModels([...AVAILABLE_MODELS, ...newModels]);
         }
+      } else {
+        setModelsError(data.error || 'Failed to fetch models from OpenRouter.');
       }
+    } catch (err) {
+      setModelsError(err instanceof Error ? err.message : 'Network error fetching models.');
     } finally {
       setRefreshingModels(false);
     }
@@ -373,6 +383,7 @@ export default function OpenRouterPage() {
     }
 
     setSaveStatus('saving');
+    setSaveError(null);
     try {
       const payload = {
         apiKey: apiKey || undefined, // Don't send empty string if using existing
@@ -402,13 +413,14 @@ export default function OpenRouterPage() {
         // Reload to get updated preview
         await loadConfig();
       } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         setSaveStatus('error');
-        alert(data.error || 'Failed to save configuration');
+        const errMsg = data.error || 'Failed to save configuration. Check your inputs and try again.';
+        setSaveError(errMsg);
       }
     } catch (err) {
       setSaveStatus('error');
-      alert('Failed to save configuration');
+      setSaveError(err instanceof Error ? err.message : 'Network error. Check your connection.');
     }
   }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm, speechwriterSlot, brainstormPrompt, speechwriterPrompt]);
 
@@ -558,7 +570,7 @@ export default function OpenRouterPage() {
                     connectionStatus === 'connected'
                       ? undefined
                       : connectionStatus === 'error'
-                        ? 'Invalid API key. Please check and try again.'
+                        ? (connectionError || 'Invalid API key. Please check and try again.')
                         : 'Your OpenRouter API key is stored securely and never shared.'
                   }
                   error={connectionStatus === 'error'}
@@ -619,7 +631,7 @@ export default function OpenRouterPage() {
                   <Tag variant="success">Connected</Tag>
                 )}
                 {connectionStatus === 'error' && (
-                  <Tag variant="error">Connection Failed</Tag>
+                  <Tag variant="error">{connectionError ? `Failed: ${connectionError}` : 'Connection Failed'}</Tag>
                 )}
                 {credits && connectionStatus === 'connected' && (
                   <span
@@ -761,6 +773,19 @@ export default function OpenRouterPage() {
                 </div>
               )}
 
+              {modelsError && (
+                <div style={{
+                  padding: spacing.sm,
+                  backgroundColor: `${colors.error}10`,
+                  border: `1px solid ${colors.error}`,
+                  borderRadius: radius.DEFAULT,
+                  marginTop: spacing.sm,
+                }}>
+                  <span style={{ ...typography.caption, color: colors.error }}>
+                    {modelsError}
+                  </span>
+                </div>
+              )}
               <div
                 style={{
                   ...typography.caption,
@@ -1304,22 +1329,36 @@ export default function OpenRouterPage() {
           <div
             style={{
               display: 'flex',
-              justifyContent: 'flex-end',
-              gap: spacing.md,
+              flexDirection: 'column',
+              gap: spacing.sm,
               paddingTop: spacing.md,
               borderTop: `1px solid ${colors.outlineVariant}`,
             }}
           >
-            <Button variant="tertiary" onClick={() => loadConfig()}>
-              Reset Changes
-            </Button>
-            <Button
-              variant="primary"
-              onClick={handleSave}
-              loading={saveStatus === 'saving'}
-            >
-              {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : 'Save Configuration'}
-            </Button>
+            {saveError && (
+              <div style={{
+                padding: spacing.sm,
+                backgroundColor: `${colors.error}10`,
+                border: `1px solid ${colors.error}`,
+                borderRadius: radius.DEFAULT,
+              }}>
+                <span style={{ ...typography.caption, color: colors.error }}>
+                  {saveError}
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing.md }}>
+              <Button variant="tertiary" onClick={() => { loadConfig(); setSaveError(null); }}>
+                Reset Changes
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleSave}
+                loading={saveStatus === 'saving'}
+              >
+                {saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'saving' ? 'Saving...' : 'Save Configuration'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
