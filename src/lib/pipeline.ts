@@ -1,11 +1,12 @@
 /**
  * @module pipeline
  * @description Speech pipeline orchestrator — runs the full pipeline:
- *   generate text → generate audio → sync to GHL
+ *   generate text → generate audio → sync to GHL → delivery notification
  *
  * Each stage is handled by its own module and updates speech status
  * independently. The orchestrator runs them sequentially and stops
- * on the first failure.
+ * on the first failure. Stage 4 (delivery) is non-fatal — a notification
+ * failure does not block the speech from being marked complete.
  *
  * IMPORTANT: This module uses Node.js APIs and Supabase admin client — server-only.
  * Never import this from a client component.
@@ -16,6 +17,7 @@ import "server-only";
 import { generateSpeechText } from "@/lib/speech-generator";
 import { generateSpeechAudio } from "@/lib/audio-generator";
 import { syncSpeechToGHL } from "@/lib/ghl-sync";
+import { notifyOnCompletion } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -38,9 +40,11 @@ export interface PipelineResult {
  *   1. Generate speech text (LLM → transcript + sections)
  *   2. Generate speech audio (transcript → Fish Audio TTS)
  *   3. Sync to GHL (contact upsert + media upload + workflow trigger)
+ *   4. Delivery notification (email + SMS via GHL workflow / n8n webhook)
  *
- * Each stage updates the speech status independently. The orchestrator
- * checks return values and stops on the first failure.
+ * Stages 1-3 are fatal — pipeline stops on first failure.
+ * Stage 4 is non-fatal — notification failure is logged but does not
+ * block the speech from being marked complete.
  *
  * @param speechId - UUID of the speech record to process
  * @returns PipelineResult with success flag, completion timestamp, and optional error
@@ -133,6 +137,27 @@ export async function runSpeechPipeline(
   }
 
   console.log(`[pipeline] GHL sync complete for speech ${speechId}`);
+
+  // ── Stage 4: Delivery notification ──────────────────────────────
+  await writeAuditLog({
+    action: "pipeline_stage_start",
+    entityType: "speeches",
+    entityId: speechId,
+    afterValue: { stage: "delivery_notification", status: "started" },
+  });
+
+  try {
+    const deliveryResult = await notifyOnCompletion(speechId);
+    console.log(
+      `[pipeline] Delivery notification complete for speech ${speechId}: email=${deliveryResult.email.success} sms=${deliveryResult.sms.success}`
+    );
+  } catch (deliveryErr) {
+    // Delivery failure is non-fatal — speech is complete, notification is best-effort
+    console.error(
+      `[pipeline] Delivery notification failed for speech ${speechId}:`,
+      deliveryErr
+    );
+  }
 
   // ── All stages succeeded ────────────────────────────────────────────
   const completedAt = new Date().toISOString();
