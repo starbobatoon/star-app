@@ -12,7 +12,7 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   error?: boolean;
   /** Additional styles applied to the outer wrapper. */
   wrapperStyle?: CSSProperties;
-  /** Inline styles applied to the input element. */
+  /** Inline styles applied to the input element. Merged on top of default styles. */
   style?: CSSProperties;
 }
 
@@ -24,7 +24,7 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
  * exclusively — no hardcoded values.
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, helperText, error = false, id, wrapperStyle, style, ...rest }, ref) => {
+  ({ label, helperText, error = false, id, wrapperStyle, style: propStyle, ...rest }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
 
@@ -39,7 +39,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       marginBottom: spacing.xs,
     };
 
-    const inputStyle: CSSProperties = {
+    const baseInputStyle: CSSProperties = {
       fontFamily: `var(${typography.uiBody.fontFamily})`,
       fontSize: typography.uiBody.fontSize,
       fontWeight: typography.uiBody.fontWeight,
@@ -77,7 +77,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           aria-invalid={error || undefined}
           aria-describedby={helperText ? `${inputId}-helper` : undefined}
-          style={{ ...inputStyle, ...style }}
+          style={{ ...baseInputStyle, ...propStyle }}
           onFocus={(e) => {
             e.currentTarget.style.borderBottomColor = error ? colors.error : colors.secondary;
             rest.onFocus?.(e);
