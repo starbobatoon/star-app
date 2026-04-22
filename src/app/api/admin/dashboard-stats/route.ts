@@ -4,6 +4,7 @@ import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
 // GET /api/admin/dashboard-stats
 // Returns aggregated stats for the admin dashboard.
+// Gracefully degrades if optional columns (rating) or integration tables are unavailable.
 export async function GET() {
   try {
     const user = await getAuthenticatedUser();
@@ -15,20 +16,59 @@ export async function GET() {
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // -- Speeches stats (via RPC or manual queries) --
-    const { data: speeches, error: speechesError } = await admin
-      .from("speeches")
-      .select("status, audio_duration_seconds, rating, created_at, first_name, last_name, email, voice_used, id");
+    // -- Speeches stats --
+    // Try full query first (with rating column). Fall back to query without rating
+    // if the migration hasn't been applied yet.
+    let speeches = [];
+    let ratingAvailable = false;
 
-    if (speechesError) {
-      console.error("[dashboard-stats] Failed to fetch speeches:", speechesError);
-      return NextResponse.json(
-        { error: "Failed to fetch speeches" },
-        { status: 500 }
-      );
+    {
+      const { data, error } = await admin
+        .from("speeches")
+        .select(
+          "status, audio_duration_seconds, rating, created_at, first_name, last_name, email, voice_used, id"
+        );
+
+      if (error) {
+        // Check if the error is about a missing column (rating not migrated yet)
+        const msg = (error.message || "").toLowerCase();
+        if (msg.includes("column") && msg.includes("rating")) {
+          console.warn(
+            "[dashboard-stats] rating column not found in speeches table, falling back to query without rating. Apply migration 007_rating_column.sql to enable ratings."
+          );
+          // Retry without rating
+          const { data: fallbackData, error: fallbackError } = await admin
+            .from("speeches")
+            .select(
+              "status, audio_duration_seconds, created_at, first_name, last_name, email, voice_used, id"
+            );
+          if (fallbackError) {
+            console.error(
+              "[dashboard-stats] Failed to fetch speeches (even without rating):",
+              fallbackError
+            );
+            return NextResponse.json(
+              { error: "Failed to fetch speeches" },
+              { status: 500 }
+            );
+          }
+          speeches = fallbackData ?? [];
+          ratingAvailable = false;
+        } else {
+          // Some other error — not a missing column
+          console.error("[dashboard-stats] Failed to fetch speeches:", error);
+          return NextResponse.json(
+            { error: "Failed to fetch speeches" },
+            { status: 500 }
+          );
+        }
+      } else {
+        speeches = data ?? [];
+        ratingAvailable = true;
+      }
     }
 
-    const all = speeches ?? [];
+    const all = speeches;
     const completed = all.filter((s) => s.status === "complete");
     const pending = all.filter((s) =>
       ["pending", "upserting_contact", "generating_text", "generating_audio", "uploading", "syncing_ghl"].includes(s.status)
@@ -44,32 +84,63 @@ export async function GET() {
         ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
         : null;
 
-    // Average rating (completed with rating, 1-4 scale)
-    const ratedSpeeches = completed.filter(
-      (s) => s.rating != null && s.rating >= 1 && s.rating <= 4
-    );
-    const avgRating =
-      ratedSpeeches.length > 0
-        ? Math.round(
-            (ratedSpeeches.reduce((a, s) => a + (s.rating as number), 0) /
-              ratedSpeeches.length) *
-              10
-          ) / 10
-        : null;
+    // Average rating — only available if rating column exists
+    let avgRating: number | null = null;
+    let ratedSpeechesCount = 0;
+    if (ratingAvailable) {
+      const ratedSpeeches = completed.filter(
+        (s) => s.rating != null && s.rating >= 1 && s.rating <= 4
+      );
+      ratedSpeechesCount = ratedSpeeches.length;
+      avgRating =
+        ratedSpeeches.length > 0
+          ? Math.round(
+              (ratedSpeeches.reduce((a, s) => a + (s.rating as number), 0) /
+                ratedSpeeches.length) *
+                10
+            ) / 10
+          : null;
+    } else {
+      console.warn(
+        "[dashboard-stats] rating unavailable — avgRating and ratedSpeechesCount will be null/0"
+      );
+    }
 
-    // -- OpenRouter status --
-    const { data: orIntegration } = await admin
-      .from("openrouter_integration")
-      .select("is_configured")
-      .limit(1)
-      .maybeSingle();
+    // -- OpenRouter status (graceful fallback if table missing) --
+    let openRouterConfigured = false;
+    try {
+      const { data: orIntegration, error: orError } = await admin
+        .from("openrouter_integration")
+        .select("is_configured")
+        .limit(1)
+        .maybeSingle();
+      if (orError) throw orError;
+      openRouterConfigured = orIntegration?.is_configured === true;
+    } catch (orErr: unknown) {
+      const msg = orErr instanceof Error ? orErr.message : String(orErr);
+      console.warn(
+        "[dashboard-stats] openrouter_integration query failed, defaulting to false:",
+        msg
+      );
+    }
 
-    // -- GHL status --
-    const { data: ghlIntegration } = await admin
-      .from("ghl_integration")
-      .select("is_configured")
-      .limit(1)
-      .maybeSingle();
+    // -- GHL status (graceful fallback if table missing) --
+    let ghlConfigured = false;
+    try {
+      const { data: ghlIntegration, error: ghlError } = await admin
+        .from("ghl_integration")
+        .select("is_configured")
+        .limit(1)
+        .maybeSingle();
+      if (ghlError) throw ghlError;
+      ghlConfigured = ghlIntegration?.is_configured === true;
+    } catch (ghlErr: unknown) {
+      const msg = ghlErr instanceof Error ? ghlErr.message : String(ghlErr);
+      console.warn(
+        "[dashboard-stats] ghl_integration query failed, defaulting to false:",
+        msg
+      );
+    }
 
     // -- Recent speeches for the activity table --
     const recentSpeeches = all
@@ -98,9 +169,9 @@ export async function GET() {
       failedSpeeches: failed.length,
       avgDurationSeconds,
       avgRating,
-      ratedSpeechesCount: ratedSpeeches.length,
-      openRouterConfigured: orIntegration?.is_configured === true,
-      ghlConfigured: ghlIntegration?.is_configured === true,
+      ratedSpeechesCount,
+      openRouterConfigured,
+      ghlConfigured,
       recentSpeeches,
     });
   } catch (err) {
