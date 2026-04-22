@@ -136,7 +136,7 @@ export async function PUT(request: Request) {
     const errMsg = err instanceof Error ? err.message : String(err);
     console.error("[openrouter-config] Encryption failed:", errMsg);
     return NextResponse.json(
-      { error: `Failed to encrypt API key: ${errMsg}` },
+      { error: "Failed to encrypt API key. Ensure ENCRYPTION_KEY is configured." },
       { status: 500 }
     );
   }
