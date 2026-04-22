@@ -63,22 +63,58 @@ export async function GET() {
       );
     }
 
-    // Get model slots
-    const { data: slots, error: slotsError } = await admin
+    // Get model slots — try with custom_prompt first, degrade if column missing
+    let slots: Array<{
+      slot: string;
+      model_id: string;
+      label: string | null;
+      temperature: number;
+      max_output_tokens: number;
+      custom_prompt?: string | null;
+    }> | null = null;
+    let promptAvailable = true;
+
+    const { data: slotsWithPrompt, error: slotsError } = await admin
       .from("model_slots")
       .select("slot, model_id, label, temperature, max_output_tokens, custom_prompt");
 
     if (slotsError) {
-      console.error("[openrouter-config] Failed to fetch slots:", slotsError);
-      return NextResponse.json(
-        { error: "Failed to fetch model slots." },
-        { status: 500 }
-      );
+      // Column missing (migration 006 not applied) — retry without custom_prompt
+      const isMissingColumn =
+        slotsError.message?.includes("custom_prompt") ||
+        slotsError.code === "42703" ||
+        slotsError.code === "PGRST204";
+
+      if (isMissingColumn) {
+        console.warn("[openrouter-config] custom_prompt column missing, retrying without it");
+        const { data: slotsFallback, error: fallbackError } = await admin
+          .from("model_slots")
+          .select("slot, model_id, label, temperature, max_output_tokens");
+
+        if (fallbackError) {
+          console.error("[openrouter-config] Failed to fetch slots (fallback):", fallbackError);
+          return NextResponse.json(
+            { error: "Failed to fetch model slots." },
+            { status: 500 }
+          );
+        }
+        slots = slotsFallback;
+        promptAvailable = false;
+      } else {
+        console.error("[openrouter-config] Failed to fetch slots:", slotsError);
+        return NextResponse.json(
+          { error: "Failed to fetch model slots." },
+          { status: 500 }
+        );
+      }
+    } else {
+      slots = slotsWithPrompt;
     }
 
     return NextResponse.json({
       integration: integration || null,
       slots: slots || [],
+      promptAvailable,
     });
   } catch (err) {
     console.error("[openrouter-config] GET error:", err);
