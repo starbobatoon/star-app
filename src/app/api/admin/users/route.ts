@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getAuthenticatedUser, isAdmin } from '@/lib/auth-check';
+import { APP_ID } from '@/lib/constants';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -20,12 +21,12 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to list users' }, { status: 500 });
     }
 
-    // Filter to only elocutionist app users
-    const elocutionistUsers = users.filter(
-      (u) => u.app_metadata?.app === 'elocutionist'
+    // Filter to only Star Speaker App users
+    const appUsers = users.filter(
+      (u) => u.app_metadata?.app === APP_ID
     );
 
-    return NextResponse.json(elocutionistUsers);
+    return NextResponse.json(appUsers);
   } catch (error) {
     console.error('[admin/users] GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       email_confirm: true,
-      app_metadata: { role: 'admin', app: 'elocutionist' },
+      app_metadata: { role: 'admin', app: APP_ID },
     });
 
     if (error) {

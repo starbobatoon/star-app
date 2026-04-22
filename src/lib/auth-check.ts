@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { APP_ID } from "./constants";
+
+export { APP_ID };
 
 /**
  * Creates a Supabase server client and returns the authenticated user.
@@ -38,14 +41,23 @@ export async function getAuthenticatedUser() {
 }
 
 /**
- * Checks if a user has admin privileges.
- * Admin = either their email matches ADMIN_EMAIL env var,
- * or their app_metadata has role='admin'.
+ * Checks if a user has admin privileges scoped to this app.
+ * Admin = their app_metadata has role='admin' AND app matches this app's ID.
+ * The ADMIN_EMAIL env var bypass is kept for bootstrap convenience only.
+ * Uses APP_ID from constants.ts for the app check.
  */
 export function isAdmin(user: { email?: string | null; app_metadata?: Record<string, unknown> } | null): boolean {
   if (!user) return false;
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail && user.email === adminEmail) return true;
-  if (user.app_metadata?.role === "admin") return true;
+  if (user.app_metadata?.role === "admin" && user.app_metadata?.app === APP_ID) return true;
   return false;
+}
+
+/**
+ * Checks if a user belongs to this app (any role).
+ */
+export function isAppUser(user: { app_metadata?: Record<string, unknown> } | null): boolean {
+  if (!user) return false;
+  return user.app_metadata?.app === APP_ID;
 }

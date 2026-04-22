@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { APP_ID } from "@/lib/constants";
 
 export async function middleware(request: NextRequest) {
   try {
@@ -120,7 +121,7 @@ export async function middleware(request: NextRequest) {
     // Authenticated — check admin role
     if (user) {
       const adminEmail = process.env.ADMIN_EMAIL;
-      const isAdminUser = user.email === adminEmail || user.app_metadata?.role === 'admin';
+      const isAdminUser = user.email === adminEmail || (user.app_metadata?.role === 'admin' && user.app_metadata?.app === APP_ID);
       
       if (!isAdminUser) {
         // Authenticated but not admin
