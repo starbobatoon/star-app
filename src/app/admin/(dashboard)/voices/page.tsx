@@ -386,7 +386,7 @@ export default function VoiceConfigPage() {
   const [isSavingFishKey, setIsSavingFishKey] = useState(false);
   const [fishKeyStatus, setFishKeyStatus] = useState<'idle' | 'testing' | 'valid' | 'invalid'>('idle');
   const [fishKeyError, setFishKeyError] = useState<string | null>(null);
-  const [defaultVoiceId, setDefaultVoiceId] = useState('e75e1618ff544059be71409c5126b4c0');
+  const [defaultVoiceId, setDefaultVoiceId] = useState('');
   const [testVoiceStatus, setTestVoiceStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
   const [testVoiceError, setTestVoiceError] = useState<string | null>(null);
 

@@ -51,7 +51,7 @@ export default function VoicePage() {
   // Form fields
   const [apiKey, setApiKey] = useState('');
   const [showApiKey, setShowApiKey] = useState(false);
-  const [voiceId, setVoiceId] = useState('e75e1618ff544059be71409c5126b4c0');
+  const [voiceId, setVoiceId] = useState('');
 
   // UI state
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
