@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { loginRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
@@ -42,7 +43,26 @@ export async function POST(request: Request) {
       );
     }
     
-    const supabase = await createServerClient();
+    const cookieStore = await cookies();
+    let response = NextResponse.json({ success: true });
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
     console.log("[api/auth/login] Supabase client created");
 
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -62,6 +82,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       user: data.user,
       session: data.session,
+    }, {
+      headers: response.headers,
     });
     
   } catch (err) {
