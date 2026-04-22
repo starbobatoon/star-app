@@ -67,7 +67,7 @@ function ComposeNav() {
           textDecoration: 'none',
         }}
       >
-        ELOCUTIONIST
+        STAR SPEAKER
       </a>
       <a
         href="/"

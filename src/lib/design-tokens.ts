@@ -1,5 +1,5 @@
 /**
- * Re-export of all Elocutionist design tokens for convenient imports.
+ * Re-export of all Star Speaker App design tokens for convenient imports.
  *
  * Usage in components:
  *   import { colors, typography, radius } from '@/lib/design-tokens';

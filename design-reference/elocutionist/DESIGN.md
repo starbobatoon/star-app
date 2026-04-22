@@ -1,5 +1,5 @@
 ---
-name: Elocutionist
+name: Star Speaker App
 colors:
   surface: '#131313'
   surface-dim: '#131313'

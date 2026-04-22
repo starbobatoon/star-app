@@ -17,7 +17,7 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
 }
 
 /**
- * Underline-style Input component matching the Elocutionist design system.
+ * Underline-style Input component matching the Star Speaker App design system.
  *
  * Features a subtle border-bottom that transitions to Electric Indigo on focus.
  * Supports label above and helper/error text below. Uses design tokens

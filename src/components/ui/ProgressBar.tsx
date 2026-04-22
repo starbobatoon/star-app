@@ -17,7 +17,7 @@ export interface ProgressBarProps {
 }
 
 /**
- * Horizontal ProgressBar component following the Elocutionist design system.
+ * Horizontal ProgressBar component following the Star Speaker App design system.
  *
  * The track uses surfaceContainerHigh, and the fill uses a gradient
  * from Electric Indigo to Soft Gold. Pill-shaped (full border radius)

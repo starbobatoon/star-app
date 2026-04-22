@@ -21,7 +21,7 @@ export type TextareaProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 's
 };
 
 /**
- * Underline-style Textarea matching the Elocutionist Input pattern.
+ * Underline-style Textarea matching the Star Speaker App Input pattern.
  *
  * Shares the same subtle border-bottom design as Input, extended for
  * multiline content. Includes a character counter (max 5000) and

@@ -1,8 +1,8 @@
 /**
- * STAR App Design Tokens
+ * Star Speaker App Design Tokens
  *
- * Single source of truth for all visual values in the STAR App.
- * Derived from DESIGN.md (Elocutionist theme).
+ * Single source of truth for all visual values in the Star Speaker App.
+ * Derived from DESIGN.md (Star Speaker theme).
  *
  * Design philosophy: Minimalism & Deep Focus — a "Digital Study" feel
  * where technology serves the craft of rhetoric.

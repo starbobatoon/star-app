@@ -13,7 +13,7 @@ export interface AudioPlayerProps {
 }
 
 /**
- * Floating glassmorphism AudioPlayer component following the Elocutionist design system.
+ * Floating glassmorphism AudioPlayer component following the Star Speaker App design system.
  *
  * Features play/pause, scrubbing, and time display. Uses the `.glass` CSS class
  * for the backdrop blur effect. Waveform visualization uses thin vertical

@@ -2,7 +2,7 @@
  * PDF Generator for STAR Speech Transcripts
  *
  * Renders a speech transcript (Hook/Story/Point/CTA/Exit) to a styled PDF
- * matching the Elocutionist design system.
+ * matching the Star Speaker App design system.
  *
  * Server-side only — do NOT import from client components.
  */

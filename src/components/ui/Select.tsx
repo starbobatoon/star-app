@@ -32,7 +32,7 @@ export interface SelectProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 
 }
 
 /**
- * Dropdown Select component following the Elocutionist design system.
+ * Dropdown Select component following the Star Speaker App design system.
  *
  * Dark surface with Electric Indigo focus state. Required for GHL
  * field mapping UI. Uses design tokens exclusively.

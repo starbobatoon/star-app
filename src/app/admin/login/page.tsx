@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
       >
         <div style={{ textAlign: 'center', marginBottom: spacing.lg }}>
           <div style={{ marginBottom: spacing.md }}>
-            <img src="/logo.png" alt="Elocutionist" style={{ height: '48px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Star Speaker App" style={{ height: '48px', objectFit: 'contain' }} />
           </div>
           <p
             style={{

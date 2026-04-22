@@ -2,7 +2,7 @@
 
 *Written for Christy, the platform admin.*
 
-This guide walks you through setting up and configuring the STAR App (also branded as **Elocutionist**) after it has been deployed. You do not need to write code. Everything in this guide is done through the web-based admin console.
+This guide walks you through setting up and configuring the Star Speaker App (also branded as **STAR App**) after it has been deployed. You do not need to write code. Everything in this guide is done through the web-based admin console.
 
 ---
 

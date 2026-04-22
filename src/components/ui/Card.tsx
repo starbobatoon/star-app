@@ -13,7 +13,7 @@ export interface CardProps extends Omit<HTMLAttributes<HTMLDivElement>, 'style'>
 }
 
 /**
- * Minimalist Card component following the Elocutionist design system.
+ * Minimalist Card component following the Star Speaker App design system.
  *
  * Flat surface with a 1px border using the outlineVariant token, 8px
  * border radius, and generous default padding (24px). No shadows —

@@ -4,7 +4,7 @@ import { type ButtonHTMLAttributes, type CSSProperties, forwardRef } from 'react
 import { colors, spacing, radius, typography } from '@/lib/design-tokens';
 
 /**
- * Button variants for the Elocutionist design system.
+ * Button variants for the Star Speaker App design system.
  *
  * - **Primary**: Solid Soft Gold background with dark text. Used for "Finalize", "Download", and other high-value actions.
  * - **Secondary**: Ghost style with Electric Indigo text on hover. Used for secondary actions.
@@ -22,7 +22,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /**
- * Reusable Button component following the Elocutionist design system.
+ * Reusable Button component following the Star Speaker App design system.
  *
  * Uses design tokens exclusively — no hardcoded colors, spacing, or radii.
  * Supports three variants (Primary, Secondary, Tertiary), loading and

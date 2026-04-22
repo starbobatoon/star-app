@@ -1,6 +1,6 @@
 # STAR App — Troubleshooting Guide
 
-*Common issues, diagnostic steps, and emergency procedures for the STAR App (Elocutionist).*
+*Common issues, diagnostic steps, and emergency procedures for the Star Speaker App (STAR App).*
 
 ---
 

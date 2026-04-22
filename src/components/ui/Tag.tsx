@@ -43,7 +43,7 @@ const variantStyles: Record<TagVariant, CSSProperties> = {
 };
 
 /**
- * Tag / Badge component following the Elocutionist design system.
+ * Tag / Badge component following the Star Speaker App design system.
  *
  * Status indicators using design tokens for colors. Available variants:
  * default, primary (Soft Gold), secondary (Electric Indigo), error, and success.

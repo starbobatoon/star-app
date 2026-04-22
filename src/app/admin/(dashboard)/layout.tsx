@@ -168,7 +168,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Brand */}
         <div style={{ marginBottom: spacing.xl }}>
           <div style={{ marginBottom: spacing.lg }}>
-            <img src="/logo.png" alt="Elocutionist" style={{ height: '40px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Star Speaker App" style={{ height: '40px', objectFit: 'contain' }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
             <div
@@ -186,7 +186,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 Admin Console
               </div>
               <div style={{ ...typography.caption, color: colors.outline }}>
-                Elocutionist v1.0
+                Star Speaker App v1.0
               </div>
             </div>
           </div>
@@ -294,7 +294,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               letterSpacing: '0.2em',
             }}
           >
-            ELOCUTIONIST
+            STAR SPEAKER
           </span>
           <div
             style={{

@@ -17,7 +17,7 @@ export interface ModalProps extends Omit<HTMLAttributes<HTMLDivElement>, 'style'
 }
 
 /**
- * Overlay Modal component following the Elocutionist design system.
+ * Overlay Modal component following the Star Speaker App design system.
  *
  * Features a backdrop overlay, close button, and optional title bar.
  * Supports a glass-style header via the `glassHeader` prop. Closes on

@@ -15,24 +15,24 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Elocutionist",
+  title: "Star Speaker App",
   description:
-    "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+    "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
   icons: {
     icon: "/favicon.png",
   },
   openGraph: {
-    title: "Elocutionist",
+    title: "Star Speaker App",
     description:
-      "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+      "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
     images: ["/logo.png"],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Elocutionist",
+    title: "Star Speaker App",
     description:
-      "Craft compelling 5-minute speeches with AI-powered structure, rhetoric, and delivery guidance.",
+      "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
     images: ["/logo.png"],
   },
 };
