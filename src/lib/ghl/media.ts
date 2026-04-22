@@ -10,11 +10,8 @@ import { getGhlHeaders, getGhlLocationId, getGhlBaseUrl } from "./auth";
 
 const GHL_API_BASE = getGhlBaseUrl();
 
-export interface UploadMediaParams {
-  file: Buffer | Blob;
-  fileName: string;
-  contentType: string;
-}
+import type { UploadMediaParams } from "./types";
+export type { UploadMediaParams };
 
 interface GhlMediaUploadResponse {
   url: string;
@@ -45,7 +42,7 @@ export async function uploadMedia(
     formData.append("file", params.file, params.fileName);
   } else {
     // Buffer → Blob for FormData
-    const blob = new Blob([new Uint8Array(params.file)], { type: params.contentType });
+    const blob = new Blob([new Uint8Array(params.file as unknown as ArrayBuffer)], { type: params.contentType });
     formData.append("file", blob, params.fileName);
   }
 

@@ -11,10 +11,8 @@ import { getGhlHeaders, getGhlBaseUrl } from "./auth";
 
 const GHL_API_BASE = getGhlBaseUrl();
 
-export interface TriggerWorkflowParams {
-  workflowId: string;
-  contactId: string;
-}
+import type { TriggerWorkflowParams } from "./types";
+export type { TriggerWorkflowParams };
 
 /**
  * Triggers a GHL workflow by subscribing a contact to it.
