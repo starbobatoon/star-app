@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Allow the login page itself and its static assets through
-    if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
+    if (pathname === "/admin/login" || pathname.startsWith("/admin/login/") || pathname === "/admin/forgot-password" || pathname.startsWith("/admin/forgot-password/")) {
       return NextResponse.next();
     }
 
