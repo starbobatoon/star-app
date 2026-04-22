@@ -282,7 +282,6 @@ export default function PromptSettingsPage() {
                 outline: 'none',
                 resize: 'vertical',
                 transition: 'border-color 0.2s ease',
-                selectionBackground: colors.surface.bright,
               }}
               onFocus={(e) => {
                 if (!isDirty) {

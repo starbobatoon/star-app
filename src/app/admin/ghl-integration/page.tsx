@@ -386,9 +386,7 @@ export default function GhlIntegrationPage() {
                 margin: 0,
               }}
             >
-              Two checks run on Test Connection: (1) GET /locations/{id} to verify the
-              Location ID is valid, and (2) GET /locations/{id}/customFields to confirm
-              the PIT has the correct scope for reading and writing custom fields.
+              {'Two checks run on Test Connection: (1) GET /locations/[id] to verify the Location ID is valid, and (2) GET /locations/[id]/customFields to confirm the PIT has the correct scope for reading and writing custom fields.'}
             </p>
           </div>
         </Card>

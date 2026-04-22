@@ -22,23 +22,23 @@ import {
 // Font registration
 // ---------------------------------------------------------------------------
 // Newsreader (serif) for body text, Inter (sans-serif) for headings/labels.
-// Google Fonts URLs provide WOFF2; @react-pdf/renderer handles download.
+// Google Fonts TTF URLs; @react-pdf/renderer handles download at render time.
 
 Font.register({
   family: 'Newsreader',
   fonts: [
     {
-      src: 'https://fonts.gstatic.com/s/newsreader/v19/dXVUVcmDzY4z2T9PShY5NHfRgNN7rg.woff2',
+      src: 'https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438weI_ADA.ttf',
       fontWeight: 400,
       fontStyle: 'normal',
     },
     {
-      src: 'https://fonts.gstatic.com/s/newsreader/v19/dXVUVcmDzY4z2T9PShY5NHfRgNN7rg.woff2',
+      src: 'https://fonts.gstatic.com/s/newsreader/v26/cY9kfjOCX1hbuyalUrK439vogqC9yFZCYg7oRZaLP4obnf7fTXglsMwoT-ZA.ttf',
       fontWeight: 400,
       fontStyle: 'italic',
     },
     {
-      src: 'https://fonts.gstatic.com/s/newsreader/v19/dXVUVcmDzY4z2T9PShY5NHfRgNN7rg.woff2',
+      src: 'https://fonts.gstatic.com/s/newsreader/v26/cY9qfjOCX1hbuyalUrK49dLac06G1ZGsZBtoBCzBDXXD9JVF438wn4jADA.ttf',
       fontWeight: 700,
       fontStyle: 'normal',
     },
@@ -49,17 +49,17 @@ Font.register({
   family: 'Inter',
   fonts: [
     {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfAZ9hiA.woff2',
+      src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf',
       fontWeight: 400,
       fontStyle: 'normal',
     },
     {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hiA.woff2',
+      src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fMZg.ttf',
       fontWeight: 500,
       fontStyle: 'normal',
     },
     {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuI6fAZ9hiA.woff2',
+      src: 'https://fonts.gstatic.com/s/inter/v20/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuGKYMZg.ttf',
       fontWeight: 600,
       fontStyle: 'normal',
     },
