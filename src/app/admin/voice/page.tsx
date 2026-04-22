@@ -98,7 +98,7 @@ export default function VoicePage() {
       const res = await fetch('/api/admin/fish-audio/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey }),
+        body: JSON.stringify({ apiKey, voiceId }),
       });
       const data = await res.json();
       if (data.ok) {

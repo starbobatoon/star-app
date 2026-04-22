@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { synthesizeSpeech, FishAudioError } from "@/lib/fish-audio";
+import { decrypt } from "@/lib/encryption";
 
 // ── POST /api/admin/voices/preview ─────────────────────────────────────────
 // Generates a short audio preview of a Fish Audio voice.
 // Admin auth required. Returns raw MP3 audio (audio/mpeg).
+// Fetches the API key from the encrypted fish_audio_integration config.
 
 const previewSchema = z.object({
   fishAudioVoiceId: z.string().min(1, "fishAudioVoiceId is required"),
@@ -27,11 +30,6 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    // TODO: Add is_blocked check on user metadata when available
-    // if (user.user_metadata?.is_blocked) {
-    //   return NextResponse.json({ error: "Account is blocked" }, { status: 403 });
-    // }
 
     // ── Parse and validate request body ───────────────────────────────────
     let body: unknown;
@@ -56,6 +54,38 @@ export async function POST(request: Request) {
     const { fishAudioVoiceId, text } = parsed.data;
     const previewText = text?.trim() || DEFAULT_PREVIEW_TEXT;
 
+    // ── Fetch Fish Audio API key from encrypted DB config ─────────────────
+    let apiKey: string | undefined;
+    try {
+      const admin = createAdminClient();
+      const { data: integration, error: integError } = await admin
+        .from("fish_audio_integration")
+        .select("api_key_encrypted")
+        .limit(1)
+        .maybeSingle();
+
+      if (integError) {
+        console.error(
+          "[voices.preview] Failed to fetch integration config:",
+          integError
+        );
+      } else if (integration?.api_key_encrypted) {
+        try {
+          apiKey = decrypt(integration.api_key_encrypted);
+        } catch (decryptErr) {
+          console.error(
+            "[voices.preview] Failed to decrypt API key:",
+            decryptErr
+          );
+        }
+      }
+    } catch (fetchErr) {
+      console.error(
+        "[voices.preview] Failed to load Fish Audio config:",
+        fetchErr
+      );
+    }
+
     // ── Synthesize audio via Fish Audio ────────────────────────────────────
     let audioBuffer: Buffer;
     try {
@@ -63,6 +93,7 @@ export async function POST(request: Request) {
         text: previewText,
         voiceId: fishAudioVoiceId,
         format: "mp3",
+        apiKey,
       });
     } catch (err) {
       if (err instanceof FishAudioError) {
