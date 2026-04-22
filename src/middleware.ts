@@ -41,8 +41,25 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Authenticated — allow the request through
+  // Authenticated — check admin role
   if (user) {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (user.email !== adminEmail && user.app_metadata?.role !== 'admin') {
+      // Authenticated but not admin
+      // For API routes under /admin, return 403 JSON
+      if (pathname.startsWith("/admin/api/") || pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Forbidden: Admin access required" },
+          { status: 403 }
+        );
+      }
+      // For page routes, redirect to login with error
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/admin/login";
+      loginUrl.searchParams.set("error", "admin_required");
+      loginUrl.searchParams.set("next", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
     return response;
   }
 

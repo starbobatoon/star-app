@@ -7,6 +7,7 @@ import {
   checkIdempotencyKey,
 } from "@/lib/idempotency";
 import { runSpeechPipeline } from "@/lib/pipeline";
+import { speechRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
 
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -27,6 +28,10 @@ const createSpeechSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Rate limit check
+  const rateLimitResponse = await checkRateLimit(speechRateLimiter, getClientIp(request));
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const parsed = createSpeechSchema.safeParse(body);

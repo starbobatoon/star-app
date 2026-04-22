@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerClient } from "@/lib/supabase/server";
+import { loginRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -8,6 +9,10 @@ const loginSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  // Rate limit check
+  const rateLimitResponse = await checkRateLimit(loginRateLimiter, getClientIp(request));
+  if (rateLimitResponse) return rateLimitResponse;
+
   try {
     const body = await request.json();
     const parsed = loginSchema.safeParse(body);

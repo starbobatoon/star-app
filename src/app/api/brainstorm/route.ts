@@ -1,5 +1,21 @@
 import { chat } from "@/lib/openrouter";
 import type { ChatMessage } from "@/lib/openrouter";
+import { z } from "zod";
+import { brainstormRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
+
+// ---------------------------------------------------------------------------
+// Zod validation schema (FIX 5)
+// ---------------------------------------------------------------------------
+
+const brainstormSchema = z.object({
+  questionId: z.string().min(1).optional(),
+  questionText: z.string().min(1).max(500),
+  currentAnswer: z.string().max(5000).optional().default(""),
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().min(1).max(2000),
+  })).min(1).max(20),
+});
 
 // ---------------------------------------------------------------------------
 // Types
@@ -17,10 +33,23 @@ interface BrainstormRequest {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request): Promise<Response> {
-  // Parse request body
-  let body: BrainstormRequest;
+  // Rate limit check
+  const rateLimitResponse = await checkRateLimit(brainstormRateLimiter, getClientIp(request));
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Parse and validate request body with Zod
+  let body: z.infer<typeof brainstormSchema>;
   try {
-    body = await request.json();
+    const raw = await request.json();
+    const parsed = brainstormSchema.safeParse(raw);
+    if (!parsed.success) {
+      const errors = parsed.error.flatten().fieldErrors;
+      return new Response(
+        JSON.stringify({ error: "Validation failed", details: errors }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    body = parsed.data;
   } catch {
     return new Response(
       JSON.stringify({ error: "Invalid JSON body" }),
@@ -29,13 +58,6 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const { questionText, currentAnswer, messages } = body;
-
-  if (!questionText) {
-    return new Response(
-      JSON.stringify({ error: "questionText is required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
-  }
 
   // Build system prompt with question context
   const systemPrompt = `You are a speechwriting brainstorming assistant for STAR App. Help the user develop ideas for the question: ${questionText}. Be conversational, ask follow-up questions, suggest specific examples. Keep responses concise (2-3 sentences).${

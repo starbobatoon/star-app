@@ -37,7 +37,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 
 interface GhlIntegrationRow {
   id: string;
-  private_integration_token_encrypted: string;
+  pit_encrypted: string;
   location_id: string;
   email_workflow_id: string | null;
   n8n_webhook_url: string | null;
@@ -46,9 +46,7 @@ interface GhlIntegrationRow {
 
 interface GhlFieldMappingRow {
   id: string;
-  star_data_key: string;
-  star_data_label: string;
-  star_data_type: string;
+  star_app_field: string;
   ghl_custom_field_id: string | null;
   ghl_custom_field_name: string | null;
   ghl_custom_field_type: string | null;
@@ -56,10 +54,10 @@ interface GhlFieldMappingRow {
 
 interface SpeechRow {
   id: string;
-  user_first_name: string | null;
-  user_last_name: string | null;
-  user_email: string;
-  user_phone: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  phone: string | null;
   ghl_contact_id: string | null;
   answers: Record<string, unknown> | null;
   transcript_markdown: string | null;
@@ -187,9 +185,9 @@ async function callN8nWebhook(
     event: "speech_complete",
     speechId: speech.id,
     contactId,
-    email: speech.user_email,
-    firstName: speech.user_first_name,
-    lastName: speech.user_last_name,
+    email: speech.email,
+    firstName: speech.first_name,
+    lastName: speech.last_name,
     hook: speech.hook,
     story: speech.story,
     point: speech.point,
@@ -243,7 +241,7 @@ export async function syncSpeechToGHL(
   const { data: ghlConfig, error: configError } = await adminClient
     .from("ghl_integration")
     .select(
-      "id, private_integration_token_encrypted, location_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
+      "id, pit_encrypted, location_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
     )
     .limit(1)
     .maybeSingle();
@@ -256,7 +254,7 @@ export async function syncSpeechToGHL(
   }
 
   // No GHL config row or no encrypted token → not configured, skip gracefully
-  if (!ghlConfig || !ghlConfig.private_integration_token_encrypted) {
+  if (!ghlConfig || !ghlConfig.pit_encrypted) {
     console.log("[ghl-sync] GHL not configured, skipping sync for speech", speechId);
     await updateSpeechStatus(adminClient, speechId, "complete");
     return { success: true, error: "GHL not configured — skipped" };
@@ -267,7 +265,7 @@ export async function syncSpeechToGHL(
   // -----------------------------------------------------------------------
   let pit: string;
   try {
-    pit = decrypt(ghlConfig.private_integration_token_encrypted);
+    pit = decrypt(ghlConfig.pit_encrypted);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ghl-sync] PIT decryption failed:", msg);
@@ -289,7 +287,7 @@ export async function syncSpeechToGHL(
   const { data: speech, error: speechError } = await adminClient
     .from("speeches")
     .select(
-      "id, user_first_name, user_last_name, user_email, user_phone, ghl_contact_id, answers, transcript_markdown, hook, story, point, cta, exit, word_count, voice_used, pdf_ghl_url, audio_ghl_url, status"
+      "id, first_name, last_name, email, phone, ghl_contact_id, answers, transcript_markdown, hook, story, point, cta, exit, word_count, voice_used, pdf_ghl_url, audio_ghl_url, status"
     )
     .eq("id", speechId)
     .maybeSingle();
@@ -307,7 +305,7 @@ export async function syncSpeechToGHL(
   const { data: fieldMappings, error: mappingError } = await adminClient
     .from("ghl_field_mappings")
     .select(
-      "id, star_data_key, star_data_label, star_data_type, ghl_custom_field_id, ghl_custom_field_name, ghl_custom_field_type"
+      "id, star_app_field, ghl_custom_field_id, ghl_custom_field_name, ghl_custom_field_type"
     );
 
   if (mappingError) {
@@ -331,10 +329,10 @@ export async function syncSpeechToGHL(
 
   try {
     const result = await upsertByEmail({
-      email: speech.user_email,
-      firstName: speech.user_first_name ?? undefined,
-      lastName: speech.user_last_name ?? undefined,
-      phone: speech.user_phone ?? undefined,
+      email: speech.email,
+      firstName: speech.first_name ?? undefined,
+      lastName: speech.last_name ?? undefined,
+      phone: speech.phone ?? undefined,
     });
 
     contactId = result.contactId;
@@ -371,7 +369,7 @@ export async function syncSpeechToGHL(
     // GHL custom field ID, using the value from the speech data
     const customFieldsPayload: Record<string, string> = {};
     for (const mapping of activeMappings) {
-      const value = speechFieldValues[mapping.star_data_key];
+      const value = speechFieldValues[mapping.star_app_field];
       if (value != null) {
         customFieldsPayload[mapping.ghl_custom_field_id!] = value;
       }
