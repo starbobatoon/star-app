@@ -305,11 +305,12 @@ function QuestionFormModal({ title, initialData, onSave, onCancel, isSaving }: Q
 
 interface QuestionRowProps {
   question: Question;
+  index: number;
   onEdit: (question: Question) => void;
   onDelete: (question: Question) => void;
 }
 
-function QuestionRow({ question, onEdit, onDelete }: QuestionRowProps) {
+function QuestionRow({ question, index, onEdit, onDelete }: QuestionRowProps) {
   const rowStyle: CSSProperties = {
     backgroundColor: colors.surface.container,
     border: `1px solid ${colors.outlineVariant}`,
@@ -370,7 +371,7 @@ function QuestionRow({ question, onEdit, onDelete }: QuestionRowProps) {
     <div style={rowStyle}>
       <div style={headerStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1 }}>
-          <span style={orderBadgeStyle}>{question.display_order}</span>
+          <span style={orderBadgeStyle}>{index + 1}</span>
           <span style={{ ...typography.uiBody, color: colors.onSurface, flex: 1 } as CSSProperties}>
             {question.question_text}
           </span>
@@ -682,10 +683,11 @@ export default function QuestionsPage() {
           {/* Questions List */}
           {!isLoading && !error && (
             <div style={listStyle}>
-              {questions.map((question) => (
+              {questions.map((question, i) => (
                 <QuestionRow
                   key={question.id}
                   question={question}
+                  index={i}
                   onEdit={(q) => setEditQuestion(q)}
                   onDelete={(q) => setDeleteQuestion(q)}
                 />
