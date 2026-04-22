@@ -41,16 +41,16 @@ export async function getAuthenticatedUser() {
 }
 
 /**
- * Checks if a user has admin privileges scoped to this app.
- * Admin = their app_metadata has role='admin' AND app matches this app's ID.
+ * Checks if a user has admin privileges.
+ * Admin = role='admin' in app_metadata (app scoping is NOT enforced for admins
+ * because legacy admin accounts may not have app_metadata.app set to APP_ID).
  * The ADMIN_EMAIL env var bypass is kept for bootstrap convenience only.
- * Uses APP_ID from constants.ts for the app check.
  */
 export function isAdmin(user: { email?: string | null; app_metadata?: Record<string, unknown> } | null): boolean {
   if (!user) return false;
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail && user.email === adminEmail) return true;
-  if (user.app_metadata?.role === "admin" && user.app_metadata?.app === APP_ID) return true;
+  if (user.app_metadata?.role === "admin") return true;
   return false;
 }
 

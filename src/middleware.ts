@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { APP_ID } from "@/lib/constants";
 
 export async function middleware(request: NextRequest) {
   try {
@@ -121,7 +120,9 @@ export async function middleware(request: NextRequest) {
     // Authenticated — check admin role
     if (user) {
       const adminEmail = process.env.ADMIN_EMAIL;
-      const isAdminUser = user.email === adminEmail || (user.app_metadata?.role === 'admin' && user.app_metadata?.app === APP_ID);
+      // Admins bypass app scoping: legacy admin accounts may not have app_metadata.app set.
+      // Non-admin compose users still require app === APP_ID (handled in compose section above).
+      const isAdminUser = user.email === adminEmail || user.app_metadata?.role === 'admin';
       
       if (!isAdminUser) {
         // Authenticated but not admin
