@@ -189,6 +189,13 @@ export default function OpenRouterPage() {
   });
   const [usePrimaryForBrainstorm, setUsePrimaryForBrainstorm] = useState(false);
 
+  // Section C2: Speechwriter Slot
+  const [speechwriterSlot, setSpeechwriterSlot] = useState<SlotConfig>({
+    modelId: 'openrouter/xiaomi/mimo-v2-pro',
+    temperature: 0.7,
+    maxTokens: 4096,
+  });
+
   // Section D: Custom Prompts
   const [brainstormPrompt, setBrainstormPrompt] = useState('');
   const [speechwriterPrompt, setSpeechwriterPrompt] = useState('');
@@ -237,9 +244,14 @@ export default function OpenRouterPage() {
           }
         }
 
-        // Load speechwriter prompt
+        // Load speechwriter slot
         const speechwriterData = data.slots.find((s: { slot: string }) => s.slot === 'speechwriter');
         if (speechwriterData) {
+          setSpeechwriterSlot({
+            modelId: speechwriterData.model_id,
+            temperature: speechwriterData.temperature,
+            maxTokens: speechwriterData.max_output_tokens,
+          });
           setSpeechwriterPrompt(speechwriterData.custom_prompt || '');
         }
       }
@@ -370,6 +382,7 @@ export default function OpenRouterPage() {
             ...brainstormSlot,
             usePrimary: usePrimaryForBrainstorm,
           },
+          speechwriter: speechwriterSlot,
         },
         prompts: {
           brainstorm: brainstormPrompt,
@@ -397,7 +410,7 @@ export default function OpenRouterPage() {
       setSaveStatus('error');
       alert('Failed to save configuration');
     }
-  }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm, brainstormPrompt, speechwriterPrompt]);
+  }, [apiKey, isConfigured, primarySlot, brainstormSlot, usePrimaryForBrainstorm, speechwriterSlot, brainstormPrompt, speechwriterPrompt]);
 
   // ─── Styles ──────────────────────────────────────────────────
 
@@ -1040,6 +1053,128 @@ export default function OpenRouterPage() {
                     }}
                   >
                     Default: 2048
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Speechwriter Slot */}
+            <div style={{ marginTop: spacing.xl, paddingTop: spacing.lg, borderTop: `1px solid ${colors.outlineVariant}` }}>
+              <h3
+                style={{
+                  ...typography.h2,
+                  fontSize: '24px',
+                  color: colors.onSurface,
+                  margin: `0 0 ${spacing.md} 0`,
+                }}
+              >
+                Speechwriter Slot
+              </h3>
+
+              <div style={rowStyle}>
+                <div>
+                  <Select
+                    label="Model"
+                    options={models.map(modelToSelectOption)}
+                    value={speechwriterSlot.modelId}
+                    onChange={(value) =>
+                      setSpeechwriterSlot((prev) => ({ ...prev, modelId: value }))
+                    }
+                  />
+                </div>
+
+                {/* Temperature */}
+                <div style={sliderContainerStyle}>
+                  <label
+                    style={{
+                      ...typography.uiLabel,
+                      color: colors.onSurfaceVariant,
+                      display: 'block',
+                      marginBottom: spacing.xs,
+                    }}
+                  >
+                    Temperature: {speechwriterSlot.temperature.toFixed(1)}
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={speechwriterSlot.temperature}
+                    onChange={(e) =>
+                      setSpeechwriterSlot((prev) => ({
+                        ...prev,
+                        temperature: parseFloat(e.target.value),
+                      }))
+                    }
+                    style={{
+                      width: '100%',
+                      height: '4px',
+                      backgroundColor: colors.surface.containerHighest,
+                      borderRadius: radius.full,
+                      appearance: 'none' as React.CSSProperties['appearance'],
+                      cursor: 'pointer',
+                      accentColor: colors.primary,
+                    }}
+                  />
+                  <div style={sliderLabelsStyle}>
+                    <span>Precise (0.0)</span>
+                    <span>Expressive (2.0)</span>
+                  </div>
+                </div>
+
+                {/* Max Output Tokens */}
+                <div>
+                  <label
+                    style={{
+                      ...typography.uiLabel,
+                      color: colors.onSurfaceVariant,
+                      display: 'block',
+                      marginBottom: spacing.xs,
+                    }}
+                  >
+                    Max Output Tokens
+                  </label>
+                  <input
+                    type="number"
+                    min={256}
+                    max={131072}
+                    step={256}
+                    value={speechwriterSlot.maxTokens}
+                    onChange={(e) =>
+                      setSpeechwriterSlot((prev) => ({
+                        ...prev,
+                        maxTokens: parseInt(e.target.value, 10) || 4096,
+                      }))
+                    }
+                    style={{
+                      ...typography.uiBody,
+                      backgroundColor: colors.surface.containerLow,
+                      color: colors.onSurface,
+                      border: `1px solid ${colors.outlineVariant}`,
+                      borderBottom: `2px solid ${colors.outlineVariant}`,
+                      borderRadius: radius.DEFAULT,
+                      padding: `${spacing.sm} ${spacing.md}`,
+                      outline: 'none',
+                      width: '100%',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderBottomColor = colors.primary;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderBottomColor = colors.outlineVariant;
+                    }}
+                  />
+                  <span
+                    style={{
+                      ...typography.caption,
+                      color: colors.outline,
+                      display: 'block',
+                      marginTop: '2px',
+                    }}
+                  >
+                    Default: 4096
                   </span>
                 </div>
               </div>

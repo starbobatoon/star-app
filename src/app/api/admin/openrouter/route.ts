@@ -17,11 +17,14 @@ const brainstormSlotSchema = slotConfigSchema.extend({
   usePrimary: z.boolean().optional().default(false),
 });
 
+const speechwriterSlotSchema = slotConfigSchema;
+
 const putOpenRouterConfigSchema = z.object({
   apiKey: z.string().optional(),
   slots: z.object({
     primary: slotConfigSchema,
     brainstorm: brainstormSlotSchema,
+    speechwriter: speechwriterSlotSchema,
   }),
   prompts: z.object({
     brainstorm: z.string().optional().default(''),
@@ -118,6 +121,13 @@ export async function PUT(request: Request) {
   }
 
   const { apiKey, slots, prompts } = parsed.data;
+
+  // ── Resolve speechwriter slot config ──────────────────────────
+  const speechwriterConfig = {
+    modelId: slots.speechwriter.modelId,
+    temperature: slots.speechwriter.temperature,
+    maxTokens: slots.speechwriter.maxTokens,
+  };
 
   // ── Resolve brainstorm slot config ──────────────────────────────
   const brainstormConfig = slots.brainstorm.usePrimary
@@ -216,9 +226,9 @@ export async function PUT(request: Request) {
 
   const speechwriterSlot = {
     slot: "speechwriter",
-    model_id: slots.primary.modelId,
-    temperature: slots.primary.temperature,
-    max_output_tokens: slots.primary.maxTokens,
+    model_id: speechwriterConfig.modelId,
+    temperature: speechwriterConfig.temperature,
+    max_output_tokens: speechwriterConfig.maxTokens,
     custom_prompt: prompts.speechwriter || null,
   };
 
@@ -269,6 +279,7 @@ export async function PUT(request: Request) {
       brainstorm_slot: brainstormConfig.modelId,
       brainstorm_uses_primary: slots.brainstorm.usePrimary ?? false,
       has_brainstorm_prompt: !!prompts.brainstorm,
+      speechwriter_slot: speechwriterConfig.modelId,
       has_speechwriter_prompt: !!prompts.speechwriter,
     },
   });
