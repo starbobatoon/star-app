@@ -3,9 +3,46 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   try {
-    // Only run on /admin/* routes
     const { pathname } = request.nextUrl;
 
+    // ── User-facing compose protection ──
+    if (pathname.startsWith("/compose")) {
+      // Allow unauthenticated access to the login page
+      // Check auth for compose page
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !supabaseKey) {
+        return NextResponse.redirect(new URL("/login?error=config_error", request.url));
+      }
+
+      let response = NextResponse.next({ request });
+
+      const supabase = createServerClient(supabaseUrl, supabaseKey, {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              request.cookies.set(name, value);
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      });
+
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
+        const loginUrl = new URL("/login", request.url);
+        loginUrl.searchParams.set("redirectTo", pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+
+      return response;
+    }
+
+    // ── Admin protection ──
     if (!pathname.startsWith("/admin")) {
       return NextResponse.next();
     }

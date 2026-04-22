@@ -17,6 +17,7 @@ interface Question {
   is_required: boolean;
   is_active: boolean;
   ghl_field_key: string | null;
+  video_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -251,6 +252,16 @@ function QuestionFormModal({ title, initialData, onSave, onCancel, isSaving }: Q
             />
           </div>
 
+          {/* Video URL */}
+          <div>
+            <label style={labelStyle}>Video Tutorial URL (optional)</label>
+            <Input
+              value={form.video_url}
+              onChange={(e) => setForm((f) => ({ ...f, video_url: e.target.value }))}
+              placeholder="e.g. https://www.youtube.com/embed/VIDEO_ID"
+            />
+          </div>
+
           {/* Checkboxes */}
           <div style={{ display: 'flex', gap: spacing.lg }}>
             <div style={checkboxRowStyle}>
@@ -413,6 +424,9 @@ function QuestionRow({ question, onEdit, onDelete }: QuestionRowProps) {
             GHL: {question.ghl_field_key}
           </span>
         )}
+        {question.video_url && (
+          <Tag variant="secondary">Video</Tag>
+        )}
       </div>
 
       {question.helper_text && (
@@ -562,6 +576,7 @@ export default function QuestionsPage() {
     is_active: q.is_active,
     ghl_field_key: q.ghl_field_key || '',
     display_order: q.display_order,
+    video_url: q.video_url || '',
   });
 
   // ─── Styles ───────────────────────────────────────────────────
