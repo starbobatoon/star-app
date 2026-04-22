@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Question Manager - Admin Console</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Newsreader:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#e1e0ff",
+                        "on-tertiary": "#082b72",
+                        "background": "#131313",
+                        "surface-dim": "#131313",
+                        "on-secondary-container": "#b0b2ff",
+                        "on-primary-fixed-variant": "#574500",
+                        "surface-variant": "#353534",
+                        "surface-container-highest": "#353534",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0e0e0e",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#e9c349",
+                        "primary-container": "#d4af37",
+                        "inverse-primary": "#735c00",
+                        "on-tertiary-container": "#254188",
+                        "inverse-surface": "#e5e2e1",
+                        "on-surface-variant": "#d0c5af",
+                        "on-tertiary-fixed-variant": "#27438a",
+                        "on-surface": "#e5e2e1",
+                        "inverse-on-surface": "#313030",
+                        "on-secondary-fixed": "#07006c",
+                        "surface-bright": "#393939",
+                        "secondary-container": "#3131c0",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#c0c1ff",
+                        "surface-container": "#201f1f",
+                        "on-primary": "#3c2f00",
+                        "tertiary-container": "#97b0ff",
+                        "on-primary-fixed": "#241a00",
+                        "primary-fixed": "#ffe088",
+                        "on-background": "#e5e2e1",
+                        "outline": "#99907c",
+                        "tertiary": "#bfcdff",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#2a2a2a",
+                        "surface": "#131313",
+                        "primary": "#f2ca50",
+                        "on-tertiary-fixed": "#00174b",
+                        "on-secondary-fixed-variant": "#2f2ebe",
+                        "outline-variant": "#4d4635",
+                        "surface-tint": "#e9c349",
+                        "on-primary-container": "#554300",
+                        "tertiary-fixed": "#dbe1ff",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-secondary": "#1000a9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "xl": "48px",
+                        "sm": "8px",
+                        "container-max": "1200px",
+                        "xxl": "80px",
+                        "gutter": "24px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "transcript-body": ["Newsreader"],
+                        "transcript-display": ["Newsreader"],
+                        "ui-label": ["Inter"],
+                        "h1": ["Inter"],
+                        "h2": ["Inter"],
+                        "ui-body": ["Inter"],
+                        "caption": ["Inter"]
+                    },
+                    "fontSize": {
+                        "transcript-body": ["20px", { "lineHeight": "1.8", "letterSpacing": "0", "fontWeight": "400" }],
+                        "transcript-display": ["24px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "ui-label": ["13px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "h1": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "h2": ["32px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+                        "ui-body": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                        "caption": ["12px", { "lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex font-ui-body text-ui-body">
+<!-- NavigationDrawer Component -->
+<nav class="bg-[#1A1A1A] fixed left-0 top-0 h-full z-40 flex flex-col p-6 h-full w-72 border-r border-[#2A2A2A] border-r-[1px] flat no-shadows font-sans text-sm tracking-tight text-[#D4AF37]">
+<div class="mb-12">
+<h2 class="text-[#D4AF37] font-serif text-xl mb-8">ELOCUTIONIST</h2>
+<div class="flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface">person</span>
+</div>
+<div>
+<div class="font-ui-label text-ui-label text-on-surface">Admin Console</div>
+<div class="font-caption text-caption text-on-surface-variant">Elocutionist v1.0</div>
+</div>
+</div>
+</div>
+<ul class="flex flex-col gap-2">
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                    Dashboard
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings_input_component</span>
+                    Model Settings
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">settings_voice</span>
+                    Voice Config
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT bg-[#2A2A2A] text-[#D4AF37] border-l-2 border-[#D4AF37] transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">quiz</span>
+                    Question Manager
+                </a>
+</li>
+<li>
+<a class="flex items-center gap-4 px-4 py-3 rounded-DEFAULT text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out" href="#">
+<span class="material-symbols-outlined">analytics</span>
+                    Analytics
+                </a>
+</li>
+</ul>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-72 p-xl overflow-y-auto">
+<div class="max-w-container-max mx-auto">
+<!-- Header Section -->
+<header class="flex items-end justify-between mb-xl pb-lg border-b border-surface-container-high">
+<div>
+<h1 class="font-h1 text-h1 text-on-surface mb-sm">Question Manager</h1>
+<p class="font-ui-body text-ui-body text-on-surface-variant">Configure the primary intake questionnaire for new speech sessions.</p>
+</div>
+<button class="bg-primary text-on-primary font-ui-label text-ui-label px-lg py-md rounded-lg flex items-center gap-sm hover:bg-primary-fixed transition-colors shadow-none border border-transparent">
+<span class="material-symbols-outlined">add</span>
+                    Add New Question
+                </button>
+</header>
+<!-- Questions List -->
+<div class="flex flex-col gap-sm">
+<!-- Item 1 -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">01.</span>
+<span class="font-ui-body text-ui-body text-on-surface">What is the core message or thesis of this address?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Required</span>
+<div class="w-10 h-5 bg-primary-container rounded-full flex items-center p-1 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary-container rounded-full translate-x-5"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">02.</span>
+<span class="font-ui-body text-ui-body text-on-surface">Who comprises the primary audience for this delivery?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Required</span>
+<div class="w-10 h-5 bg-primary-container rounded-full flex items-center p-1 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary-container rounded-full translate-x-5"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">03.</span>
+<span class="font-ui-body text-ui-body text-on-surface">What specific tonal qualities are required? (e.g., Solemn, Uplifting, Aggressive)</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm opacity-50">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Optional</span>
+<div class="w-10 h-5 bg-surface-container-high rounded-full flex items-center p-1 cursor-pointer border border-outline-variant">
+<div class="w-3 h-3 bg-outline rounded-full translate-x-0"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<!-- Item 4 -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200 opacity-60">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">04.</span>
+<span class="font-ui-body text-ui-body text-on-surface line-through decoration-outline">List any mandatory historical references or quotes.</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm opacity-50">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Optional</span>
+<div class="w-10 h-5 bg-surface-container-high rounded-full flex items-center p-1 cursor-pointer border border-outline-variant">
+<div class="w-3 h-3 bg-outline rounded-full translate-x-0"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility_off</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<!-- Item 5 -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">05.</span>
+<span class="font-ui-body text-ui-body text-on-surface">What is the desired call to action or concluding instruction?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Required</span>
+<div class="w-10 h-5 bg-primary-container rounded-full flex items-center p-1 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary-container rounded-full translate-x-5"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<!-- Items 6-10 (Simplified for brevity but maintaining structure) -->
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">06.</span>
+<span class="font-ui-body text-ui-body text-on-surface">Are there any sensitive subjects or names to explicitly avoid?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm opacity-50">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Optional</span>
+<div class="w-10 h-5 bg-surface-container-high rounded-full flex items-center p-1 cursor-pointer border border-outline-variant">
+<div class="w-3 h-3 bg-outline rounded-full translate-x-0"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">07.</span>
+<span class="font-ui-body text-ui-body text-on-surface">What is the target duration (in minutes) for the delivery?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Required</span>
+<div class="w-10 h-5 bg-primary-container rounded-full flex items-center p-1 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary-container rounded-full translate-x-5"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">08.</span>
+<span class="font-ui-body text-ui-body text-on-surface">Will this be accompanied by any multi-media or visual aids?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm opacity-50">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Optional</span>
+<div class="w-10 h-5 bg-surface-container-high rounded-full flex items-center p-1 cursor-pointer border border-outline-variant">
+<div class="w-3 h-3 bg-outline rounded-full translate-x-0"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">09.</span>
+<span class="font-ui-body text-ui-body text-on-surface">Identify any key stakeholders or individuals requiring specific acknowledgment.</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Required</span>
+<div class="w-10 h-5 bg-primary-container rounded-full flex items-center p-1 cursor-pointer">
+<div class="w-3 h-3 bg-on-primary-container rounded-full translate-x-5"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+<div class="group flex items-center justify-between p-md bg-surface-container-low border border-outline-variant rounded-lg hover:bg-surface-container-highest transition-colors duration-200">
+<div class="flex items-center gap-md flex-1">
+<span class="material-symbols-outlined text-outline-variant cursor-grab hover:text-on-surface transition-colors">drag_indicator</span>
+<span class="font-ui-label text-ui-label text-outline w-8">10.</span>
+<span class="font-ui-body text-ui-body text-on-surface">What personal anecdote should serve as the thematic anchor?</span>
+</div>
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-sm opacity-50">
+<span class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-widest text-[10px]">Optional</span>
+<div class="w-10 h-5 bg-surface-container-high rounded-full flex items-center p-1 cursor-pointer border border-outline-variant">
+<div class="w-3 h-3 bg-outline rounded-full translate-x-0"></div>
+</div>
+</div>
+<div class="flex items-center gap-sm text-outline">
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">visibility</span></button>
+<button class="p-xs hover:text-primary transition-colors flex items-center justify-center rounded-DEFAULT"><span class="material-symbols-outlined">edit</span></button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

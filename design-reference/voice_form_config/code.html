@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Voice &amp; Form Configuration - Elocutionist</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Newsreader:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#e1e0ff",
+                        "on-tertiary": "#082b72",
+                        "background": "#131313",
+                        "surface-dim": "#131313",
+                        "on-secondary-container": "#b0b2ff",
+                        "on-primary-fixed-variant": "#574500",
+                        "surface-variant": "#353534",
+                        "surface-container-highest": "#353534",
+                        "surface-container-low": "#1c1b1b",
+                        "on-error": "#690005",
+                        "surface-container-lowest": "#0e0e0e",
+                        "secondary-fixed-dim": "#c0c1ff",
+                        "error-container": "#93000a",
+                        "primary-fixed-dim": "#e9c349",
+                        "primary-container": "#d4af37",
+                        "inverse-primary": "#735c00",
+                        "on-tertiary-container": "#254188",
+                        "inverse-surface": "#e5e2e1",
+                        "on-surface-variant": "#d0c5af",
+                        "on-tertiary-fixed-variant": "#27438a",
+                        "on-surface": "#e5e2e1",
+                        "inverse-on-surface": "#313030",
+                        "on-secondary-fixed": "#07006c",
+                        "surface-bright": "#393939",
+                        "secondary-container": "#3131c0",
+                        "on-error-container": "#ffdad6",
+                        "secondary": "#c0c1ff",
+                        "surface-container": "#201f1f",
+                        "on-primary": "#3c2f00",
+                        "tertiary-container": "#97b0ff",
+                        "on-primary-fixed": "#241a00",
+                        "primary-fixed": "#ffe088",
+                        "on-background": "#e5e2e1",
+                        "outline": "#99907c",
+                        "tertiary": "#bfcdff",
+                        "error": "#ffb4ab",
+                        "surface-container-high": "#2a2a2a",
+                        "surface": "#131313",
+                        "primary": "#f2ca50",
+                        "on-tertiary-fixed": "#00174b",
+                        "on-secondary-fixed-variant": "#2f2ebe",
+                        "outline-variant": "#4d4635",
+                        "surface-tint": "#e9c349",
+                        "on-primary-container": "#554300",
+                        "tertiary-fixed": "#dbe1ff",
+                        "tertiary-fixed-dim": "#b4c5ff",
+                        "on-secondary": "#1000a9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "xl": "48px",
+                        "sm": "8px",
+                        "container-max": "1200px",
+                        "xxl": "80px",
+                        "gutter": "24px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "transcript-body": ["Newsreader", "serif"],
+                        "transcript-display": ["Newsreader", "serif"],
+                        "ui-label": ["Inter", "sans-serif"],
+                        "h1": ["Inter", "sans-serif"],
+                        "h2": ["Inter", "sans-serif"],
+                        "ui-body": ["Inter", "sans-serif"],
+                        "caption": ["Inter", "sans-serif"]
+                    },
+                    "fontSize": {
+                        "transcript-body": ["20px", { "lineHeight": "1.8", "letterSpacing": "0", "fontWeight": "400" }],
+                        "transcript-display": ["24px", { "lineHeight": "1.6", "letterSpacing": "0", "fontWeight": "400" }],
+                        "ui-label": ["13px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "500" }],
+                        "h1": ["48px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "h2": ["32px", { "lineHeight": "1.3", "letterSpacing": "-0.01em", "fontWeight": "500" }],
+                        "ui-body": ["16px", { "lineHeight": "1.5", "letterSpacing": "0", "fontWeight": "400" }],
+                        "caption": ["12px", { "lineHeight": "1.4", "letterSpacing": "0", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background min-h-screen flex antialiased">
+<!-- Web Navigation Drawer (Desktop) -->
+<nav class="hidden lg:flex flex-col bg-[#1A1A1A] h-full w-72 border-[#2A2A2A] border-r-[1px] flat no-shadows fixed left-0 top-0 z-40 p-6">
+<div class="mb-8">
+<h1 class="text-[#D4AF37] font-serif text-xl tracking-tight">Elocutionist v1.0</h1>
+<p class="font-ui-label text-ui-label text-[#A0A0A0] mt-2">Admin Console</p>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out font-sans text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out font-sans text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="settings_input_component">settings_input_component</span>
+                Model Settings
+            </a>
+<!-- Active -->
+<a class="flex items-center gap-3 px-4 py-3 bg-[#2A2A2A] text-[#D4AF37] border-l-2 border-[#D4AF37] transition-all duration-200 ease-in-out font-sans text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="settings_voice" data-weight="fill">settings_voice</span>
+                Voice Config
+            </a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out font-sans text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="quiz">quiz</span>
+                Question Manager
+            </a>
+<!-- Inactive -->
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-[#A0A0A0] hover:bg-[#252525] hover:text-white transition-all duration-200 ease-in-out font-sans text-sm tracking-tight" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                Analytics
+            </a>
+</div>
+<div class="mt-auto pt-6 border-t border-[#2A2A2A] flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden border border-[#2A2A2A]">
+<img alt="Admin User" class="w-full h-full object-cover" data-alt="professional portrait photograph of an administrator in minimal studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7aWxJCiWNZQobSMTeVlkKNPGLJPVOIZwqAXu_s0L-YtzlSFPzgQQbf6sZGxk3Wm_7mPe4Q5rGFjOUQ-NrpRkq2NSxIw2RsJ_WxLMplddkEE9zFVjRQhMsHtTuCOvbExAHDUscBdlMHg-_9Sib2yffB-i1plfuNKfWnZwCQx9AQ-n5aRGgxQpHwUU42dJarRrjUtz8geVMlmpfbmbjgxoSyeTSw1Vn-NmOk7DsLClkWZIVevAy2QQ_QtTmWEZYTfr9Iyc34V-nNt4"/>
+</div>
+<div>
+<p class="font-ui-label text-ui-label text-[#D4AF37]">Admin User</p>
+<p class="font-caption text-caption text-[#A0A0A0]">Super Admin</p>
+</div>
+</div>
+</nav>
+<!-- Mobile Top App Bar -->
+<header class="lg:hidden bg-[#0A0A0A]/80 backdrop-blur-md border-[#2A2A2A] border-b-[1px] flat no-shadows fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16">
+<button class="text-[#D4AF37] scale-95 active:opacity-80 transition-all">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<span class="text-[#D4AF37] font-serif tracking-[0.2em] text-lg uppercase text-xs">ELOCUTIONIST</span>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-[#2A2A2A]">
+<img alt="User profile avatar" class="w-full h-full object-cover" data-alt="professional portrait photograph of an administrator in minimal studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBV4i3PL7h1U7TiecmwZ-R5f6tx4Yo2QMiE9Ks_2V_EygEmSUK4JIQ4CFs5aVP4oVUt5EpkSpnn0Y46F9hH0fYNZlunDeNcfw1vAhd4RmSJl-Xt67AnR5SnPZ77hl4Fjiy-rVIvLn18sFTK8ce-ej4Si8l0uSkjnUGkLFl4OtIiJuxRYKbTGpKXLOT2mBi_-I_0ufKW7S1ipkiUU3Zngzk3HeMV9jLW-AKeYHawyiMI7SRGJ4rS4QwwiDtyFl9UkNiOhN4uoVFcYoI"/>
+</div>
+</header>
+<!-- Main Content Area -->
+<div class="flex-1 lg:ml-72 flex flex-col pt-16 lg:pt-0 pb-20 lg:pb-0 min-h-screen">
+<main class="flex-1 p-gutter lg:p-xl max-w-container-max mx-auto w-full flex flex-col gap-xl">
+<!-- Page Header -->
+<div class="flex flex-col gap-sm">
+<h1 class="font-h1 text-h1 text-on-surface">Voice &amp; Form Configuration</h1>
+<p class="font-ui-body text-ui-body text-on-surface-variant max-w-2xl">
+                    Manage Fish Audio integration settings and configure external lead capture forms via Go High Level snippets. Changes apply immediately to all active models.
+                </p>
+</div>
+<!-- Configuration Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter lg:gap-xl">
+<!-- Voice IDs Column -->
+<div class="lg:col-span-5 flex flex-col gap-md">
+<div class="bg-surface-container-low border border-outline-variant p-lg rounded-xl flex flex-col gap-md h-full">
+<div class="flex items-center gap-3 border-b border-surface-container-high pb-4">
+<span class="material-symbols-outlined text-primary" data-icon="settings_voice" data-weight="fill">settings_voice</span>
+<h2 class="font-h2 text-h2 text-on-surface text-[20px]">Fish Audio Configuration</h2>
+</div>
+<div class="flex flex-col gap-6 pt-2">
+<div class="flex flex-col gap-2">
+<label class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-wider">Primary Voice ID (Male)</label>
+<input class="bg-transparent border-b border-outline-variant focus:border-primary focus:ring-0 outline-none py-2 text-on-surface font-ui-body transition-colors" placeholder="Enter ID" type="text" value="fish-v1-male-std-004"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-wider">Primary Voice ID (Female)</label>
+<input class="bg-transparent border-b border-outline-variant focus:border-primary focus:ring-0 outline-none py-2 text-on-surface font-ui-body transition-colors" placeholder="Enter ID" type="text" value="fish-v1-fem-pro-012"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-wider">API Key (Encrypted)</label>
+<input class="bg-transparent border-b border-outline-variant focus:border-primary focus:ring-0 outline-none py-2 text-on-surface font-ui-body transition-colors" placeholder="Enter API Key" type="password" value="************************"/>
+</div>
+<div class="mt-4 p-4 bg-surface-container-highest border border-outline-variant rounded-lg flex items-start gap-3">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mt-0.5" data-icon="info">info</span>
+<p class="font-caption text-caption text-on-surface-variant leading-relaxed">
+                                    Voice IDs must exactly match those provided in the Fish Audio developer console. Invalid IDs will cause speech generation to fail gracefully to text-only mode.
+                                </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Form Integration Column -->
+<div class="lg:col-span-7 flex flex-col gap-md">
+<div class="bg-surface-container-low border border-outline-variant p-lg rounded-xl flex flex-col gap-md h-full">
+<div class="flex items-center justify-between border-b border-surface-container-high pb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="integration_instructions" data-weight="fill">integration_instructions</span>
+<h2 class="font-h2 text-h2 text-on-surface text-[20px]">Form Integration (GHL)</h2>
+</div>
+<div class="px-2 py-1 bg-surface-container-high rounded text-[10px] font-ui-label tracking-widest text-on-surface-variant uppercase border border-outline-variant">Active</div>
+</div>
+<div class="flex flex-col gap-6 pt-2 flex-1">
+<div class="flex flex-col gap-2 flex-1">
+<label class="font-ui-label text-ui-label text-on-surface-variant uppercase tracking-wider">Go High Level HTML/JS Snippet</label>
+<textarea class="w-full flex-1 min-h-[240px] bg-surface-container-highest border border-outline-variant focus:border-secondary focus:ring-0 outline-none p-4 text-on-surface font-mono text-sm transition-colors rounded-lg resize-none" placeholder="Paste your &lt;script&gt; or &lt;iframe&gt; embed code here...">&lt;!-- GHL Embed Code --&gt;
+&lt;script src="https://link.msgsndr.com/js/form_embed.js"&gt;&lt;/script&gt;
+&lt;iframe
+  src="https://link.msgsndr.com/widget/form/xlk2j3h4g5f6d7s8a9"
+  style="width:100%;height:100%;border:none;border-radius:3px"
+  id="inline-xlk2j3h4g5f6d7s8a9" 
+  data-layout="{'id':'INLINE'}"
+  data-trigger-type="alwaysShow"
+  data-trigger-value=""
+  data-activation-type="alwaysActivated"
+  data-activation-value=""
+  data-deactivation-type="neverDeactivate"
+  data-deactivation-value=""
+  data-form-name="Premium Consultation Form"
+  data-height="520"
+  data-layout-iframe-id="inline-xlk2j3h4g5f6d7s8a9"
+  data-form-id="xlk2j3h4g5f6d7s8a9"
+  title="Premium Consultation Form"
+      &gt;
+&lt;/iframe&gt;</textarea>
+</div>
+<div class="flex flex-col sm:flex-row gap-4 pt-4 border-t border-surface-container-high">
+<button class="flex-1 bg-transparent border border-outline-variant text-on-surface font-ui-label text-ui-label px-6 py-3 rounded-full hover:text-secondary hover:border-secondary transition-colors text-center uppercase tracking-wider flex items-center justify-center gap-2 group">
+<span class="material-symbols-outlined text-lg group-hover:text-secondary transition-colors" data-icon="preview">preview</span>
+                                    Test Form
+                                </button>
+<button class="flex-1 bg-primary text-on-primary font-ui-label text-ui-label px-6 py-3 rounded-full hover:bg-primary-fixed transition-colors text-center uppercase tracking-wider font-bold">
+                                    Update Integration
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Footer -->
+<footer class="w-full flex flex-col items-center gap-4 mt-auto py-12 border-t border-[#1A1A1A] bg-[#0A0A0A]">
+<div class="flex gap-6">
+<a class="text-[#4A4A4A] hover:text-[#D4AF37] transition-colors font-sans text-[9px] uppercase tracking-[0.3em] opacity-100 hover:opacity-80" href="#">Privacy</a>
+<a class="text-[#4A4A4A] hover:text-[#D4AF37] transition-colors font-sans text-[9px] uppercase tracking-[0.3em] opacity-100 hover:opacity-80" href="#">Terms</a>
+<a class="text-[#4A4A4A] hover:text-[#D4AF37] transition-colors font-sans text-[9px] uppercase tracking-[0.3em] opacity-100 hover:opacity-80" href="#">Methodology</a>
+</div>
+<p class="text-[#4A4A4A] font-sans text-[9px] uppercase tracking-[0.3em]">© 2024 ELOCUTIONIST ATELIER. ALL RIGHTS RESERVED.</p>
+</footer>
+</div>
+<!-- Mobile Bottom Nav Bar -->
+<nav class="lg:hidden bg-[#0A0A0A]/90 backdrop-blur-xl border-[#2A2A2A] border-t-[1px] flat no-shadows fixed bottom-0 w-full z-50 flex justify-around items-center h-20 pb-safe">
+<!-- Inactive -->
+<button class="flex flex-col items-center gap-1 text-[#4A4A4A] hover:text-indigo-300 tap-highlight-none active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+<span class="font-sans text-[10px] uppercase tracking-wider">Compose</span>
+</button>
+<!-- Inactive -->
+<button class="flex flex-col items-center gap-1 text-[#4A4A4A] hover:text-indigo-300 tap-highlight-none active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="font-sans text-[10px] uppercase tracking-wider">Brainstorm</span>
+</button>
+<!-- Inactive -->
+<button class="flex flex-col items-center gap-1 text-[#4A4A4A] hover:text-indigo-300 tap-highlight-none active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="auto_stories">auto_stories</span>
+<span class="font-sans text-[10px] uppercase tracking-wider">Library</span>
+</button>
+<!-- Active -->
+<button class="flex flex-col items-center gap-1 text-[#D4AF37] font-bold hover:text-indigo-300 tap-highlight-none active:scale-90 transition-transform">
+<span class="material-symbols-outlined" data-icon="settings" data-weight="fill">settings</span>
+<span class="font-sans text-[10px] uppercase tracking-wider">Settings</span>
+</button>
+</nav>
+</body></html>
