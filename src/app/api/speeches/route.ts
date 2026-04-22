@@ -6,6 +6,7 @@ import {
   generateIdempotencyKey,
   checkIdempotencyKey,
 } from "@/lib/idempotency";
+import { runSpeechPipeline } from "@/lib/pipeline";
 
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -105,6 +106,18 @@ export async function POST(request: Request) {
         email: contact.email,
         idempotency_key: key,
       },
+    });
+
+    // Fire-and-forget: kick off the speech generation pipeline in the
+    // background. We intentionally do NOT await this so the user gets an
+    // immediate HTTP 201 response while the pipeline (brainstorm → draft →
+    // audio → GHL) runs asynchronously. Pipeline errors are logged inside
+    // runSpeechPipeline and do not affect the response.
+    runSpeechPipeline(speech.id).catch((pipelineErr) => {
+      console.error(
+        `[speeches] Pipeline failed for speech ${speech.id}:`,
+        pipelineErr
+      );
     });
 
     return NextResponse.json({ speech }, { status: 201 });
