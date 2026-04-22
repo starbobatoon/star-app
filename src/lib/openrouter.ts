@@ -161,8 +161,30 @@ export async function chat(params: ChatParams): Promise<Response> {
 
   if (!response.ok) {
     const body = await response.text();
+    const status = response.status;
+
+    if (status === 401 || status === 403) {
+      throw new Error(
+        `OpenRouter auth failed (HTTP ${status}): API key is invalid or expired. ${body}`
+      );
+    }
+    if (status === 429) {
+      throw new Error(
+        `OpenRouter rate limit exceeded (HTTP 429): ${body}`
+      );
+    }
+    if (status === 400) {
+      throw new Error(
+        `OpenRouter request error (HTTP 400): ${body}`
+      );
+    }
+    if (status === 402) {
+      throw new Error(
+        `OpenRouter billing error (HTTP 402): Insufficient credits. ${body}`
+      );
+    }
     throw new Error(
-      `OpenRouter API error (${response.status}): ${body}`
+      `OpenRouter API error (HTTP ${status}): ${body}`
     );
   }
 
@@ -236,9 +258,16 @@ export async function listModels(apiKey: string): Promise<ModelInfo[]> {
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch OpenRouter models (${response.status}): ${await response.text()}`
-    );
+    const status = response.status;
+    const body = await response.text().catch(() => "");
+
+    if (status === 401 || status === 403) {
+      throw new Error(`OpenRouter auth failed (HTTP ${status}): API key is invalid or expired.`);
+    }
+    if (status === 429) {
+      throw new Error(`OpenRouter rate limit exceeded (HTTP 429) while fetching models.`);
+    }
+    throw new Error(`Failed to fetch OpenRouter models (HTTP ${status}): ${body}`);
   }
 
   const data = await response.json();
