@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
       }}
     >
       <Card
-        style={{
+        cardStyle={{
           width: '100%',
           maxWidth: '400px',
           padding: spacing.xl,

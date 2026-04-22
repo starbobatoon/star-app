@@ -168,6 +168,17 @@ export default function AdminLoginPage() {
         >
           Protected area. Authorized personnel only.
         </p>
+        <p style={{ textAlign: 'center', marginTop: spacing.sm }}>
+          <a
+            href="/admin/forgot-password"
+            style={{
+              color: colors.secondary,
+              textDecoration: 'none',
+            }}
+          >
+            Forgot Password?
+          </a>
+        </p>
       </div>
     </div>
   );
