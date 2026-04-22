@@ -161,6 +161,7 @@ export default function OpenRouterPage() {
   // Page load state
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [promptUnavailable, setPromptUnavailable] = useState(false);
 
   // Section A: API Key
   const [apiKey, setApiKey] = useState('');
@@ -210,14 +211,21 @@ export default function OpenRouterPage() {
   const loadConfig = async () => {
     setIsLoading(true);
     setLoadError(null);
+    setPromptUnavailable(false);
     try {
       const res = await fetch('/api/admin/openrouter');
-      if (!res.ok) throw new Error('Failed to load config');
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Server error (${res.status}). Check server logs for details.`);
+      }
 
       if (data.integration) {
         setApiKeyPreview(data.integration.api_key_preview);
         setIsConfigured(data.integration.is_configured);
+      }
+
+      if (data.promptAvailable === false) {
+        setPromptUnavailable(true);
       }
 
       if (data.slots && data.slots.length > 0) {
@@ -237,7 +245,9 @@ export default function OpenRouterPage() {
             temperature: brainstormData.temperature,
             maxTokens: brainstormData.max_output_tokens,
           });
-          setBrainstormPrompt(brainstormData.custom_prompt || '');
+          if (data.promptAvailable !== false) {
+            setBrainstormPrompt(brainstormData.custom_prompt || '');
+          }
           // Check if brainstorm uses primary
           if (primaryData && brainstormData.model_id === primaryData.model_id &&
               brainstormData.temperature === primaryData.temperature &&
@@ -254,7 +264,9 @@ export default function OpenRouterPage() {
             temperature: speechwriterData.temperature,
             maxTokens: speechwriterData.max_output_tokens,
           });
-          setSpeechwriterPrompt(speechwriterData.custom_prompt || '');
+          if (data.promptAvailable !== false) {
+            setSpeechwriterPrompt(speechwriterData.custom_prompt || '');
+          }
         }
       }
     } catch (err) {
@@ -557,6 +569,17 @@ export default function OpenRouterPage() {
         {loadError && (
           <Card cardStyle={{ marginBottom: spacing.lg, borderColor: colors.error }}>
             <Tag variant="error">Error: {loadError}</Tag>
+          </Card>
+        )}
+
+        {promptUnavailable && (
+          <Card cardStyle={{ marginBottom: spacing.lg, borderColor: '#f59e0b' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+              <Tag variant="primary">Notice</Tag>
+              <span style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
+                Custom prompts are unavailable. Run migration 006_custom_bot_prompts.sql to enable prompt editing.
+              </span>
+            </div>
           </Card>
         )}
 
@@ -1281,6 +1304,7 @@ export default function OpenRouterPage() {
                   onChange={(e) => setBrainstormPrompt(e.target.value)}
                   placeholder="Example: You are a strategic brainstorming partner. Always consider multiple perspectives before suggesting ideas. Challenge assumptions constructively. Focus on actionable outcomes..."
                   rows={5}
+                  disabled={promptUnavailable}
                   style={{
                     ...typography.uiBody,
                     backgroundColor: colors.surface.containerLow,
@@ -1330,6 +1354,7 @@ export default function OpenRouterPage() {
                   onChange={(e) => setSpeechwriterPrompt(e.target.value)}
                   placeholder="Example: Write speeches that are bold, clear, and rooted in lived experience. Use vivid storytelling over abstract language. Lead with conviction. Every speech should move the audience to action..."
                   rows={5}
+                  disabled={promptUnavailable}
                   style={{
                     ...typography.uiBody,
                     backgroundColor: colors.surface.containerLow,
