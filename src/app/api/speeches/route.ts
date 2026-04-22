@@ -8,6 +8,7 @@ import {
 } from "@/lib/idempotency";
 import { runSpeechPipeline } from "@/lib/pipeline";
 import { speechRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -30,6 +31,15 @@ const createSpeechSchema = z.object({
 // GET /api/speeches - List speeches (admin only)
 export async function GET(request: Request) {
   try {
+    // Auth check: must be authenticated and admin
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
+
     const admin = createAdminClient();
     
     // Get query params for pagination
