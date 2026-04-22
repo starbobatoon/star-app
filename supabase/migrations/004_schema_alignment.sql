@@ -39,3 +39,6 @@ BEGIN
     ALTER TABLE ghl_field_mappings ADD COLUMN ghl_custom_field_id TEXT;
   END IF;
 END $$;
+
+-- Make phone mandatory (NOT NULL) - user request 2026-04-22
+ALTER TABLE speeches ALTER COLUMN phone SET NOT NULL;

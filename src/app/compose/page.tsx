@@ -122,7 +122,8 @@ export default function ComposePage() {
     setAnswers((prev) => ({ ...prev, [questionIndex]: value }));
   };
 
-  const canProceedFromContact = contact.email.trim().length > 0;
+  const canProceedFromContact =
+    contact.email.trim().length > 0 && contact.phone.trim().length > 0;
 
   const canProceedFromQuestion = (idx: number) => {
     // All questions are optional for now — allow proceeding with empty answers
@@ -285,11 +286,13 @@ export default function ComposePage() {
               </div>
               <div style={{ marginTop: spacing.md }}>
                 <Input
-                  label="Phone (optional)"
+                  label="Phone *"
                   type="tel"
                   placeholder="+1 (555) 123-4567"
                   value={contact.phone}
                   onChange={(e) => handleContactChange("phone", e.target.value)}
+                  required
+                  helperText="Required — we'll text you when your speech is ready"
                 />
               </div>
             </Card>
