@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { colors, typography, radius, spacing } from '@/styles/design-tokens';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -8,25 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Select, type SelectOption } from '@/components/ui/Select';
 import { Tag } from '@/components/ui/Tag';
 
-// ─── Mock Data ────────────────────────────────────────────────────
-
-const MOCK_GHL_CUSTOM_FIELDS: SelectOption[] = [
-  { value: 'cf_speech_title', label: 'Speech Title' },
-  { value: 'cf_speech_type', label: 'Speech Type' },
-  { value: 'cf_audience_size', label: 'Audience Size' },
-  { value: 'cf_event_name', label: 'Event Name' },
-  { value: 'cf_event_date', label: 'Event Date' },
-  { value: 'cf_tone', label: 'Tone / Style' },
-  { value: 'cf_duration', label: 'Duration (minutes)' },
-  { value: 'cf_key_message', label: 'Key Message' },
-  { value: 'cf_speech_status', label: 'Speech Status' },
-  { value: 'cf_speech_link', label: 'Speech Link (PDF)' },
-  { value: 'cf_audio_link', label: 'Audio Link' },
-  { value: 'cf_last_generated', label: 'Last Generated Date' },
-  { value: 'cf_speaker_notes', label: 'Speaker Notes' },
-  { value: 'cf_outline_notes', label: 'Outline / Notes' },
-  { value: 'cf_revision_count', label: 'Revision Count' },
-];
+// ─── Constants ────────────────────────────────────────────────────
 
 const STANDARD_FIELDS = [
   { starField: 'First Name', ghlField: 'firstName', description: 'Contact first name' },
@@ -174,11 +156,11 @@ export default function GhlIntegrationPage() {
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [locationName, setLocationName] = useState('');
   const [connectionError, setConnectionError] = useState('');
-  const [scopeVerified, setScopeVerified] = useState(false);
+  const [customFieldCount, setCustomFieldCount] = useState<number | null>(null);
 
   // Section C state
   const [customFieldMaps, setCustomFieldMaps] = useState<CustomFieldMap[]>(DEFAULT_CUSTOM_FIELDS);
-  const [ghlFields, setGhlFields] = useState<SelectOption[]>(MOCK_GHL_CUSTOM_FIELDS);
+  const [ghlFields, setGhlFields] = useState<SelectOption[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   // Section E state
@@ -189,48 +171,110 @@ export default function GhlIntegrationPage() {
   const [webhookUrl, setWebhookUrl] = useState('');
   const [webhookEnabled, setWebhookEnabled] = useState(false);
 
-  // ─── Mock API calls ──────────────────────────────────────────
+  // Save state
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+
+  // ─── Load saved config on mount ─────────────────────────────
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/ghl');
+        if (!res.ok) return; // not configured yet, that's fine
+        const data = await res.json();
+        if (!data.configured) return;
+
+        setLocationId(data.locationId ?? '');
+        setWorkflowId(data.workflowId ?? '');
+        setTriggerEvent(data.triggerEvent ?? 'star_speech_ready');
+        setWebhookUrl(data.n8nWebhookUrl ?? '');
+        setWebhookEnabled(data.n8nEnabled ?? false);
+
+        // PIT: mark as unchanged so save can reuse the encrypted value
+        if (data.pitPreview) {
+          setPit(`unchanged:${data.locationId}`);
+        }
+
+        // Restore field mappings
+        if (Array.isArray(data.fieldMappings) && data.fieldMappings.length > 0) {
+          setCustomFieldMaps((prev) =>
+            prev.map((m) => {
+              const saved = data.fieldMappings.find(
+                (fm: { starAppField: string }) => fm.starAppField === m.starKey
+              );
+              return saved ? { ...m, ghlFieldId: saved.ghlCustomFieldId } : m;
+            })
+          );
+        }
+      } catch {
+        // Silently ignore load errors — user can still configure manually
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  // ─── Real API calls ──────────────────────────────────────────
 
   const testConnection = useCallback(async () => {
     setConnectionStatus('testing');
     setConnectionError('');
     setLocationName('');
-    setScopeVerified(false);
+    setCustomFieldCount(null);
 
-    // Mock: simulate GET /locations/{id}
-    await new Promise((r) => setTimeout(r, 1200));
-    const locationCheckOk = locationId.trim().length > 0;
+    try {
+      const res = await fetch('/api/admin/ghl/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pit, locationId }),
+      });
 
-    if (!locationCheckOk) {
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        setConnectionStatus('error');
+        const msgs = Array.isArray(data.errors) ? data.errors : [data.error || 'Connection test failed.'];
+        setConnectionError(msgs.join(' '));
+        return;
+      }
+
+      // Real success
+      setLocationName(data.locationName ?? '');
+      setCustomFieldCount(data.customFieldCount ?? null);
+      setConnectionStatus('success');
+    } catch (err) {
       setConnectionStatus('error');
-      setConnectionError('Location ID is required.');
-      return;
+      setConnectionError(
+        err instanceof Error ? err.message : 'Network error contacting GHL.'
+      );
     }
-
-    // Mock success for location check
-    const mockLocationName = 'Christy\'s Coaching HQ';
-    setLocationName(mockLocationName);
-
-    // Mock: simulate GET /locations/{id}/customFields for scope verification
-    await new Promise((r) => setTimeout(r, 800));
-    const scopeOk = pit.trim().length > 0;
-
-    if (!scopeOk) {
-      setConnectionStatus('error');
-      setConnectionError('Location found but PIT appears invalid. Scope verification failed.');
-      return;
-    }
-
-    setScopeVerified(true);
-    setConnectionStatus('success');
   }, [pit, locationId]);
 
   const refreshCustomFields = useCallback(async () => {
     setRefreshing(true);
-    // Mock: simulate fetching custom fields from GHL
-    await new Promise((r) => setTimeout(r, 1000));
-    setGhlFields([...MOCK_GHL_CUSTOM_FIELDS]);
-    setRefreshing(false);
+    try {
+      const res = await fetch('/api/admin/ghl/custom-fields');
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to fetch custom fields.');
+      }
+      const data = await res.json();
+      const options: SelectOption[] = (data.fields ?? []).map(
+        (f: { id: string; name: string }) => ({
+          value: f.id,
+          label: f.name,
+        })
+      );
+      setGhlFields(options);
+    } catch (err) {
+      console.error('Refresh custom fields failed:', err);
+      // Keep existing ghlFields on error
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
   const handleCustomFieldChange = useCallback((starKey: string, ghlFieldId: string) => {
@@ -239,7 +283,58 @@ export default function GhlIntegrationPage() {
     );
   }, []);
 
+  const handleSave = useCallback(async () => {
+    setSaving(true);
+    setSaveMessage('');
+    setSaveError('');
+
+    try {
+      const fieldMappings = customFieldMaps
+        .filter((m) => m.ghlFieldId)
+        .map((m) => ({ starAppField: m.starKey, ghlCustomFieldId: m.ghlFieldId }));
+
+      const res = await fetch('/api/admin/ghl', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pit,
+          locationId,
+          fieldMappings,
+          workflowId,
+          triggerEvent,
+          n8nWebhookUrl: webhookEnabled ? webhookUrl : '',
+          n8nEnabled: webhookEnabled,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSaveError(data.error || data.details ? JSON.stringify(data.details) : 'Save failed.');
+        return;
+      }
+
+      setSaveMessage('Configuration saved successfully.');
+      // After first real save, mark PIT as unchanged
+      if (!pit.startsWith('unchanged:')) {
+        setPit(`unchanged:${locationId}`);
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Save failed.');
+    } finally {
+      setSaving(false);
+    }
+  }, [pit, locationId, customFieldMaps, workflowId, triggerEvent, webhookUrl, webhookEnabled]);
+
   // ─── Render ─────────────────────────────────────────────────
+
+  if (!loaded) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: colors.surface.base, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ ...typography.uiBody, color: colors.onSurfaceVariant }}>Loading configuration...</span>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -253,7 +348,7 @@ export default function GhlIntegrationPage() {
     >
       <div
         style={{
-          maxWidth: spacing.containerMax,
+          maxWidth: '1400px',
           margin: '0 auto',
           display: 'flex',
           flexDirection: 'column',
@@ -261,29 +356,47 @@ export default function GhlIntegrationPage() {
         }}
       >
         {/* Page Header */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-          <h1
-            style={{
-              ...typography.h1,
-              fontSize: '36px',
-              color: colors.onSurface,
-              margin: 0,
-            }}
-          >
-            GoHighLevel Integration
-          </h1>
-          <p
-            style={{
-              ...typography.uiBody,
-              color: colors.onSurfaceVariant,
-              maxWidth: '720px',
-              margin: 0,
-            }}
-          >
-            Configure your CRM connection, map custom fields, set up email workflow
-            triggers, and optionally enable n8n webhook automation. Changes are saved
-            per-location.
-          </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.lg }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
+            <h1
+              style={{
+                ...typography.h1,
+                fontSize: '36px',
+                color: colors.onSurface,
+                margin: 0,
+              }}
+            >
+              GoHighLevel Integration
+            </h1>
+            <p
+              style={{
+                ...typography.uiBody,
+                color: colors.onSurfaceVariant,
+                maxWidth: '720px',
+                margin: 0,
+              }}
+            >
+              Configure your CRM connection, map custom fields, set up email workflow
+              triggers, and optionally enable n8n webhook automation.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: spacing.sm, flexShrink: 0 }}>
+            <Button
+              variant="primary"
+              loading={saving}
+              onClick={handleSave}
+              disabled={!pit.trim() || !locationId.trim()}
+            >
+              Save Configuration
+            </Button>
+            {saveMessage && (
+              <span style={{ ...typography.caption, color: colors.primary }}>{saveMessage}</span>
+            )}
+            {saveError && (
+              <span style={{ ...typography.caption, color: colors.error }}>{saveError}</span>
+            )}
+          </div>
         </div>
 
         {/* ─── Section A: Credentials & Connection Test ───────── */}
@@ -311,13 +424,15 @@ export default function GhlIntegrationPage() {
               label="Private Integration Token (PIT)"
               type="password"
               placeholder="Enter your GHL PIT"
-              value={pit}
+              value={pit.startsWith('unchanged:') ? '' : pit}
               onChange={(e) => setPit(e.target.value)}
               error={connectionStatus === 'error' && pit.trim().length === 0}
               helperText={
                 connectionStatus === 'error' && pit.trim().length === 0
                   ? 'PIT is required for scope verification'
-                  : 'Password-masked. Found under Settings > Integrations in GHL.'
+                  : pit.startsWith('unchanged:')
+                    ? 'Token saved. Enter a new value to replace.'
+                    : 'Password-masked. Found under Settings > Integrations in GHL.'
               }
             />
             <Input
@@ -352,14 +467,18 @@ export default function GhlIntegrationPage() {
               Test Connection
             </Button>
 
-            {connectionStatus === 'success' && locationName && (
+            {connectionStatus === 'success' && (
               <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
                 <span style={{ color: colors.primary, fontSize: 18 }}>✅</span>
                 <span style={{ ...typography.uiBody, color: colors.onSurface }}>
-                  <strong>{locationName}</strong>
-                  {scopeVerified && (
-                    <span style={{ color: colors.primary, marginLeft: spacing.sm }}>
-                      (Scope verified: customFields access confirmed)
+                  {locationName ? (
+                    <><strong>{locationName}</strong> connected</>
+                  ) : (
+                    <strong>Connection verified</strong>
+                  )}
+                  {customFieldCount !== null && (
+                    <span style={{ color: colors.onSurfaceVariant, marginLeft: spacing.sm }}>
+                      ({customFieldCount} custom field{customFieldCount !== 1 ? 's' : ''})
                     </span>
                   )}
                 </span>
@@ -386,7 +505,7 @@ export default function GhlIntegrationPage() {
                 margin: 0,
               }}
             >
-              {'Two checks run on Test Connection: (1) GET /locations/[id] to verify the Location ID is valid, and (2) GET /locations/[id]/customFields to confirm the PIT has the correct scope for reading and writing custom fields.'}
+              Two checks run on Test Connection: (1) GET /locations/[id] to verify the Location ID is valid, and (2) GET /locations/[id]/customFields to confirm the PIT has the correct scope for reading and writing custom fields.
             </p>
           </div>
         </Card>
@@ -465,7 +584,7 @@ export default function GhlIntegrationPage() {
               loading={refreshing}
               onClick={refreshCustomFields}
             >
-              ↻ Refresh Fields from GHL
+              Refresh Fields from GHL
             </Button>
           </div>
 
@@ -494,7 +613,7 @@ export default function GhlIntegrationPage() {
                         options={ghlFields}
                         value={map.ghlFieldId}
                         onChange={(val) => handleCustomFieldChange(map.starKey, val)}
-                        placeholder="Select field…"
+                        placeholder={ghlFields.length > 0 ? 'Select field...' : 'Click Refresh to load fields'}
                         aria-label={`Map ${map.starField} to GHL field`}
                       />
                     </td>

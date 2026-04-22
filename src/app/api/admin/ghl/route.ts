@@ -5,6 +5,64 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { encrypt } from "@/lib/encryption";
 import { writeAuditLog } from "@/lib/audit-log";
 
+// ─── GET /api/admin/ghl ─────────────────────────────────────────────
+
+export async function GET() {
+  // Admin auth check
+  const supabase = await createServerClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const admin = createAdminClient();
+
+  // Load integration config
+  const { data: integration, error: intError } = await admin
+    .from("ghl_integration")
+    .select("id, location_id, pit_preview, is_configured, workflow_id, trigger_event, n8n_webhook_url, n8n_enabled")
+    .limit(1)
+    .maybeSingle();
+
+  if (intError) {
+    console.error("[ghl-config] Failed to load integration:", intError);
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+
+  if (!integration) {
+    return NextResponse.json({ configured: false });
+  }
+
+  // Load field mappings
+  const { data: mappings, error: mapError } = await admin
+    .from("ghl_field_mappings")
+    .select("star_app_field, ghl_custom_field_id")
+    .eq("location_id", integration.location_id);
+
+  if (mapError) {
+    console.error("[ghl-config] Failed to load field mappings:", mapError);
+    // Non-fatal: return integration without mappings
+  }
+
+  return NextResponse.json({
+    configured: integration.is_configured,
+    locationId: integration.location_id,
+    pitPreview: integration.pit_preview,
+    workflowId: integration.workflow_id ?? "",
+    triggerEvent: integration.trigger_event ?? "star_speech_ready",
+    n8nWebhookUrl: integration.n8n_webhook_url ?? "",
+    n8nEnabled: integration.n8n_enabled ?? false,
+    fieldMappings: (mappings ?? []).map((m) => ({
+      starAppField: m.star_app_field,
+      ghlCustomFieldId: m.ghl_custom_field_id,
+    })),
+  });
+}
+
 // ─── Request schema ────────────────────────────────────────────────
 
 const fieldMappingSchema = z.object({
@@ -13,11 +71,11 @@ const fieldMappingSchema = z.object({
 });
 
 const putGhlConfigSchema = z.object({
-  pit: z.string().min(1, "PIT is required"),
+  pit: z.string().min(1, "PIT is required"), // raw token or "unchanged:<locationId>"
   locationId: z.string().min(1, "locationId is required"),
-  fieldMappings: z.array(fieldMappingSchema).min(1, "At least one field mapping is required"),
-  workflowId: z.string().min(1, "workflowId is required"),
-  triggerEvent: z.string().min(1, "triggerEvent is required"),
+  fieldMappings: z.array(fieldMappingSchema).optional().default([]),
+  workflowId: z.string().optional().default(""),
+  triggerEvent: z.string().optional().default("star_speech_ready"),
   n8nWebhookUrl: z.string().url("n8nWebhookUrl must be a valid URL").or(z.literal("")),
   n8nEnabled: z.boolean(),
 });
@@ -55,23 +113,40 @@ export async function PUT(request: Request) {
 
   const { pit, locationId, fieldMappings, workflowId, triggerEvent, n8nWebhookUrl, n8nEnabled } = parsed.data;
 
-  // ── Encrypt PIT ────────────────────────────────────────────────
+  // ── Encrypt PIT (skip if unchanged) ───────────────────────────
+  const admin = createAdminClient();
   let pitEncrypted: string;
-  try {
-    pitEncrypted = encrypt(pit);
-  } catch (err) {
-    console.error("[ghl-config] Encryption failed:", err);
-    return NextResponse.json(
-      { error: "Failed to encrypt PIT. Ensure ENCRYPTION_KEY is configured." },
-      { status: 500 }
-    );
+  let pitPreview: string;
+
+  if (pit.startsWith("unchanged:")) {
+    const { data: existingPit, error: pitFetchError } = await admin
+      .from("ghl_integration")
+      .select("pit_encrypted, pit_preview")
+      .eq("location_id", locationId)
+      .maybeSingle();
+
+    if (pitFetchError || !existingPit?.pit_encrypted) {
+      return NextResponse.json(
+        { error: "Failed to retrieve existing PIT. Please re-enter your token." },
+        { status: 500 }
+      );
+    }
+    pitEncrypted = existingPit.pit_encrypted;
+    pitPreview = existingPit.pit_preview ?? "";
+  } else {
+    try {
+      pitEncrypted = encrypt(pit);
+    } catch (err) {
+      console.error("[ghl-config] Encryption failed:", err);
+      return NextResponse.json(
+        { error: "Failed to encrypt PIT. Ensure ENCRYPTION_KEY is configured." },
+        { status: 500 }
+      );
+    }
+    pitPreview = pit.length >= 4 ? pit.slice(-4) : pit;
   }
 
-  const pitPreview = pit.length >= 4 ? pit.slice(-4) : pit;
-
   // ── Upsert ghl_integration ─────────────────────────────────────
-  const admin = createAdminClient();
-
   // Check if a row already exists for this location
   const { data: existing, error: fetchError } = await admin
     .from("ghl_integration")
