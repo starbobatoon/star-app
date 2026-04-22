@@ -405,6 +405,7 @@ export default function ComposePage() {
             Question {step} of {totalSteps}
           </span>
           <h1 style={questionTitleStyle}>{question}</h1>
+          <VideoPlaceholder videoUrl={questions[questionIndex]?.video_url || null} />
           <QuestionInput
             questionIndex={questionIndex}
             value={currentAnswer}
@@ -431,6 +432,35 @@ export default function ComposePage() {
           onClose={() => setBrainstormStep(null)}
         />
       )}
+    </div>
+  );
+}
+
+// ─── Video Placeholder Component ────────────────────────────────
+function VideoPlaceholder({ videoUrl }: { videoUrl: string | null }) {
+  if (videoUrl) {
+    return (
+      <div style={videoEmbedStyle}>
+        <iframe
+          src={videoUrl}
+          title="Question tutorial video"
+          style={videoIframeStyle}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div style={videoPlaceholderStyle}>
+      <div style={videoPlayIconStyle}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 5v14l11-7L8 5z" fill="currentColor" />
+        </svg>
+      </div>
+      <span style={videoLabelStyle}>Watch tutorial</span>
+      <span style={videoComingSoonStyle}>Video coming soon</span>
     </div>
   );
 }
@@ -894,6 +924,65 @@ const successBodyStyle: React.CSSProperties = {
   lineHeight: typography.uiBody.lineHeight,
   color: colors.onSurfaceVariant,
   marginBottom: spacing.xl,
+};
+
+// Video placeholder styles
+const videoEmbedStyle: React.CSSProperties = {
+  width: "100%",
+  maxWidth: 480,
+  aspectRatio: "16 / 9",
+  borderRadius: radius.lg,
+  overflow: "hidden",
+  marginBottom: spacing.lg,
+  border: `1px solid ${colors.outlineVariant}`,
+};
+
+const videoIframeStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  border: "none",
+};
+
+const videoPlaceholderStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: spacing.sm,
+  padding: `${spacing.sm} ${spacing.md}`,
+  backgroundColor: colors.surface.container,
+  border: `1px dashed ${colors.outlineVariant}`,
+  borderRadius: radius.DEFAULT,
+  marginBottom: spacing.lg,
+  cursor: "default",
+  maxWidth: 480,
+  width: "fit-content",
+};
+
+const videoPlayIconStyle: React.CSSProperties = {
+  width: 32,
+  height: 32,
+  borderRadius: "50%",
+  backgroundColor: `${colors.secondary}20`,
+  color: colors.secondary,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const videoLabelStyle: React.CSSProperties = {
+  fontFamily: `var(${typography.uiLabel.fontFamily})`,
+  fontSize: typography.uiLabel.fontSize,
+  fontWeight: typography.uiLabel.fontWeight,
+  letterSpacing: typography.uiLabel.letterSpacing,
+  color: colors.onSurfaceVariant,
+  textTransform: "uppercase" as const,
+};
+
+const videoComingSoonStyle: React.CSSProperties = {
+  fontFamily: `var(${typography.caption.fontFamily})`,
+  fontSize: typography.caption.fontSize,
+  color: colors.outline,
+  fontStyle: "italic" as const,
 };
 
 const suggestionStyle = (selected: boolean): React.CSSProperties => ({

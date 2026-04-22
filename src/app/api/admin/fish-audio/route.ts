@@ -231,19 +231,15 @@ const postSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    console.log("[fish-audio-config] POST: starting");
     const supabase = await createServerClient();
-    console.log("[fish-audio-config] POST: server client created");
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      console.log("[fish-audio-config] POST: auth failed", authError);
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    console.log("[fish-audio-config] POST: auth OK, user:", user.email);
 
     let body: unknown;
     try {
@@ -262,10 +258,7 @@ export async function POST(request: Request) {
     }
 
     const { apiKey, voiceId, ttsModel, volume, speed, loudnessNormalization, textNormalization } = parsed.data;
-    console.log("[fish-audio-config] POST: parsed body, has apiKey:", !!apiKey, "has voiceId:", !!voiceId);
-
     const admin = createAdminClient();
-    console.log("[fish-audio-config] POST: admin client created");
 
     const { data: existingRow, error: fetchError } = await admin
       .from("fish_audio_integration")
@@ -274,14 +267,12 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (fetchError) {
-      console.error("[fish-audio-config] Failed to check existing:", JSON.stringify(fetchError));
+      console.error("[fish-audio-config] Failed to check existing:", fetchError);
       return NextResponse.json(
         { error: "Failed to check existing configuration." },
         { status: 500 }
       );
     }
-    console.log("[fish-audio-config] POST: existing row:", existingRow?.id);
-
     const integrationData: Record<string, unknown> = {
       tts_model: ttsModel,
       volume,
@@ -310,8 +301,6 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
-      console.log("[fish-audio-config] POST: encryption OK");
-
       apiKeyPreview = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : `****${apiKey}`;
 
       try {
@@ -322,8 +311,6 @@ export async function POST(request: Request) {
         validationStatus = "error";
         validationMessage = e instanceof Error ? e.message : String(e);
       }
-      console.log("[fish-audio-config] POST: validation done:", validationStatus);
-
       integrationData.api_key_encrypted = apiKeyEncrypted;
       integrationData.api_key_preview = apiKeyPreview;
       integrationData.is_configured = validationStatus === "valid";
@@ -339,29 +326,25 @@ export async function POST(request: Request) {
         .eq("id", existingRow.id);
 
       if (updateError) {
-        console.error("[fish-audio-config] Failed to update:", JSON.stringify(updateError));
+        console.error("[fish-audio-config] Failed to update:", updateError);
         return NextResponse.json(
           { error: "Failed to save configuration." },
           { status: 500 }
         );
       }
-      console.log("[fish-audio-config] POST: update OK");
     } else {
       const { error: insertError } = await admin
         .from("fish_audio_integration")
         .insert(integrationData);
 
       if (insertError) {
-        console.error("[fish-audio-config] Failed to insert:", JSON.stringify(insertError));
+        console.error("[fish-audio-config] Failed to insert:", insertError);
         return NextResponse.json(
           { error: "Failed to save configuration." },
           { status: 500 }
         );
       }
-      console.log("[fish-audio-config] POST: insert OK");
     }
-
-    console.log("[fish-audio-config] POST: writing audit log");
     await writeAuditLog({
       actorEmail: user.email,
       action: "update",
@@ -374,8 +357,6 @@ export async function POST(request: Request) {
         validation_status: validationStatus,
       },
     });
-    console.log("[fish-audio-config] POST: audit log OK");
-
     return NextResponse.json({
       ok: true,
       validationStatus,
@@ -383,11 +364,9 @@ export async function POST(request: Request) {
       voiceId,
     });
   } catch (err) {
-    const errMsg = err instanceof Error ? err.message : String(err);
-    const errStack = err instanceof Error ? err.stack : undefined;
-    console.error("[fish-audio-config] POST error:", errMsg, errStack);
+    console.error("[fish-audio-config] POST error:", err instanceof Error ? err.message : String(err));
     return NextResponse.json(
-      { error: "Internal server error", detail: errMsg },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

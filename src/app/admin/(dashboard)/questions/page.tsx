@@ -29,6 +29,7 @@ interface QuestionFormData {
   is_active: boolean;
   ghl_field_key: string;
   display_order: number;
+  video_url: string;
 }
 
 const EMPTY_FORM: QuestionFormData = {
@@ -39,6 +40,7 @@ const EMPTY_FORM: QuestionFormData = {
   is_active: true,
   ghl_field_key: '',
   display_order: 0,
+  video_url: '',
 };
 
 const SECTION_OPTIONS = ['map', 'hook', 'story', 'point', 'cta', 'exit', 'meta'];
