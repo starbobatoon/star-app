@@ -1,7 +1,7 @@
 'use client';
 
 import { type InputHTMLAttributes, type CSSProperties, forwardRef, useId } from 'react';
-import { colors, spacing, radius, typography } from '@/lib/design-tokens';
+import { colors, spacing, typography } from '@/lib/design-tokens';
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'style'> {
   /** Label text displayed above the input. */
@@ -12,29 +12,19 @@ export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 
   error?: boolean;
   /** Additional styles applied to the outer wrapper. */
   wrapperStyle?: CSSProperties;
-  /** Inline styles applied to the input element. Overrides the default style. */
-  inputStyle?: CSSProperties;
+  /** Inline styles applied to the input element. */
+  style?: CSSProperties;
 }
 
 /**
- * Underline-style Input matching the Elocutionist design system.
+ * Underline-style Input component matching the Elocutionist design system.
  *
- * Uses a subtle border-bottom design with focus and error states.
- * All values use design tokens.
+ * Features a subtle border-bottom that transitions to Electric Indigo on focus.
+ * Supports label above and helper/error text below. Uses design tokens
+ * exclusively — no hardcoded values.
  */
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  (
-    {
-      label,
-      helperText,
-      error = false,
-      id,
-      wrapperStyle,
-      inputStyle,
-      ...rest
-    },
-    ref,
-  ) => {
+  ({ label, helperText, error = false, id, wrapperStyle, style, ...rest }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
 
@@ -64,7 +54,6 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       outline: 'none',
       transition: 'border-bottom-color 0.2s ease',
       caretColor: colors.secondary,
-      ...style,
     };
 
     const helperStyle: CSSProperties = {
@@ -88,7 +77,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           id={inputId}
           aria-invalid={error || undefined}
           aria-describedby={helperText ? `${inputId}-helper` : undefined}
-          style={inputStyle}
+          style={{ ...inputStyle, ...style }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderBottomColor = error ? colors.error : colors.secondary;
+            rest.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderBottomColor = error ? colors.error : colors.outlineVariant;
+            rest.onBlur?.(e);
+          }}
           {...rest}
         />
         {helperText && (
