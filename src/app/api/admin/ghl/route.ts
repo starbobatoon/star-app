@@ -24,7 +24,7 @@ export async function GET() {
   // Load integration config
   const { data: integration, error: intError } = await admin
     .from("ghl_integration")
-    .select("id, location_id, pit_preview, is_configured, workflow_id, trigger_event, n8n_webhook_url, n8n_enabled")
+    .select("id, location_id, pit_preview, is_configured, workflow_id, ghl_workflow_id, sms_workflow_id, trigger_event, n8n_webhook_url, n8n_enabled")
     .limit(1)
     .maybeSingle();
 
@@ -53,6 +53,8 @@ export async function GET() {
     locationId: integration.location_id,
     pitPreview: integration.pit_preview,
     workflowId: integration.workflow_id ?? "",
+    ghlWorkflowId: integration.ghl_workflow_id ?? integration.workflow_id ?? "",
+    smsWorkflowId: integration.sms_workflow_id ?? "",
     triggerEvent: integration.trigger_event ?? "star_speech_ready",
     n8nWebhookUrl: integration.n8n_webhook_url ?? "",
     n8nEnabled: integration.n8n_enabled ?? false,
@@ -75,6 +77,8 @@ const putGhlConfigSchema = z.object({
   locationId: z.string().min(1, "locationId is required"),
   fieldMappings: z.array(fieldMappingSchema).optional().default([]),
   workflowId: z.string().optional().default(""),
+  ghlWorkflowId: z.string().optional().default(""),
+  smsWorkflowId: z.string().optional().default(""),
   triggerEvent: z.string().optional().default("star_speech_ready"),
   n8nWebhookUrl: z.string().url("n8nWebhookUrl must be a valid URL").or(z.literal("")),
   n8nEnabled: z.boolean(),
@@ -111,7 +115,7 @@ export async function PUT(request: Request) {
     );
   }
 
-  const { pit, locationId, fieldMappings, workflowId, triggerEvent, n8nWebhookUrl, n8nEnabled } = parsed.data;
+  const { pit, locationId, fieldMappings, workflowId, ghlWorkflowId, smsWorkflowId, triggerEvent, n8nWebhookUrl, n8nEnabled } = parsed.data;
 
   // ── Encrypt PIT (skip if unchanged) ───────────────────────────
   const admin = createAdminClient();
@@ -165,6 +169,8 @@ export async function PUT(request: Request) {
     location_id: locationId,
     is_configured: true,
     workflow_id: workflowId,
+    ghl_workflow_id: ghlWorkflowId,
+    sms_workflow_id: smsWorkflowId,
     trigger_event: triggerEvent,
     n8n_webhook_url: n8nWebhookUrl || null,
     n8n_enabled: n8nEnabled,
