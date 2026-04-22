@@ -17,6 +17,7 @@
 import "server-only";
 
 const FISH_AUDIO_API_URL = "https://api.fish.audio/v1/tts";
+const FISH_AUDIO_API_BASE = "https://api.fish.audio/v1";
 
 /**
  * Parameters for speech synthesis via Fish Audio S2.
@@ -28,6 +29,8 @@ export interface SynthesizeSpeechParams {
   voiceId: string;
   /** Output audio format. Defaults to "mp3". */
   format?: "mp3" | "wav";
+  /** Optional API key to use instead of the environment variable. */
+  apiKey?: string;
 }
 
 /**
@@ -66,7 +69,7 @@ export class FishAudioError extends Error {
  * Retrieves the Fish Audio API key from the environment.
  * @throws {FishAudioError} If the key is not configured.
  */
-function getApiKey(): string {
+function getEnvApiKey(): string {
   const key = process.env.FISH_AUDIO_API_KEY;
   if (!key) {
     throw new FishAudioError(
@@ -76,6 +79,45 @@ function getApiKey(): string {
     );
   }
   return key;
+}
+
+/**
+ * Test the Fish Audio API connection with the provided or environment API key.
+ * @param apiKey - Optional API key to test. If not provided, uses FISH_AUDIO_API_KEY env var.
+ * @returns true if connection is valid, false otherwise.
+ */
+export async function testFishAudioConnection(apiKey?: string): Promise<boolean> {
+  const key = apiKey || process.env.FISH_AUDIO_API_KEY;
+  if (!key) {
+    return false;
+  }
+
+  try {
+    // Try to get user info or models to validate the key
+    // Fish Audio doesn't have a simple auth check endpoint, so we'll try a minimal TTS request
+    // with a very short text
+    const response = await fetch(FISH_AUDIO_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text: "Hi",
+        reference_id: "e75e1618ff544059be71409c5126b4c0",
+      }),
+    });
+
+    // Even if synthesis fails (e.g., invalid voice ID), a 401/403 means bad key
+    if (response.status === 401 || response.status === 403) {
+      return false;
+    }
+
+    // Any other response means the key is valid (even 400 for invalid voice)
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -110,10 +152,8 @@ function getApiKey(): string {
 export async function synthesizeSpeech(
   params: SynthesizeSpeechParams
 ): Promise<Buffer> {
-  const { text, voiceId, format = "mp3" } = params;
-  const apiKey = getApiKey();
-
-  const contentType = format === "wav" ? "audio/wav" : "audio/mpeg";
+  const { text, voiceId, format = "mp3", apiKey } = params;
+  const key = apiKey || getEnvApiKey();
 
   const body: Record<string, unknown> = {
     text,
@@ -126,7 +166,7 @@ export async function synthesizeSpeech(
     response = await fetch(FISH_AUDIO_API_URL, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
