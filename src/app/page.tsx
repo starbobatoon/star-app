@@ -6,7 +6,7 @@ import { colors, spacing, radius, typography, elevation, glassmorphism } from '@
 
 /**
  * Landing page — the first thing users see.
- * Matches the Star Speaker App design reference.
+ * Matches the Star Speaker AI design reference.
  * Dark mode only, tonal layering, no shadows.
  */
 
@@ -101,7 +101,7 @@ export default function LandingPage() {
               fontWeight: 700,
             }}
           >
-            STAR SPEAKER
+            STAR SPEAKER AI
           </span>
         </div>
 

@@ -67,7 +67,7 @@ function ComposeNav() {
           textDecoration: 'none',
         }}
       >
-        STAR SPEAKER
+        STAR SPEAKER AI
       </a>
       <a
         href="/"

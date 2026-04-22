@@ -15,14 +15,14 @@ const newsreader = Newsreader({
 });
 
 export const metadata: Metadata = {
-  title: "Star Speaker App",
+  title: "Star Speaker AI",
   description:
     "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
   icons: {
     icon: "/favicon.png",
   },
   openGraph: {
-    title: "Star Speaker App",
+    title: "Star Speaker AI",
     description:
       "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
     images: ["/logo.png"],
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Star Speaker App",
+    title: "Star Speaker AI",
     description:
       "Where professionals and speakers go to own their stage. Craft compelling speeches with AI-powered structure, rhetoric, and delivery guidance.",
     images: ["/logo.png"],

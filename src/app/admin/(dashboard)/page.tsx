@@ -1024,7 +1024,7 @@ export default function AdminDashboard() {
               margin: 0,
             }}
           >
-            &copy; 2024 STAR SPEAKER APP. ALL RIGHTS RESERVED.
+            &copy; 2024 STAR SPEAKER AI. ALL RIGHTS RESERVED.
           </p>
         </footer>
     </div>

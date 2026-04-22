@@ -99,7 +99,7 @@ export default function UserLoginPage() {
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: spacing.lg }}>
           <a href="/" style={{ display: "inline-block", marginBottom: spacing.md }}>
-            <img src="/logo.png" alt="Star Speaker App" style={{ height: '48px', objectFit: 'contain' }} />
+            <img src="/logo.png" alt="Star Speaker AI" style={{ height: '48px', objectFit: 'contain' }} />
           </a>
           <p
             style={{
