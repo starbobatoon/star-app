@@ -487,11 +487,10 @@ export default function AdminDashboard() {
       {/* ── Main Content ── */}
       <main
         style={{
-          marginLeft: 0,
           padding: `${spacing.xl} ${spacing.lg}`,
           minHeight: '100vh',
         }}
-        className="md:ml-72"
+        className="md:ml-72 pb-28 md:pb-xl"
       >
         {/* ── Mobile Header ── */}
         <header
@@ -536,13 +535,7 @@ export default function AdminDashboard() {
 
         {/* ── Page Header ── */}
         <header
-          style={{
-            marginBottom: spacing.xl,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: spacing.md,
-          }}
-          className="md:flex-row md:items-end md:justify-between"
+          className="flex flex-col gap-4 mb-8 md:flex-row md:items-end md:justify-between pt-16 md:pt-0"
         >
           <div>
             <h1
@@ -571,12 +564,7 @@ export default function AdminDashboard() {
         {/* ── First-Run Setup Cards ── */}
         {showSetupCards && (
           <section
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: spacing.lg,
-              marginBottom: spacing.xl,
-            }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
           >
             {!openRouterConfigured && (
               <Card
@@ -740,13 +728,7 @@ export default function AdminDashboard() {
 
         {/* ── Stats Grid ── */}
         <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: spacing.lg,
-            marginBottom: spacing.xl,
-          }}
-          className="!grid-cols-1 md:!grid-cols-3"
+          className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"
         >
           {/* Stat: Total Speeches */}
           <Card cardStyle={{ minHeight: '160px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -879,12 +861,7 @@ export default function AdminDashboard() {
 
         {/* ── Quick Stats Bar ── */}
         <section
-          style={{
-            display: 'flex',
-            gap: spacing.lg,
-            marginBottom: spacing.xl,
-            flexWrap: 'wrap',
-          }}
+          className="flex flex-wrap gap-4 mb-8"
         >
           <div
             style={{

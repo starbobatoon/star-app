@@ -1,170 +1,32 @@
 'use client';
 
-import { useState, useCallback, type CSSProperties } from 'react';
+import { useState, useEffect, useCallback, type CSSProperties } from 'react';
 import { colors, typography, radius, spacing } from '@/styles/design-tokens';
 import { Button } from '@/components/ui/Button';
-import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
-import { Select, type SelectOption } from '@/components/ui/Select';
 import { Tag } from '@/components/ui/Tag';
 
 // ─── Types ────────────────────────────────────────────────────────
 
-type FeedsSection = 'map' | 'hook' | 'story' | 'point' | 'cta' | 'exit' | 'meta';
-
 interface Question {
   id: string;
-  displayOrder: number;
-  questionText: string;
-  feedsSection: FeedsSection;
-  isRequired: boolean;
-  isVisible: boolean;
-  ghlFieldKey: string | null;
+  display_order: number;
+  question_text: string;
+  helper_text: string | null;
+  feeds_section: string;
+  is_required: boolean;
+  is_active: boolean;
+  ghl_field_key: string | null;
+  created_at: string;
+  updated_at: string;
 }
-
-// ─── Section options ───────────────────────────────────────────────
-
-const SECTION_OPTIONS: SelectOption[] = [
-  { value: 'map', label: 'Map' },
-  { value: 'hook', label: 'Hook' },
-  { value: 'story', label: 'Story' },
-  { value: 'point', label: 'Point' },
-  { value: 'cta', label: 'CTA' },
-  { value: 'exit', label: 'Exit' },
-  { value: 'meta', label: 'Meta' },
-];
-
-const SECTION_LABEL_MAP: Record<FeedsSection, string> = {
-  map: 'Map',
-  hook: 'Hook',
-  story: 'Story',
-  point: 'Point',
-  cta: 'CTA',
-  exit: 'Exit',
-  meta: 'Meta',
-};
-
-// ─── Mock GHL Custom Fields ───────────────────────────────────────
-
-const GHL_FIELD_OPTIONS: SelectOption[] = [
-  { value: '', label: 'None' },
-  { value: 'custom_field_core_message', label: 'Core Message' },
-  { value: 'custom_field_audience', label: 'Primary Audience' },
-  { value: 'custom_field_tone', label: 'Tonal Qualities' },
-  { value: 'custom_field_references', label: 'Historical References' },
-  { value: 'custom_field_cta', label: 'Call to Action' },
-  { value: 'custom_field_sensitive', label: 'Sensitive Subjects' },
-  { value: 'custom_field_duration', label: 'Target Duration' },
-  { value: 'custom_field_multimedia', label: 'Multimedia Aids' },
-  { value: 'custom_field_stakeholders', label: 'Key Stakeholders' },
-  { value: 'custom_field_anecdote', label: 'Thematic Anchor' },
-  { value: 'custom_field_venue', label: 'Venue / Setting' },
-  { value: 'custom_field_dress_code', label: 'Dress Code' },
-  { value: 'custom_field_event_type', label: 'Event Type' },
-  { value: 'custom_field_speaker_name', label: 'Speaker Name' },
-];
-
-// ─── Mock Data (10 default questions from database seed) ──────────
-
-const INITIAL_QUESTIONS: Question[] = [
-  {
-    id: 'q1',
-    displayOrder: 1,
-    questionText: 'What is the core message or thesis of this address?',
-    feedsSection: 'map',
-    isRequired: true,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_core_message',
-  },
-  {
-    id: 'q2',
-    displayOrder: 2,
-    questionText: 'Who comprises the primary audience for this delivery?',
-    feedsSection: 'map',
-    isRequired: true,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_audience',
-  },
-  {
-    id: 'q3',
-    displayOrder: 3,
-    questionText: 'What specific tonal qualities are required? (e.g., Solemn, Uplifting, Aggressive)',
-    feedsSection: 'hook',
-    isRequired: false,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_tone',
-  },
-  {
-    id: 'q4',
-    displayOrder: 4,
-    questionText: 'List any mandatory historical references or quotes.',
-    feedsSection: 'story',
-    isRequired: false,
-    isVisible: false,
-    ghlFieldKey: 'custom_field_references',
-  },
-  {
-    id: 'q5',
-    displayOrder: 5,
-    questionText: 'What is the desired call to action or concluding instruction?',
-    feedsSection: 'cta',
-    isRequired: true,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_cta',
-  },
-  {
-    id: 'q6',
-    displayOrder: 6,
-    questionText: 'Are there any sensitive subjects or names to explicitly avoid?',
-    feedsSection: 'meta',
-    isRequired: false,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_sensitive',
-  },
-  {
-    id: 'q7',
-    displayOrder: 7,
-    questionText: 'What is the target duration (in minutes) for the delivery?',
-    feedsSection: 'meta',
-    isRequired: true,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_duration',
-  },
-  {
-    id: 'q8',
-    displayOrder: 8,
-    questionText: 'Will this be accompanied by any multi-media or visual aids?',
-    feedsSection: 'point',
-    isRequired: false,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_multimedia',
-  },
-  {
-    id: 'q9',
-    displayOrder: 9,
-    questionText: 'Identify any key stakeholders or individuals requiring specific acknowledgment.',
-    feedsSection: 'story',
-    isRequired: true,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_stakeholders',
-  },
-  {
-    id: 'q10',
-    displayOrder: 10,
-    questionText: 'What personal anecdote should serve as the thematic anchor?',
-    feedsSection: 'story',
-    isRequired: false,
-    isVisible: true,
-    ghlFieldKey: 'custom_field_anecdote',
-  },
-];
 
 // ─── Sidebar ───────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
   { icon: 'dashboard', label: 'Dashboard', href: '/admin', active: false },
   { icon: 'settings_input_component', label: 'Model Settings', href: '/admin/settings', active: false },
-  { icon: 'settings_voice', label: 'Voice Config', href: '/admin/voice', active: false },
+  { icon: 'settings_voice', label: 'Voice Config', href: '/admin/voices', active: false },
   { icon: 'quiz', label: 'Question Manager', href: '/admin/questions', active: true },
   { icon: 'analytics', label: 'Analytics', href: '/admin/analytics', active: false },
 ];
@@ -276,69 +138,9 @@ function AdminSidebar() {
   );
 }
 
-// ─── Toggle Switch ──────────────────────────────────────────────────
+// ─── Question Row Component ───────────────────────────────────────
 
-function ToggleSwitch({
-  checked,
-  onChange,
-  label,
-  disabled = false,
-}: {
-  checked: boolean;
-  onChange: (val: boolean) => void;
-  label: string;
-  disabled?: boolean;
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, opacity: disabled ? 0.5 : 1 }}>
-      <span
-        style={{
-          ...typography.uiLabel,
-          fontSize: '10px',
-          color: colors.onSurfaceVariant,
-          textTransform: 'uppercase' as const,
-          letterSpacing: '0.08em',
-        } as CSSProperties}
-      >
-        {label}
-      </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => !disabled && onChange(!checked)}
-        style={{
-          width: 40,
-          height: 20,
-          borderRadius: radius.full,
-          backgroundColor: checked ? colors.primaryContainer : colors.surface.containerHigh,
-          border: checked ? 'none' : `1px solid ${colors.outlineVariant}`,
-          display: 'flex',
-          alignItems: 'center',
-          padding: 2,
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          transition: 'background-color 0.2s ease',
-          position: 'relative',
-        } as CSSProperties}
-      >
-        <div
-          style={{
-            width: 12,
-            height: 12,
-            borderRadius: radius.full,
-            backgroundColor: checked ? colors.onPrimaryContainer : colors.outline,
-            transform: checked ? 'translateX(20px)' : 'translateX(0)',
-            transition: 'transform 0.2s ease, background-color 0.2s ease',
-          }}
-        />
-      </button>
-    </div>
-  );
-}
-
-// ─── Section Tag ───────────────────────────────────────────────────
-
-const SECTION_TAG_VARIANT: Record<FeedsSection, 'default' | 'primary' | 'secondary' | 'error' | 'success'> = {
+const SECTION_TAG_VARIANT: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'success'> = {
   map: 'secondary',
   hook: 'primary',
   story: 'success',
@@ -348,851 +150,385 @@ const SECTION_TAG_VARIANT: Record<FeedsSection, 'default' | 'primary' | 'seconda
   meta: 'secondary',
 };
 
-// ─── Edit/Add Modal ────────────────────────────────────────────────
-
-interface QuestionFormData {
-  questionText: string;
-  feedsSection: FeedsSection;
-  isRequired: boolean;
-  isVisible: boolean;
-  ghlFieldKey: string;
+interface QuestionRowProps {
+  question: Question;
+  onSave: (id: string, questionText: string) => Promise<void>;
+  isSaving: boolean;
 }
 
-function QuestionFormModal({
-  open,
-  onClose,
-  onSave,
-  initialData,
-  mode,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onSave: (data: QuestionFormData) => void;
-  initialData: QuestionFormData;
-  mode: 'add' | 'edit';
-}) {
-  const [formData, setFormData] = useState<QuestionFormData>(initialData);
+function QuestionRow({ question, onSave, isSaving }: QuestionRowProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(question.question_text);
 
-  // Reset form when modal opens with new data
-  const handleOpen = useCallback(() => {
-    setFormData(initialData);
-  }, [initialData]);
-
-  // We'll reset whenever open changes to true
-  useState(() => {
-    if (open) handleOpen();
-  });
-
-  // Sync form when initialData changes (e.g., editing different question)
-  if (open && formData.questionText !== initialData.questionText && mode === 'edit') {
-    setFormData(initialData);
-  }
-
-  const handleSave = () => {
-    if (!formData.questionText.trim()) return;
-    onSave(formData);
-    onClose();
+  const handleSave = async () => {
+    if (editValue.trim() !== question.question_text) {
+      await onSave(question.id, editValue.trim());
+    }
+    setIsEditing(false);
   };
 
-  const fieldGroupStyle: CSSProperties = {
+  const handleCancel = () => {
+    setEditValue(question.question_text);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && e.metaKey) {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
+  const rowStyle: CSSProperties = {
+    backgroundColor: colors.surface.container,
+    border: `1px solid ${colors.outlineVariant}`,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.md,
+    transition: 'border-color 0.2s ease',
+  };
+
+  const headerStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  };
+
+  const orderBadgeStyle: CSSProperties = {
+    ...typography.uiLabel,
+    backgroundColor: colors.surface.containerHigh,
+    color: colors.onSurfaceVariant,
+    padding: `${spacing.xs} ${spacing.sm}`,
+    borderRadius: radius.DEFAULT,
+    minWidth: '28px',
+    textAlign: 'center',
+  };
+
+  const metaStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  };
+
+  const helperTextStyle: CSSProperties = {
+    ...typography.caption,
+    color: colors.onSurfaceVariant,
+    margin: 0,
+    fontStyle: 'italic',
+  };
+
+  const editContainerStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
     gap: spacing.sm,
   };
 
-  const rowStyle: CSSProperties = {
+  const buttonRowStyle: CSSProperties = {
     display: 'flex',
-    gap: spacing.md,
-    alignItems: 'flex-start',
+    gap: spacing.sm,
+    justifyContent: 'flex-end',
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={mode === 'add' ? 'Add New Question' : 'Edit Question'}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
-        {/* Question Text */}
-        <div style={fieldGroupStyle}>
-          <Input
-            label="Question Text"
-            value={formData.questionText}
-            onChange={(e) => setFormData((prev) => ({ ...prev, questionText: e.target.value }))}
-            placeholder="e.g., What is the core message of this address?"
-            required
-          />
-        </div>
-
-        {/* Section + GHL Field Row */}
-        <div style={rowStyle}>
-          <div style={{ flex: 1, ...fieldGroupStyle }}>
-            <Select
-              label="Feeds Section"
-              options={SECTION_OPTIONS}
-              value={formData.feedsSection}
-              onChange={(val) => setFormData((prev) => ({ ...prev, feedsSection: val as FeedsSection }))}
-              placeholder="Select section..."
-            />
-          </div>
-          <div style={{ flex: 1, ...fieldGroupStyle }}>
-            <Select
-              label="Maps to GHL Field"
-              options={GHL_FIELD_OPTIONS}
-              value={formData.ghlFieldKey}
-              onChange={(val) => setFormData((prev) => ({ ...prev, ghlFieldKey: val }))}
-              placeholder="Select GHL field..."
-            />
-          </div>
-        </div>
-
-        {/* Toggles Row */}
-        <div style={{ ...rowStyle, alignItems: 'center' }}>
-          <ToggleSwitch
-            checked={formData.isRequired}
-            onChange={(val) => setFormData((prev) => ({ ...prev, isRequired: val }))}
-            label="Required"
-          />
-          <ToggleSwitch
-            checked={formData.isVisible}
-            onChange={(val) => setFormData((prev) => ({ ...prev, isVisible: val }))}
-            label="Visible"
-          />
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.md }}>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="primary" onClick={handleSave} disabled={!formData.questionText.trim()}>
-            {mode === 'add' ? 'Add Question' : 'Save Changes'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Delete Confirmation Modal ─────────────────────────────────────
-
-function DeleteConfirmModal({
-  open,
-  onClose,
-  onConfirm,
-  questionText,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-  questionText: string;
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title="Delete Question">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-        <p style={{ ...typography.uiBody, color: colors.onSurface, margin: 0 } as CSSProperties}>
-          Are you sure you want to delete this question?
-        </p>
-        <div
-          style={{
-            backgroundColor: colors.surface.containerLow,
-            border: `1px solid ${colors.outlineVariant}`,
-            borderRadius: radius.DEFAULT,
-            padding: spacing.md,
-          }}
-        >
-          <p
-            style={{
-              ...typography.uiBody,
-              color: colors.onSurface,
-              margin: 0,
-              fontStyle: 'italic',
-            } as CSSProperties}
-          >
-            &ldquo;{questionText}&rdquo;
-          </p>
-        </div>
-        <p style={{ ...typography.caption, color: colors.error, margin: 0 } as CSSProperties}>
-          This action cannot be undone.
-        </p>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing.sm, marginTop: spacing.sm }}>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            style={{ backgroundColor: colors.error, color: colors.onError }}
-          >
-            Delete
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// ─── Question Row ──────────────────────────────────────────────────
-
-function QuestionRow({
-  question,
-  index,
-  onToggleRequired,
-  onToggleVisible,
-  onEdit,
-  onDelete,
-  onSectionChange,
-  onGhlFieldChange,
-  onMoveUp,
-  onMoveDown,
-  total,
-}: {
-  question: Question;
-  index: number;
-  onToggleRequired: (id: string, val: boolean) => void;
-  onToggleVisible: (id: string, val: boolean) => void;
-  onEdit: (q: Question) => void;
-  onDelete: (q: Question) => void;
-  onSectionChange: (id: string, val: FeedsSection) => void;
-  onGhlFieldChange: (id: string, val: string) => void;
-  onMoveUp: (index: number) => void;
-  onMoveDown: (index: number) => void;
-  total: number;
-}) {
-  const [showSectionSelect, setShowSectionSelect] = useState(false);
-  const [showGhlSelect, setShowGhlSelect] = useState(false);
-
-  const isHidden = !question.isVisible;
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: spacing.md,
-        backgroundColor: colors.surface.containerLow,
-        border: `1px solid ${colors.outlineVariant}`,
-        borderRadius: radius.lg,
-        opacity: isHidden ? 0.6 : 1,
-        transition: 'background-color 0.2s ease, opacity 0.2s ease',
-      } as CSSProperties}
-      onMouseEnter={(e) => {
-        if (!isHidden) {
-          e.currentTarget.style.backgroundColor = colors.surface.containerHighest;
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.backgroundColor = colors.surface.containerLow;
-      }}
-    >
-      {/* Left side: drag + order + text */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1, minWidth: 0 }}>
-        {/* Reorder controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          <button
-            type="button"
-            onClick={() => onMoveUp(index)}
-            disabled={index === 0}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: index === 0 ? colors.outlineVariant : colors.outline,
-              cursor: index === 0 ? 'not-allowed' : 'pointer',
-              padding: '1px 4px',
-              fontSize: '12px',
-              lineHeight: 1,
-            }}
-            aria-label="Move up"
-          >
-            ▲
-          </button>
-          <button
-            type="button"
-            onClick={() => onMoveDown(index)}
-            disabled={index === total - 1}
-            style={{
-              background: 'none',
-              border: 'none',
-              color: index === total - 1 ? colors.outlineVariant : colors.outline,
-              cursor: index === total - 1 ? 'not-allowed' : 'pointer',
-              padding: '1px 4px',
-              fontSize: '12px',
-              lineHeight: 1,
-            }}
-            aria-label="Move down"
-          >
-            ▼
-          </button>
-        </div>
-
-        {/* Display order */}
-        <span
-          style={{
-            ...typography.uiLabel,
-            color: colors.outline,
-            width: 32,
-            flexShrink: 0,
-          } as CSSProperties}
-        >
-          {String(question.displayOrder).padStart(2, '0')}.
-        </span>
-
-        {/* Question text */}
-        <span
-          style={{
-            ...typography.uiBody,
-            color: colors.onSurface,
-            textDecoration: isHidden ? 'line-through' : 'none',
-            textDecorationColor: colors.outline,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          } as CSSProperties}
-        >
-          {question.questionText}
-        </span>
-
-        {/* Section Tag */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <div style={{ cursor: 'pointer' }} onClick={() => setShowSectionSelect(!showSectionSelect)}>
-            <Tag
-              variant={SECTION_TAG_VARIANT[question.feedsSection]}
-            >
-              {SECTION_LABEL_MAP[question.feedsSection]}
-            </Tag>
-          </div>
-          {showSectionSelect && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                marginTop: spacing.xs,
-                backgroundColor: colors.surface.container,
-                border: `1px solid ${colors.outlineVariant}`,
-                borderRadius: radius.DEFAULT,
-                padding: spacing.xs,
-                zIndex: 50,
-                minWidth: 120,
-              } as CSSProperties}
-            >
-              {SECTION_OPTIONS.map((opt) => (
-                <div
-                  key={opt.value}
-                  style={{
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    cursor: 'pointer',
-                    ...typography.uiBody,
-                    fontSize: '13px',
-                    color: opt.value === question.feedsSection ? colors.secondary : colors.onSurface,
-                    backgroundColor: opt.value === question.feedsSection ? `${colors.secondary}15` : 'transparent',
-                    borderRadius: radius.sm,
-                  } as CSSProperties}
-                  onClick={() => {
-                    onSectionChange(question.id, opt.value as FeedsSection);
-                    setShowSectionSelect(false);
-                  }}
-                  onMouseEnter={(e) => {
-                    if (opt.value !== question.feedsSection) {
-                      e.currentTarget.style.backgroundColor = colors.surface.containerHigh;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (opt.value !== question.feedsSection) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
+    <div style={rowStyle}>
+      <div style={headerStyle}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flex: 1 }}>
+          <span style={orderBadgeStyle}>{question.display_order}</span>
+          {isEditing ? (
+            <div style={{ flex: 1, ...editContainerStyle }}>
+              <Input
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSaving}
+                style={{ width: '100%' }}
+              />
+              <div style={buttonRowStyle}>
+                <Button
+                  variant="secondary"
+                  onClick={handleCancel}
+                  disabled={isSaving}
+                  style={{ padding: `${spacing.xs} ${spacing.sm}`, fontSize: '12px' }}
                 >
-                  {opt.label}
-                </div>
-              ))}
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleSave}
+                  disabled={isSaving || !editValue.trim()}
+                  style={{ padding: `${spacing.xs} ${spacing.sm}`, fontSize: '12px' }}
+                >
+                  {isSaving ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setIsEditing(true)}>
+              <span
+                style={{
+                  ...typography.uiBody,
+                  color: colors.onSurface,
+                } as CSSProperties}
+              >
+                {question.question_text}
+              </span>
+              <span
+                style={{
+                  ...typography.caption,
+                  color: colors.outline,
+                  marginLeft: spacing.sm,
+                } as CSSProperties}
+              >
+                (click to edit)
+              </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Right side: GHL field + toggles + actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.lg, flexShrink: 0, marginLeft: spacing.md }}>
-        {/* GHL Field mapping */}
-        <div style={{ position: 'relative', minWidth: 140 }}>
-          <button
-            type="button"
-            onClick={() => setShowGhlSelect(!showGhlSelect)}
+      <div style={metaStyle}>
+        <Tag variant={SECTION_TAG_VARIANT[question.feeds_section] || 'default'}>
+          {question.feeds_section.toUpperCase()}
+        </Tag>
+        {question.is_required && (
+          <Tag variant="error">Required</Tag>
+        )}
+        {question.is_active ? (
+          <Tag variant="success">Active</Tag>
+        ) : (
+          <Tag variant="default">Inactive</Tag>
+        )}
+        {question.ghl_field_key && (
+          <span
             style={{
               ...typography.caption,
-              color: question.ghlFieldKey ? colors.tertiary : colors.outline,
-              backgroundColor: 'transparent',
-              border: `1px solid ${colors.outlineVariant}`,
-              borderRadius: radius.DEFAULT,
-              padding: `${spacing.xs} ${spacing.sm}`,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: spacing.xs,
-              whiteSpace: 'nowrap',
-              transition: 'border-color 0.2s ease',
-            } as CSSProperties}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = colors.tertiary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = colors.outlineVariant;
-            }}
-          >
-            <span style={{ fontSize: '14px' }}>🔗</span>
-            {question.ghlFieldKey
-              ? GHL_FIELD_OPTIONS.find((f) => f.value === question.ghlFieldKey)?.label ?? 'Mapped'
-              : 'Map GHL'}
-          </button>
-          {showGhlSelect && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: spacing.xs,
-                backgroundColor: colors.surface.container,
-                border: `1px solid ${colors.outlineVariant}`,
-                borderRadius: radius.DEFAULT,
-                padding: spacing.xs,
-                zIndex: 50,
-                minWidth: 200,
-                maxHeight: 240,
-                overflowY: 'auto',
-              } as CSSProperties}
-            >
-              {GHL_FIELD_OPTIONS.map((opt) => (
-                <div
-                  key={opt.value}
-                  style={{
-                    padding: `${spacing.xs} ${spacing.sm}`,
-                    cursor: 'pointer',
-                    ...typography.uiBody,
-                    fontSize: '13px',
-                    color: opt.value === question.ghlFieldKey ? colors.tertiary : colors.onSurface,
-                    backgroundColor: opt.value === question.ghlFieldKey ? `${colors.tertiary}15` : 'transparent',
-                    borderRadius: radius.sm,
-                  } as CSSProperties}
-                  onClick={() => {
-                    onGhlFieldChange(question.id, opt.value);
-                    setShowGhlSelect(false);
-                  }}
-                  onMouseEnter={(e) => {
-                    if (opt.value !== question.ghlFieldKey) {
-                      e.currentTarget.style.backgroundColor = colors.surface.containerHigh;
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (opt.value !== question.ghlFieldKey) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                >
-                  {opt.label || 'None'}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Required toggle */}
-        <ToggleSwitch
-          checked={question.isRequired}
-          onChange={(val) => onToggleRequired(question.id, val)}
-          label={question.isRequired ? 'Required' : 'Optional'}
-        />
-
-        {/* Action buttons */}
-        <div style={{ display: 'flex', gap: spacing.xs, color: colors.outline }}>
-          {/* Visibility toggle */}
-          <button
-            type="button"
-            onClick={() => onToggleVisible(question.id, !question.isVisible)}
-            style={{
-              padding: spacing.xs,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: question.isVisible ? colors.outline : colors.primary,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.DEFAULT,
-              transition: 'color 0.2s ease',
-              fontSize: '18px',
-            } as CSSProperties}
-            aria-label={question.isVisible ? 'Hide question' : 'Show question'}
-            title={question.isVisible ? 'Hide question' : 'Show question'}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.primary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = question.isVisible ? colors.outline : colors.primary;
-            }}
-          >
-            {question.isVisible ? '👁' : '👁‍🗨'}
-          </button>
-
-          {/* Edit */}
-          <button
-            type="button"
-            onClick={() => onEdit(question)}
-            style={{
-              padding: spacing.xs,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
               color: colors.outline,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.DEFAULT,
-              transition: 'color 0.2s ease',
-              fontSize: '18px',
             } as CSSProperties}
-            aria-label="Edit question"
-            title="Edit question"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.primary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = colors.outline;
-            }}
           >
-            ✏️
-          </button>
-
-          {/* Delete */}
-          <button
-            type="button"
-            onClick={() => onDelete(question)}
-            style={{
-              padding: spacing.xs,
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: colors.outline,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.DEFAULT,
-              transition: 'color 0.2s ease',
-              fontSize: '18px',
-            } as CSSProperties}
-            aria-label="Delete question"
-            title="Delete question"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.error;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = colors.outline;
-            }}
-          >
-            🗑️
-          </button>
-        </div>
+            GHL: {question.ghl_field_key}
+          </span>
+        )}
       </div>
+
+      {question.helper_text && (
+        <p style={helperTextStyle}>{question.helper_text}</p>
+      )}
     </div>
   );
 }
 
-// ─── Main Page Component ───────────────────────────────────────────
+// ─── Main Page Component ──────────────────────────────────────────
 
-export default function QuestionManagerPage() {
-  const [questions, setQuestions] = useState<Question[]>(INITIAL_QUESTIONS);
-  const [editModal, setEditModal] = useState<{ open: boolean; mode: 'add' | 'edit'; question: Question | null }>({
-    open: false,
-    mode: 'add',
-    question: null,
-  });
-  const [deleteModal, setDeleteModal] = useState<{ open: boolean; question: Question | null }>({
-    open: false,
-    question: null,
-  });
+export default function QuestionsPage() {
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
-  // Re-index display orders whenever questions change
-  const reindex = (qs: Question[]): Question[] =>
-    qs.map((q, i) => ({ ...q, displayOrder: i + 1 }));
-
-  const handleToggleRequired = useCallback((id: string, val: boolean) => {
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, isRequired: val } : q)));
+  // Fetch questions on mount
+  useEffect(() => {
+    fetchQuestions();
   }, []);
 
-  const handleToggleVisible = useCallback((id: string, val: boolean) => {
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, isVisible: val } : q)));
-  }, []);
+  const fetchQuestions = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
 
-  const handleSectionChange = useCallback((id: string, val: FeedsSection) => {
-    setQuestions((prev) => prev.map((q) => (q.id === id ? { ...q, feedsSection: val } : q)));
-  }, []);
-
-  const handleGhlFieldChange = useCallback((id: string, val: string) => {
-    setQuestions((prev) =>
-      prev.map((q) => (q.id === id ? { ...q, ghlFieldKey: val || null } : q)),
-    );
-  }, []);
-
-  const handleMoveUp = useCallback((index: number) => {
-    if (index === 0) return;
-    setQuestions((prev) => {
-      const next = [...prev];
-      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-      return reindex(next);
-    });
-  }, []);
-
-  const handleMoveDown = useCallback((index: number) => {
-    setQuestions((prev) => {
-      if (index >= prev.length - 1) return prev;
-      const next = [...prev];
-      [next[index], next[index + 1]] = [next[index + 1], next[index]];
-      return reindex(next);
-    });
-  }, []);
-
-  const handleEdit = useCallback((q: Question) => {
-    setEditModal({ open: true, mode: 'edit', question: q });
-  }, []);
-
-  const handleAdd = useCallback(() => {
-    setEditModal({
-      open: true,
-      mode: 'add',
-      question: {
-        id: '',
-        displayOrder: 0,
-        questionText: '',
-        feedsSection: 'map',
-        isRequired: false,
-        isVisible: true,
-        ghlFieldKey: '',
-      },
-    });
-  }, []);
-
-  const handleSave = useCallback(
-    (data: QuestionFormData) => {
-      if (editModal.mode === 'add') {
-        const newId = `q${Date.now()}`;
-        setQuestions((prev) =>
-          reindex([
-            ...prev,
-            {
-              id: newId,
-              displayOrder: prev.length + 1,
-              questionText: data.questionText,
-              feedsSection: data.feedsSection,
-              isRequired: data.isRequired,
-              isVisible: data.isVisible,
-              ghlFieldKey: data.ghlFieldKey || null,
-            },
-          ]),
-        );
-      } else if (editModal.question) {
-        setQuestions((prev) =>
-          prev.map((q) =>
-            q.id === editModal.question!.id
-              ? {
-                  ...q,
-                  questionText: data.questionText,
-                  feedsSection: data.feedsSection,
-                  isRequired: data.isRequired,
-                  isVisible: data.isVisible,
-                  ghlFieldKey: data.ghlFieldKey || null,
-                }
-              : q,
-          ),
-        );
+      const response = await fetch('/api/admin/questions');
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Unauthorized. Please log in as admin.');
+        }
+        if (response.status === 403) {
+          throw new Error('Forbidden. Admin access required.');
+        }
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to fetch questions (${response.status})`);
       }
-    },
-    [editModal],
-  );
 
-  const handleDelete = useCallback(
-    (q: Question) => {
-      setDeleteModal({ open: true, question: q });
-    },
-    [],
-  );
-
-  const confirmDelete = useCallback(() => {
-    if (deleteModal.question) {
-      setQuestions((prev) => reindex(prev.filter((q) => q.id !== deleteModal.question!.id)));
+      const data = await response.json();
+      setQuestions(data.questions || []);
+    } catch (err) {
+      console.error('[QuestionsPage] Failed to fetch:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load questions');
+    } finally {
+      setIsLoading(false);
     }
-  }, [deleteModal.question]);
+  };
 
-  // Close dropdown menus when clicking outside
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const handleSave = useCallback(async (id: string, questionText: string) => {
+    try {
+      setSavingId(id);
+      
+      const response = await fetch('/api/admin/questions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, question_text: questionText }),
+      });
 
-  const getEditFormData = (): QuestionFormData => {
-    if (editModal.question) {
-      return {
-        questionText: editModal.question.questionText,
-        feedsSection: editModal.question.feedsSection,
-        isRequired: editModal.question.isRequired,
-        isVisible: editModal.question.isVisible,
-        ghlFieldKey: editModal.question.ghlFieldKey ?? '',
-      };
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `Failed to update question (${response.status})`);
+      }
+
+      // Update local state
+      setQuestions((prev) =>
+        prev.map((q) =>
+          q.id === id ? { ...q, question_text: questionText } : q
+        )
+      );
+    } catch (err) {
+      console.error('[QuestionsPage] Failed to save:', err);
+      alert(err instanceof Error ? err.message : 'Failed to save question');
+    } finally {
+      setSavingId(null);
     }
-    return {
-      questionText: '',
-      feedsSection: 'map',
-      isRequired: false,
-      isVisible: true,
-      ghlFieldKey: '',
-    };
+  }, []);
+
+  const containerStyle: CSSProperties = {
+    marginLeft: 288,
+    minHeight: '100vh',
+    backgroundColor: colors.surface.base,
+    padding: spacing.xl,
+  };
+
+  const contentStyle: CSSProperties = {
+    maxWidth: 900,
+    margin: '0 auto',
+  };
+
+  const headerStyle: CSSProperties = {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+    paddingBottom: spacing.lg,
+    borderBottom: `1px solid ${colors.surface.containerHigh}`,
+  };
+
+  const titleStyle: CSSProperties = {
+    ...typography.h1,
+    color: colors.onSurface,
+    margin: 0,
+    marginBottom: spacing.sm,
+  };
+
+  const subtitleStyle: CSSProperties = {
+    ...typography.uiBody,
+    color: colors.onSurfaceVariant,
+    margin: 0,
+  };
+
+  const listStyle: CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: spacing.md,
+  };
+
+  const errorStyle: CSSProperties = {
+    backgroundColor: colors.errorContainer,
+    color: colors.onErrorContainer,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    ...typography.uiBody,
+  };
+
+  const loadingStyle: CSSProperties = {
+    textAlign: 'center',
+    padding: spacing.xxl,
+    color: colors.onSurfaceVariant,
+    ...typography.uiBody,
+  };
+
+  const emptyStyle: CSSProperties = {
+    textAlign: 'center',
+    padding: spacing.xxl,
+    color: colors.onSurfaceVariant,
+    border: `1px dashed ${colors.outlineVariant}`,
+    borderRadius: radius.lg,
+    ...typography.uiBody,
   };
 
   return (
-    <div
-      style={{
-        backgroundColor: colors.background,
-        color: colors.onBackground,
-        minHeight: '100vh',
-        display: 'flex',
-        fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
-      } as CSSProperties}
-    >
-      {/* Sidebar */}
+    <div>
       <AdminSidebar />
-
-      {/* Main Content */}
-      <main
-        style={{
-          flex: 1,
-          marginLeft: 288,
-          padding: spacing.xl,
-          overflowY: 'auto',
-        } as CSSProperties}
-      >
-        <div style={{ maxWidth: spacing.containerMax, margin: '0 auto' }}>
+      <main style={containerStyle}>
+        <div style={contentStyle}>
           {/* Header */}
-          <header
-            style={{
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'space-between',
-              marginBottom: spacing.xl,
-              paddingBottom: spacing.lg,
-              borderBottom: `1px solid ${colors.surface.containerHigh}`,
-            } as CSSProperties}
-          >
+          <header style={headerStyle}>
             <div>
-              <h1
-                style={{
-                  ...typography.h1,
-                  color: colors.onSurface,
-                  margin: 0,
-                  marginBottom: spacing.sm,
-                } as CSSProperties}
-              >
-                Question Manager
-              </h1>
-              <p
-                style={{
-                  ...typography.uiBody,
-                  color: colors.onSurfaceVariant,
-                  margin: 0,
-                } as CSSProperties}
-              >
-                Configure the primary intake questionnaire for new speech sessions.
+              <h1 style={titleStyle}>Question Manager</h1>
+              <p style={subtitleStyle}>
+                Click any question text to edit it inline. Changes are saved immediately.
               </p>
             </div>
-            <Button variant="primary" onClick={handleAdd}>
-              <span style={{ marginRight: spacing.xs }}>+</span>
-              Add New Question
+            <Button variant="secondary" onClick={fetchQuestions} disabled={isLoading}>
+              {isLoading ? 'Loading...' : 'Refresh'}
             </Button>
           </header>
 
-          {/* Question Count */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: spacing.md,
-            } as CSSProperties}
-          >
-            <span
-              style={{
-                ...typography.uiLabel,
-                color: colors.onSurfaceVariant,
-              } as CSSProperties}
-            >
-              {questions.length} QUESTION{questions.length !== 1 ? 'S' : ''}
-            </span>
-            <span
-              style={{
-                ...typography.caption,
-                color: colors.outline,
-              } as CSSProperties}
-            >
-              Use ▲▼ to reorder
-            </span>
-          </div>
+          {/* Error */}
+          {error && (
+            <div style={errorStyle}>
+              <strong>Error:</strong> {error}
+            </div>
+          )}
+
+          {/* Loading */}
+          {isLoading && (
+            <div style={loadingStyle}>Loading questions...</div>
+          )}
 
           {/* Questions List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.sm }}>
-            {questions.map((q, idx) => (
-              <QuestionRow
-                key={q.id}
-                question={q}
-                index={idx}
-                onToggleRequired={handleToggleRequired}
-                onToggleVisible={handleToggleVisible}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onSectionChange={handleSectionChange}
-                onGhlFieldChange={handleGhlFieldChange}
-                onMoveUp={handleMoveUp}
-                onMoveDown={handleMoveDown}
-                total={questions.length}
-              />
-            ))}
-          </div>
+          {!isLoading && !error && (
+            <div style={listStyle}>
+              {questions.map((question) => (
+                <QuestionRow
+                  key={question.id}
+                  question={question}
+                  onSave={handleSave}
+                  isSaving={savingId === question.id}
+                />
+              ))}
 
-          {/* Empty State */}
-          {questions.length === 0 && (
+              {/* Empty State */}
+              {questions.length === 0 && (
+                <div style={emptyStyle}>
+                  <p>No questions found in the database.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Count Footer */}
+          {!isLoading && !error && questions.length > 0 && (
             <div
               style={{
+                marginTop: spacing.lg,
+                paddingTop: spacing.lg,
+                borderTop: `1px solid ${colors.surface.containerHigh}`,
                 textAlign: 'center',
-                padding: spacing.xxl,
-                color: colors.onSurfaceVariant,
               } as CSSProperties}
             >
-              <p style={{ ...typography.uiBody, margin: 0 } as CSSProperties}>
-                No questions configured yet.
-              </p>
-              <div style={{ marginTop: spacing.md }}>
-                <Button variant="primary" onClick={handleAdd}>
-                  Add Your First Question
-                </Button>
-              </div>
+              <span
+                style={{
+                  ...typography.caption,
+                  color: colors.onSurfaceVariant,
+                } as CSSProperties}
+              >
+                {questions.length} question{questions.length !== 1 ? 's' : ''} total
+              </span>
             </div>
           )}
         </div>
       </main>
-
-      {/* Edit/Add Modal */}
-      <QuestionFormModal
-        open={editModal.open}
-        onClose={() => setEditModal({ open: false, mode: 'add', question: null })}
-        onSave={handleSave}
-        initialData={getEditFormData()}
-        mode={editModal.mode}
-      />
-
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        open={deleteModal.open}
-        onClose={() => setDeleteModal({ open: false, question: null })}
-        onConfirm={confirmDelete}
-        questionText={deleteModal.question?.questionText ?? ''}
-      />
     </div>
   );
 }
