@@ -92,17 +92,14 @@ export default function LandingPage() {
           </button>
 
           {/* Logo */}
-          <span
+          <img
+            src="/logo.png"
+            alt="Star Speaker AI"
             style={{
-              color: colors.primaryContainer,
-              fontFamily: `var(${typography.uiLabel.fontFamily}), Georgia, serif`,
-              letterSpacing: '0.2em',
-              fontSize: '18px',
-              fontWeight: 700,
+              height: '40px',
+              objectFit: 'contain',
             }}
-          >
-            STAR SPEAKER AI
-          </span>
+          />
         </div>
 
         {/* Desktop Navigation */}

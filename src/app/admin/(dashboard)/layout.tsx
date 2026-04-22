@@ -273,16 +273,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             borderBottom: `1px solid ${colors.outlineVariant}`,
           }}
         >
-          <span
+          <img
+            src="/logo.png"
+            alt="Star Speaker AI"
             style={{
-              ...typography.h2,
-              color: colors.primary,
-              fontSize: '18px',
-              letterSpacing: '0.2em',
+              height: '40px',
+              objectFit: 'contain',
             }}
-          >
-            STAR SPEAKER AI
-          </span>
+          />
           <div
             style={{
               width: 32,
