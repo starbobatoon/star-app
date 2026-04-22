@@ -27,6 +27,40 @@ const createSpeechSchema = z.object({
   idempotencyKey: z.string().optional(),
 });
 
+// GET /api/speeches - List speeches (admin only)
+export async function GET(request: Request) {
+  try {
+    const admin = createAdminClient();
+    
+    // Get query params for pagination
+    const { searchParams } = new URL(request.url);
+    const limit = parseInt(searchParams.get("limit") || "50", 10);
+    const offset = parseInt(searchParams.get("offset") || "0", 10);
+    
+    const { data, error, count } = await admin
+      .from("speeches")
+      .select("id, first_name, last_name, email, phone, status, created_at, completed_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("[speeches] Failed to fetch speeches:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch speeches" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ speeches: data, count }, { status: 200 });
+  } catch (err) {
+    console.error("[speeches] Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   // Rate limit check
   const rateLimitResponse = await checkRateLimit(speechRateLimiter, getClientIp(request));
