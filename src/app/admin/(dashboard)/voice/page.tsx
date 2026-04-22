@@ -295,12 +295,12 @@ export default function VoicePage() {
 
               {/* Voice ID Field */}
               <Input
-                label="Voice ID (Stefan)"
+                label="Fish Audio Voice ID"
                 type="text"
                 value={voiceId}
                 onChange={(e) => setVoiceId(e.target.value)}
-                placeholder="e75e1618ff544059be71409c5126b4c0"
-                helperText='Voice label: "Stefan"'
+                placeholder="Enter your Fish Audio voice ID"
+                helperText="The voice ID from your Fish Audio dashboard."
               />
 
               {/* Actions Row */}
