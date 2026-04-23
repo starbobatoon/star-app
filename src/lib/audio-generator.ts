@@ -13,9 +13,10 @@
  */
 
 import "server-only";
-import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { synthesizeSpeech } from "@/lib/fish-audio";
 import { decrypt } from "@/lib/encryption";
+import { writeAuditLog } from "@/lib/audit-log";
 
 export interface GenerateResult {
   success: boolean;
@@ -30,19 +31,13 @@ export async function generateSpeechAudio(
 ): Promise<GenerateResult> {
   console.log(`[audio-generator] Generating audio for speech ${speechId}`);
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: { autoRefreshToken: false, persistSession: false },
-    }
-  );
+  const supabaseAdmin = createAdminClient();
 
   try {
     // 1. Fetch speech transcript
     const { data: speech, error: speechError } = await supabaseAdmin
       .from("speeches")
-      .select("transcript_markdown, voice_used")
+      .select("transcript, voice_used")
       .eq("id", speechId)
       .single();
 
@@ -50,7 +45,7 @@ export async function generateSpeechAudio(
       throw new Error(`Failed to fetch speech: ${speechError?.message || "Not found"}`);
     }
 
-    if (!speech.transcript_markdown) {
+    if (!speech.transcript) {
       throw new Error("Speech transcript is empty");
     }
 
@@ -79,7 +74,7 @@ export async function generateSpeechAudio(
     }
 
     const audioBuffer = await synthesizeSpeech({
-      text: speech.transcript_markdown,
+      text: speech.transcript,
       voiceId,
       format: "mp3",
       apiKey,
@@ -127,15 +122,13 @@ export async function generateSpeechAudio(
     }
 
     // 7. Write audit log
-    await supabaseAdmin
-      .from("audit_log")
-      .insert({
-        action: "audio_generated",
-        entity_type: "speech",
-        entity_id: speechId,
-        before_value: { status: "generating_audio" },
-        after_value: { status: "complete", audio_url: audioUrl },
-      });
+    await writeAuditLog({
+      action: "audio_generated",
+      entityType: "speech",
+      entityId: speechId,
+      beforeValue: { status: "generating_audio" },
+      afterValue: { status: "complete", audio_url: audioUrl },
+    });
 
     console.log(`[audio-generator] Audio generated successfully for speech ${speechId}`);
     return { success: true };
@@ -150,15 +143,13 @@ export async function generateSpeechAudio(
         .update({ status: "failed", error: errorMsg })
         .eq("id", speechId);
 
-      await supabaseAdmin
-        .from("audit_log")
-        .insert({
-          action: "audio_generation_failed",
-          entity_type: "speech",
-          entity_id: speechId,
-          before_value: { status: "generating_audio" },
-          after_value: { status: "failed", error: errorMsg },
-        });
+      await writeAuditLog({
+        action: "audio_generation_failed",
+        entityType: "speech",
+        entityId: speechId,
+        beforeValue: { status: "generating_audio" },
+        afterValue: { status: "failed", error: errorMsg },
+      });
     } catch (auditErr) {
       console.error(`[audio-generator] Failed to write failure audit:`, auditErr);
     }
