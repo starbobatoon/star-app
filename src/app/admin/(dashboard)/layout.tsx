@@ -223,8 +223,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Sign Out */}
         <div style={{ marginTop: 'auto' }}>
-          <Link
-            href="/admin/login"
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+              } catch {
+                // ignore errors, still redirect
+              }
+              window.location.href = '/admin/login';
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -232,7 +239,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               padding: `${spacing.sm} ${spacing.md}`,
               color: colors.outline,
               borderLeft: '2px solid transparent',
-              textDecoration: 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
               ...typography.uiLabel,
               letterSpacing: '0.1em',
               transition: 'all 0.2s ease',
@@ -248,7 +259,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <IconSignOut />
             SIGN OUT
-          </Link>
+          </button>
         </div>
       </aside>
 
