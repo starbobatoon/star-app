@@ -22,10 +22,20 @@ export async function GET() {
     }
 
     // Filter to only Star Speaker App admins
+    // Also include current authenticated user (by email) to handle cases
+    // where their app_metadata.app may not be set to APP_ID yet.
     const filteredUsers = users.filter((u: any) => {
       const meta = u.app_metadata || {};
       return meta.app === APP_ID && meta.role === 'admin';
     });
+
+    // Ensure current authenticated admin is always in the list
+    if (user.email && !filteredUsers.some((u: any) => u.email === user.email)) {
+      const currentUser = users.find((u: any) => u.email === user.email);
+      if (currentUser) {
+        filteredUsers.unshift(currentUser);
+      }
+    }
 
     return NextResponse.json(filteredUsers);
   } catch (error) {
