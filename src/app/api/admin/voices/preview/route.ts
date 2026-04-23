@@ -56,13 +56,24 @@ export async function POST(request: Request) {
 
     // ── Fetch Fish Audio API key from encrypted DB config ─────────────────
     let apiKey: string | undefined;
+    let integration: {
+      api_key_encrypted: string | null;
+      default_voice_id: string | null;
+      volume: number | null;
+      speed: number | null;
+      tts_model: string | null;
+      loudness_normalization: boolean | null;
+      text_normalization: boolean | null;
+    } | null = null;
     try {
       const admin = createAdminClient();
-      const { data: integration, error: integError } = await admin
+      const { data: integData, error: integError } = await admin
         .from("fish_audio_integration")
-        .select("api_key_encrypted")
+        .select("api_key_encrypted, default_voice_id, volume, speed, tts_model, loudness_normalization, text_normalization")
         .limit(1)
         .maybeSingle();
+
+      integration = integData;
 
       if (integError) {
         console.error(
@@ -94,6 +105,11 @@ export async function POST(request: Request) {
         voiceId: fishAudioVoiceId,
         format: "mp3",
         apiKey,
+        model: integration?.tts_model || "s2-pro",
+        volume: integration?.volume ?? 0,
+        speed: integration?.speed ?? 1.0,
+        loudnessNormalization: integration?.loudness_normalization ?? true,
+        textNormalization: integration?.text_normalization ?? false,
       });
     } catch (err) {
       if (err instanceof FishAudioError) {

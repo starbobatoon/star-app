@@ -211,7 +211,14 @@ export async function synthesizeSpeech(
     loudnessNormalization = true,
     textNormalization = false,
   } = params;
-  const key = apiKey || getEnvApiKey();
+  if (!apiKey) {
+    throw new FishAudioError(
+      "No API key provided. Configure in Voice Settings.",
+      undefined,
+      "auth"
+    );
+  }
+  const key = apiKey;
 
   const body: Record<string, unknown> = {
     text,
