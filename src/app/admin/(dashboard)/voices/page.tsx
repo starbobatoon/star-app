@@ -426,8 +426,9 @@ export default function VoiceConfigPage() {
     try {
       // Load Fish Audio config
       const faRes = await fetch('/api/admin/fish-audio');
+      let faData: { integration?: { is_configured: boolean; api_key_preview: string | null; default_voice_id: string | null; tts_model: string; volume: number; speed: number; loudness_normalization: boolean; text_normalization: boolean } } | null = null;
       if (faRes.ok) {
-        const faData = await faRes.json();
+        faData = await faRes.json();
         if (faData.integration) {
           setFishAudioConfig({
             isConfigured: faData.integration.is_configured,
