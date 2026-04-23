@@ -66,16 +66,6 @@ function IconGHL() {
   );
 }
 
-function IconAiSettings() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-      <line x1="12" x2="12" y1="19" y2="22" />
-    </svg>
-  );
-}
-
 function IconSignOut() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -106,7 +96,6 @@ const NAV_ITEMS = [
   { label: 'QUESTIONS', href: '/admin/questions', icon: IconQuiz },
   { label: 'GHL INTEGRATION', href: '/admin/ghl-integration', icon: IconGHL },
   { label: 'ANALYTICS', href: '/admin/analytics', icon: IconAnalytics },
-  { label: 'AI SETTINGS', href: '/admin/instructions', icon: IconAiSettings },
 ];
 
 // ─── Breadcrumb Config ────────────────────────────────────────────
@@ -119,9 +108,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   '/admin/questions': 'Questions',
   '/admin/ghl-integration': 'GHL Integration',
   '/admin/login': 'Login',
-  '/admin/prompt': 'Prompt',
   '/admin/analytics': 'Analytics',
-  '/admin/instructions': 'AI Settings',
 };
 
 // ─── Layout Component ─────────────────────────────────────────────
@@ -236,8 +223,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Sign Out */}
         <div style={{ marginTop: 'auto' }}>
-          <Link
-            href="/admin/login"
+          <button
+            onClick={async () => {
+              try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+              } catch {
+                // ignore errors, still redirect
+              }
+              window.location.href = '/admin/login';
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -245,7 +239,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               padding: `${spacing.sm} ${spacing.md}`,
               color: colors.outline,
               borderLeft: '2px solid transparent',
-              textDecoration: 'none',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              width: '100%',
+              textAlign: 'left',
               ...typography.uiLabel,
               letterSpacing: '0.1em',
               transition: 'all 0.2s ease',
@@ -261,7 +259,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           >
             <IconSignOut />
             SIGN OUT
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -286,16 +284,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             borderBottom: `1px solid ${colors.outlineVariant}`,
           }}
         >
-          <span
+          <img
+            src="/logo.png"
+            alt="Star Speaker AI"
             style={{
-              ...typography.h2,
-              color: colors.primary,
-              fontSize: '18px',
-              letterSpacing: '0.2em',
+              height: '40px',
+              objectFit: 'contain',
             }}
-          >
-            STAR SPEAKER AI
-          </span>
+          />
           <div
             style={{
               width: 32,

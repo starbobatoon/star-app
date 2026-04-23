@@ -26,7 +26,7 @@ export async function GET() {
       const { data, error } = await admin
         .from("speeches")
         .select(
-          "status, audio_duration_seconds, rating, created_at, first_name, last_name, email, voice_used, id"
+          "status, audio_duration_seconds, rating, created_at, user_first_name, user_last_name, user_email, voice_used, id"
         );
 
       if (error) {
@@ -40,7 +40,7 @@ export async function GET() {
           const { data: fallbackData, error: fallbackError } = await admin
             .from("speeches")
             .select(
-              "status, audio_duration_seconds, created_at, first_name, last_name, email, voice_used, id"
+              "status, audio_duration_seconds, created_at, user_first_name, user_last_name, user_email, voice_used, id"
             );
           if (fallbackError) {
             console.error(
@@ -129,11 +129,11 @@ export async function GET() {
     try {
       const { data: ghlIntegration, error: ghlError } = await admin
         .from("ghl_integration")
-        .select("is_configured")
+        .select("id")
         .limit(1)
         .maybeSingle();
       if (ghlError) throw ghlError;
-      ghlConfigured = ghlIntegration?.is_configured === true;
+      ghlConfigured = !!ghlIntegration;
     } catch (ghlErr: unknown) {
       const msg = ghlErr instanceof Error ? ghlErr.message : String(ghlErr);
       console.warn(
@@ -152,7 +152,7 @@ export async function GET() {
       .map((s) => ({
         id: s.id,
         title:
-          `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.email,
+          `${s.user_first_name ?? ""} ${s.user_last_name ?? ""}`.trim() || s.user_email,
         status: s.status,
         voiceProfile: s.voice_used ?? "Default",
         duration:

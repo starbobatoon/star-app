@@ -8,6 +8,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const redirectTo = body.redirectTo || "/compose";
 
+    const origin = new URL(request.url).origin;
     const cookieStore = await cookies();
     let response = NextResponse.json({ url: null });
 
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/api/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+        redirectTo: `${origin}/api/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
       },
     });
 

@@ -125,11 +125,21 @@ export async function DELETE(
       );
     }
 
+    // If deleting active voice, auto-activate next available
     if (voice.is_active) {
-      return NextResponse.json(
-        { error: "Cannot delete the active voice. Deactivate it first." },
-        { status: 400 }
-      );
+      const { data: others } = await adminClient
+        .from("voices")
+        .select("id")
+        .neq("id", id)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (others && others.length > 0) {
+        await adminClient
+          .from("voices")
+          .update({ is_active: true })
+          .eq("id", others[0].id);
+      }
     }
 
     const { error: deleteError } = await adminClient

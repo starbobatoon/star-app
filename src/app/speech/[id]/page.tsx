@@ -320,6 +320,51 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
 
   return (
     <div style={{ minHeight: '100vh', background: colors.surface.containerLowest }}>
+      {/* ── Top Nav Header ── */}
+      <header
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: `${spacing.md} ${spacing.lg}`,
+          borderBottom: `1px solid ${colors.outlineVariant}`,
+          backgroundColor: colors.surface.containerLow,
+        }}
+      >
+        <a
+          href="/"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            textDecoration: 'none',
+          }}
+        >
+          <img
+            src="/logo.png"
+            alt="Star Speaker AI"
+            style={{
+              height: '40px',
+              objectFit: 'contain',
+            }}
+          />
+        </a>
+        <a
+          href="/"
+          style={{
+            fontFamily: `var(${typography.uiLabel.fontFamily})`,
+            fontSize: typography.uiLabel.fontSize,
+            fontWeight: typography.uiLabel.fontWeight,
+            color: colors.outline,
+            textDecoration: 'none',
+            letterSpacing: '0.05em',
+            transition: 'color 0.2s ease',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = colors.primary; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = colors.outline; }}
+        >
+          Home
+        </a>
+      </header>
       <main
         style={{
           maxWidth: '720px',

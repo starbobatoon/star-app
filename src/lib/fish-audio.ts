@@ -109,7 +109,7 @@ export interface FishAudioTestResult {
  * @returns FishAudioTestResult with ok status and structured error info on failure.
  */
 export async function testFishAudioConnection(apiKey?: string, voiceId?: string): Promise<FishAudioTestResult> {
-  const key = apiKey || process.env.FISH_AUDIO_API_KEY;
+  const key = apiKey || process.env.STAR_FISH_AUDIO_API_KEY || process.env.FISH_AUDIO_API_KEY;
   if (!key) {
     return { ok: false, category: "auth", error: "No API key provided. Add your Fish Audio API key." };
   }

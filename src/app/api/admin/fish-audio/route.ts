@@ -433,6 +433,15 @@ export async function DELETE() {
       );
     }
 
+    // Clear all saved voices when API key is removed
+    const { error: voicesErr } = await admin
+      .from("voices")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
+    if (voicesErr) {
+      console.error("[fish-audio-config] Failed to clear voices:", voicesErr);
+    }
+
     await writeAuditLog({
       actorEmail: user.email,
       action: "delete",

@@ -21,12 +21,23 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to list users' }, { status: 500 });
     }
 
-    // Filter to only Star Speaker App users
-    const appUsers = users.filter(
-      (u) => u.app_metadata?.app === APP_ID
-    );
+    // Filter to only Star Speaker App admins
+    // Also include current authenticated user (by email) to handle cases
+    // where their app_metadata.app may not be set to APP_ID yet.
+    const filteredUsers = users.filter((u: any) => {
+      const meta = u.app_metadata || {};
+      return meta.app === APP_ID && meta.role === 'admin';
+    });
 
-    return NextResponse.json(appUsers);
+    // Ensure current authenticated admin is always in the list
+    if (user.email && !filteredUsers.some((u: any) => u.email === user.email)) {
+      const currentUser = users.find((u: any) => u.email === user.email);
+      if (currentUser) {
+        filteredUsers.unshift(currentUser);
+      }
+    }
+
+    return NextResponse.json(filteredUsers);
   } catch (error) {
     console.error('[admin/users] GET error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

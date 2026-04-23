@@ -60,14 +60,19 @@ function ComposeNav() {
       <a
         href="/"
         style={{
-          ...typography.h2,
-          color: colors.primary,
-          fontSize: '20px',
-          letterSpacing: '0.15em',
+          display: 'flex',
+          alignItems: 'center',
           textDecoration: 'none',
         }}
       >
-        STAR SPEAKER AI
+        <img
+          src="/logo.png"
+          alt="Star Speaker AI"
+          style={{
+            height: '40px',
+            objectFit: 'contain',
+          }}
+        />
       </a>
       <a
         href="/"

@@ -859,7 +859,7 @@ export default function OpenRouterPage() {
               </h2>
             </div>
 
-            {/* Primary Slot */}
+            {/* Speechwriter Slot */}
             <div style={{ marginBottom: spacing.lg }}>
               <h3
                 style={{
@@ -869,7 +869,7 @@ export default function OpenRouterPage() {
                   margin: `0 0 ${spacing.md} 0`,
                 }}
               >
-                Primary Slot
+                Speechwriter Slot
               </h3>
               <div style={rowStyle}>
                 <div>
@@ -980,7 +980,7 @@ export default function OpenRouterPage() {
               </div>
             </div>
 
-            {/* Brainstorm Slot */}
+            {/* Brainstormer Slot */}
             <div>
               <h3
                 style={{
@@ -990,7 +990,7 @@ export default function OpenRouterPage() {
                   margin: `0 0 ${spacing.md} 0`,
                 }}
               >
-                Brainstorm Slot
+                Brainstormer Slot
               </h3>
 
               {/* Use Primary toggle */}
@@ -1287,7 +1287,7 @@ export default function OpenRouterPage() {
                     marginBottom: spacing.xs,
                   }}
                 >
-                  Brainstorming Bot Prompt
+                  Brainstormer Bot Prompt
                 </label>
                 <span
                   style={{
