@@ -273,16 +273,21 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
     let interval: ReturnType<typeof setInterval> | null = null;
     const poll = async () => {
       try {
-        const res = await fetch(`/api/speeches/${speechId}/status`);
+        const res = await fetch(`/api/speeches/${speechId}/status`, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         failCount = 0;
         setError(null);
         setSpeechStatus(data);
+        // Redirect immediately when complete — don't wait for the React effect.
+        // (Defense in depth: the effect below also watches speechStatus.status.)
+        if (data?.status === "complete" || data?.status === "completed") {
+          window.location.replace(`/speech/${speechId}`);
+        }
       } catch {
         failCount += 1;
         if (failCount >= 6) {
-          setError("Having trouble checking status — we'll keep trying. Your speech is still being created.");
+          setError("Having trouble checking status — click 'View My Speech' below to see it now.");
         }
       }
     };
@@ -430,6 +435,25 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
             — {quote.author}
           </p>
         </div>
+
+        {/* Manual escape hatch — always available so the user is never trapped */}
+        <a
+          href={`/speech/${speechId}`}
+          style={{
+            display: 'inline-block',
+            padding: '10px 20px',
+            border: `1px solid ${colors.primary}`,
+            borderRadius: 999,
+            color: colors.primary,
+            textDecoration: 'none',
+            fontSize: '13px',
+            fontWeight: 600,
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+          }}
+        >
+          View My Speech →
+        </a>
 
         {/* Email / SMS note */}
         <p style={{ color: colors.outline, fontSize: '13px', lineHeight: 1.6, maxWidth: 420, margin: '0 auto' }}>
