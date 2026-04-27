@@ -52,11 +52,27 @@ export async function uploadMedia(
   const { "Content-Type": _ct, ...uploadHeaders } = headers;
 
   const url = `${GHL_API_BASE}/locations/${encodeURIComponent(locationId)}/media/upload`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: uploadHeaders as Record<string, string>,
-    body: formData,
-  });
+
+  // 20-second timeout — if GHL is slow we fall back to the Supabase audio URL
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: uploadHeaders as Record<string, string>,
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("GHL media upload timed out after 20 seconds.");
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!res.ok) {
     if (res.status === 429) {

@@ -232,6 +232,10 @@ export async function synthesizeSpeech(
 
   let response: Response;
 
+  // 90-second timeout — Fish Audio TTS for ~600 words usually takes 20-40s
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 90_000);
+
   try {
     response = await fetch(FISH_AUDIO_API_URL, {
       method: "POST",
@@ -240,13 +244,19 @@ export async function synthesizeSpeech(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      signal: controller.signal,
     });
   } catch (err) {
+    const isAbort = err instanceof Error && err.name === "AbortError";
     throw new FishAudioError(
-      `Network error calling Fish Audio API: ${err instanceof Error ? err.message : String(err)}`,
+      isAbort
+        ? "Fish Audio API timed out after 90 seconds. Try a shorter speech or retry."
+        : `Network error calling Fish Audio API: ${err instanceof Error ? err.message : String(err)}`,
       undefined,
       "network"
     );
+  } finally {
+    clearTimeout(timeout);
   }
 
   // Handle error status codes with specific error categories
