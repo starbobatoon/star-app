@@ -9,7 +9,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const limiter = new RateLimiterMemory({ points: 5, duration: 60 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Star Speaker AI <noreply@starspeaker.ai>';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Star Speaker AI <management@blackceo.com>';
 
 export async function POST(request: NextRequest) {
   try {
