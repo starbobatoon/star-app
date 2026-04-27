@@ -23,43 +23,77 @@ interface ModelInfo {
   completionPrice: string;
 }
 
+// All IDs verified against the live OpenRouter /models endpoint.
+// Anthropic uses DOTS in version numbers (claude-sonnet-4.6), not dashes.
 const AVAILABLE_MODELS: ModelInfo[] = [
-  // Anthropic — confirmed valid OpenRouter IDs
+  // Anthropic
   {
-    id: 'anthropic/claude-sonnet-4-6',
+    id: 'anthropic/claude-sonnet-4.6',
     label: 'Anthropic: Claude Sonnet 4.6 (Recommended)',
-    contextWindow: '200K',
+    contextWindow: '1M',
     promptPrice: '$3.00/M',
     completionPrice: '$15.00/M',
   },
   {
-    id: 'anthropic/claude-opus-4-6',
+    id: 'anthropic/claude-opus-4.6',
     label: 'Anthropic: Claude Opus 4.6',
-    contextWindow: '200K',
-    promptPrice: '$15.00/M',
-    completionPrice: '$75.00/M',
-  },
-  {
-    id: 'anthropic/claude-opus-4-7',
-    label: 'Anthropic: Claude Opus 4.7',
-    contextWindow: '200K',
-    promptPrice: '$15.00/M',
-    completionPrice: '$75.00/M',
-  },
-  // Google — confirmed valid OpenRouter IDs
-  {
-    id: 'google/gemini-3.1-flash-lite-preview',
-    label: 'Google: Gemini 3.1 Flash Lite Preview',
     contextWindow: '1M',
-    promptPrice: '$0.15/M',
-    completionPrice: '$0.60/M',
+    promptPrice: '$5.00/M',
+    completionPrice: '$25.00/M',
   },
+  {
+    id: 'anthropic/claude-opus-4.7',
+    label: 'Anthropic: Claude Opus 4.7',
+    contextWindow: '1M',
+    promptPrice: '$5.00/M',
+    completionPrice: '$25.00/M',
+  },
+  // Google
   {
     id: 'google/gemini-3.1-pro-preview',
     label: 'Google: Gemini 3.1 Pro Preview',
     contextWindow: '1M',
-    promptPrice: '$1.25/M',
-    completionPrice: '$10.00/M',
+    promptPrice: '$2.00/M',
+    completionPrice: '$12.00/M',
+  },
+  {
+    id: 'google/gemini-3.1-flash-lite-preview',
+    label: 'Google: Gemini 3.1 Flash Lite (Cheapest)',
+    contextWindow: '1M',
+    promptPrice: '$0.25/M',
+    completionPrice: '$1.50/M',
+  },
+  // MiniMax
+  {
+    id: 'minimax/minimax-m2.7',
+    label: 'MiniMax: MiniMax M2.7',
+    contextWindow: '197K',
+    promptPrice: '$0.30/M',
+    completionPrice: '$1.20/M',
+  },
+  // Moonshot
+  {
+    id: 'moonshotai/kimi-k2.6',
+    label: 'Moonshot: Kimi K2.6',
+    contextWindow: '256K',
+    promptPrice: '$0.74/M',
+    completionPrice: '$4.66/M',
+  },
+  // Xiaomi MiMo
+  {
+    id: 'xiaomi/mimo-v2-pro',
+    label: 'Xiaomi: MiMo V2 Pro',
+    contextWindow: '1M',
+    promptPrice: '$1.00/M',
+    completionPrice: '$3.00/M',
+  },
+  // Free Tier
+  {
+    id: 'minimax/minimax-m2.5:free',
+    label: 'OpenRouter Free (MiniMax M2.5)',
+    contextWindow: '197K',
+    promptPrice: '$0.00/M',
+    completionPrice: '$0.00/M',
   },
 ];
 
