@@ -465,35 +465,86 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
     return () => clearInterval(interval);
   }, [speech.audioUrl, speech.id]);
 
+  // Audio-reactive visualizer: connects an AnalyserNode to the playing audio
+  // and reads frequency data on each animation frame to drive the bars.
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const NUM_BARS = 32;
+  const [levels, setLevels] = useState<number[]>(() => Array.from({ length: NUM_BARS }, () => 0));
+
+  const tickVisualizer = useCallback(() => {
+    if (!analyserRef.current) return;
+    const data = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(data);
+    const next: number[] = new Array(NUM_BARS);
+    for (let i = 0; i < NUM_BARS; i++) {
+      // Sample frequency bins biased toward voice range (low-mid)
+      const idx = Math.floor((i / NUM_BARS) * (data.length * 0.6));
+      next[i] = data[idx] / 255; // 0..1
+    }
+    setLevels(next);
+    rafRef.current = requestAnimationFrame(tickVisualizer);
+  }, []);
+
   const toggleAudio = () => {
     if (!speech.audioUrl) return;
 
     if (!audioRef.current) {
-      audioRef.current = new Audio(speech.audioUrl);
-      audioRef.current.onloadedmetadata = () => {
-        setAudioDuration(audioRef.current?.duration ?? 0);
+      const audio = new Audio(speech.audioUrl);
+      audio.crossOrigin = 'anonymous'; // needed for the analyser to read samples
+      audio.onloadedmetadata = () => {
+        setAudioDuration(audio.duration ?? 0);
       };
-      audioRef.current.onended = () => {
+      audio.onended = () => {
         setIsPlaying(false);
         setAudioProgress(0);
         if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        setLevels(Array.from({ length: NUM_BARS }, () => 0));
       };
-      audioRef.current.onerror = () => {
+      audio.onerror = () => {
         setIsPlaying(false);
         if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
       };
+      audioRef.current = audio;
     }
 
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     } else {
+      // Lazy-init the audio graph the first time the user hits Play.
+      // Browsers require a user gesture to create AudioContext.
+      if (!audioCtxRef.current) {
+        try {
+          const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          const ctx = new Ctx();
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 128;
+          analyser.smoothingTimeConstant = 0.7;
+          const source = ctx.createMediaElementSource(audioRef.current);
+          source.connect(analyser);
+          analyser.connect(ctx.destination);
+          audioCtxRef.current = ctx;
+          analyserRef.current = analyser;
+        } catch (err) {
+          // If the analyser graph fails (CORS, etc), audio still plays — just no viz.
+          console.warn('[viz] AudioContext setup failed:', err);
+        }
+      }
+      audioCtxRef.current?.resume?.();
       audioRef.current.play();
       setIsPlaying(true);
       progressTimerRef.current = setInterval(() => {
         setAudioProgress(audioRef.current?.currentTime ?? 0);
-      }, 500);
+      }, 250);
+      if (analyserRef.current) {
+        rafRef.current = requestAnimationFrame(tickVisualizer);
+      }
     }
   };
 
@@ -501,6 +552,8 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
     return () => {
       if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
       if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
     };
   }, []);
 
@@ -569,17 +622,45 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
                   {!speech.audioUrl ? 'Audio is being prepared…' : isPlaying ? 'Now Playing' : 'Your Speech — Star\'s Voice'}
                 </div>
                 {speech.audioUrl ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+                    {/* Audio-reactive bar visualizer — height of each bar follows
+                        live frequency data from the playing audio (voice range). */}
                     <div style={{
-                      flex: 1, height: '5px', background: colors.outlineVariant,
-                      borderRadius: '3px', overflow: 'hidden',
+                      flex: 1,
+                      height: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '2px',
                     }}>
-                      <div style={{
-                        height: '100%', background: colors.primary, transition: 'width 0.4s linear',
-                        width: audioDuration > 0 ? `${(audioProgress / audioDuration) * 100}%` : '0%',
-                      }} />
+                      {levels.map((lvl, i) => {
+                        const minH = 3;
+                        const maxH = 38;
+                        // When not playing, fall back to a thin progress bar style
+                        const playing = isPlaying && audioCtxRef.current;
+                        const progressFraction = audioDuration > 0 ? audioProgress / audioDuration : 0;
+                        const isInProgress = i / NUM_BARS < progressFraction;
+                        const h = playing
+                          ? Math.max(minH, Math.round(lvl * maxH))
+                          : isInProgress ? 8 : minH;
+                        const color = playing
+                          ? colors.primary
+                          : isInProgress ? colors.primary : colors.outlineVariant;
+                        return (
+                          <div
+                            key={i}
+                            style={{
+                              flex: 1,
+                              height: `${h}px`,
+                              background: color,
+                              borderRadius: '2px',
+                              transition: playing ? 'height 80ms linear' : 'height 200ms ease',
+                            }}
+                          />
+                        );
+                      })}
                     </div>
-                    <span style={{ fontSize: '13px', color: colors.onSurfaceVariant, whiteSpace: 'nowrap' }}>
+                    <span style={{ fontSize: '13px', color: colors.onSurfaceVariant, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                       {fmtTime(audioProgress)}{audioDuration > 0 ? ` / ${fmtTime(audioDuration)}` : ''}
                     </span>
                   </div>
