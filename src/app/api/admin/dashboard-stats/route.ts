@@ -89,13 +89,15 @@ export async function GET() {
     let ratedSpeechesCount = 0;
     if (ratingAvailable) {
       const ratedSpeeches = completed.filter(
-        (s) => s.rating != null && s.rating >= 1 && s.rating <= 4
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (s) => (s as any).rating != null && (s as any).rating >= 1 && (s as any).rating <= 4
       );
       ratedSpeechesCount = ratedSpeeches.length;
       avgRating =
         ratedSpeeches.length > 0
           ? Math.round(
-              (ratedSpeeches.reduce((a, s) => a + (s.rating as number), 0) /
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (ratedSpeeches.reduce((a, s) => a + ((s as any).rating as number), 0) /
                 ratedSpeeches.length) *
                 10
             ) / 10

@@ -287,8 +287,12 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
     };
   }, []);
 
+  const [bookingUrl, setBookingUrl] = useState('');
+  useEffect(() => {
+    fetch('/api/app-config').then(r => r.json()).then(d => setBookingUrl(d.bookingUrl ?? '')).catch(() => {});
+  }, []);
+
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-  const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL ?? '';
 
   return (
     <div style={pageStyle}>

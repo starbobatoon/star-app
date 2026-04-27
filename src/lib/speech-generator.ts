@@ -157,7 +157,7 @@ export async function generateSpeechText(
     console.log(`[speech-generator] Calling OpenRouter for speech ${speechId}...`);
 
     const response = await chat({
-      slot: "speechwriter",
+      slot: "primary",
       messages,
       stream: false,
     });

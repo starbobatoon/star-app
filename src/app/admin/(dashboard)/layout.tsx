@@ -78,6 +78,15 @@ function IconSignOut() {
 
 // ─── Navigation Config ────────────────────────────────────────────
 
+function IconAppSettings() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+    </svg>
+  );
+}
+
 function IconAnalytics() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -96,6 +105,7 @@ const NAV_ITEMS = [
   { label: 'QUESTIONS', href: '/admin/questions', icon: IconQuiz },
   { label: 'GHL INTEGRATION', href: '/admin/ghl-integration', icon: IconGHL },
   { label: 'ANALYTICS', href: '/admin/analytics', icon: IconAnalytics },
+  { label: 'SETTINGS', href: '/admin/settings', icon: IconAppSettings },
 ];
 
 // ─── Breadcrumb Config ────────────────────────────────────────────
@@ -109,6 +119,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   '/admin/ghl-integration': 'GHL Integration',
   '/admin/login': 'Login',
   '/admin/analytics': 'Analytics',
+  '/admin/settings': 'Settings',
 };
 
 // ─── Layout Component ─────────────────────────────────────────────
