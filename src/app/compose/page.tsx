@@ -224,111 +224,192 @@ function PauseIcon() {
 }
 
 // ─── Countdown Timer Component ───────────────────────────────────
-function CountdownTimer({ startSeconds, onComplete }: { startSeconds: number; onComplete?: () => void }) {
-  const [seconds, setSeconds] = useState(startSeconds);
+const STANDBY_QUOTES = [
+  { text: "It usually takes me more than three weeks to prepare a good impromptu speech.", author: "Mark Twain" },
+  { text: "All the great speakers were bad speakers at first.", author: "Ralph Waldo Emerson" },
+  { text: "Speech is power: speech is to persuade, to convert, to compel.", author: "Ralph Waldo Emerson" },
+  { text: "There are always three speeches for every one you actually gave. The one you practiced, the one you gave, and the one you wish you gave.", author: "Dale Carnegie" },
+  { text: "The right word may be effective, but no word was ever as effective as a rightly timed pause.", author: "Mark Twain" },
+  { text: "Be sincere; be brief; be seated.", author: "Franklin D. Roosevelt" },
+  { text: "Speak clearly, if you speak at all; carve every word before you let it fall.", author: "Oliver Wendell Holmes" },
+  { text: "Words are, of course, the most powerful drug used by mankind.", author: "Rudyard Kipling" },
+  { text: "The most precious things in speech are the pauses.", author: "Sir Ralph Richardson" },
+  { text: "Think twice before you speak, because your words will plant the seed of either success or failure in the mind of another.", author: "Napoleon Hill" },
+];
 
-  useEffect(() => {
-    if (seconds <= 0) {
-      onComplete?.();
-      return;
-    }
-    const timer = setInterval(() => {
-      setSeconds((s) => {
-        if (s <= 1) {
-          clearInterval(timer);
-          onComplete?.();
-          return 0;
-        }
-        return s - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [seconds, onComplete]);
-
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-
-  return (
-    <span style={{ fontFamily: 'var(--font-inter)', fontSize: '48px', fontWeight: 600, color: colors.primary }}>
-      {mins}:{secs.toString().padStart(2, '0')}
-    </span>
-  );
-}
-
-// ─── Stand By Screen ─────────────────────────────────────────────
 function StandByScreen({ email, speechId }: { email: string; speechId: string }) {
+  const TOTAL_SECONDS = 300; // 5-minute max estimate
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+  const [quoteFading, setQuoteFading] = useState(false);
 
-  // Poll for speech status
+  // Elapsed timer — drives the progress bar
+  useEffect(() => {
+    const t = setInterval(() => setElapsed((s) => Math.min(s + 1, TOTAL_SECONDS)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Rotate quotes every 15 seconds with a fade transition
+  useEffect(() => {
+    const t = setInterval(() => {
+      setQuoteFading(true);
+      setTimeout(() => {
+        setQuoteIndex((i) => (i + 1) % STANDBY_QUOTES.length);
+        setQuoteFading(false);
+      }, 600);
+    }, 15000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Poll for speech status every 5 seconds
   useEffect(() => {
     if (!speechId) return;
-
     const poll = async () => {
       try {
         const res = await fetch(`/api/speeches/${speechId}/status`);
         if (!res.ok) throw new Error('Failed to fetch status');
         const data = await res.json();
         setSpeechStatus(data);
-      } catch (e) {
+      } catch {
         setError('Unable to check speech status. Please refresh the page.');
       }
     };
-
-    // Poll immediately, then every 5 seconds
     poll();
     const interval = setInterval(poll, 5000);
     return () => clearInterval(interval);
   }, [speechId]);
 
-  // If transcript is available, show the speech viewer
   if (speechStatus?.transcript) {
     return <SpeechViewer speech={speechStatus} email={email} />;
   }
 
+  const remaining = Math.max(0, TOTAL_SECONDS - elapsed);
+  const mins = Math.floor(remaining / 60);
+  const secs = remaining % 60;
+  const progressPct = Math.min(100, (elapsed / TOTAL_SECONDS) * 100);
+  const quote = STANDBY_QUOTES[quoteIndex];
+
   return (
     <div style={pageStyle}>
       <ComposeNav />
-      <div style={{ ...mainContentStyle, textAlign: 'center' as const, maxWidth: 560 }}>
-        <div style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: '50%',
-          background: `linear-gradient(135deg, ${colors.secondary}22, ${colors.primary}22)`,
-          border: `2px solid ${colors.outlineVariant}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '0 auto 24px',
-          animation: 'pulse 2s ease-in-out infinite',
-        }}>
-          <span style={{ fontSize: '28px' }}>✍️</span>
+      <style>{`
+        @keyframes standbyPulse {
+          0%, 100% { transform: scale(1); opacity: 0.7; }
+          50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes standbyOrbit {
+          from { transform: rotate(0deg) translateX(36px) rotate(0deg); }
+          to { transform: rotate(360deg) translateX(36px) rotate(-360deg); }
+        }
+        @keyframes standbyFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .standby-quote-wrap {
+          transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .standby-quote-wrap.fading {
+          opacity: 0 !important;
+          transform: translateY(-6px) !important;
+        }
+      `}</style>
+
+      <div style={{ ...mainContentStyle, textAlign: 'center' as const, maxWidth: 600, gap: spacing.xl }}>
+
+        {/* Orbital animation */}
+        <div style={{ position: 'relative', width: 96, height: 96, margin: '0 auto' }}>
+          <div style={{
+            width: 96, height: 96, borderRadius: '50%',
+            background: `radial-gradient(circle at 35% 35%, ${colors.secondary}33, ${colors.primary}22)`,
+            border: `2px solid ${colors.primary}55`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            animation: 'standbyPulse 3s ease-in-out infinite',
+          }}>
+            <span style={{ fontSize: '36px', lineHeight: 1 }}>✍️</span>
+          </div>
+          {[0, 120, 240].map((deg, i) => (
+            <div key={i} style={{
+              position: 'absolute', top: '50%', left: '50%',
+              width: 8, height: 8, marginTop: -4, marginLeft: -4,
+              borderRadius: '50%',
+              backgroundColor: i === 0 ? colors.primary : i === 1 ? colors.secondary : colors.outline,
+              animation: `standbyOrbit ${2.4 + i * 0.4}s linear infinite`,
+              animationDelay: `${-i * 0.8}s`,
+              transformOrigin: '0 0',
+              transform: `rotate(${deg}deg) translateX(52px)`,
+            }} />
+          ))}
         </div>
-        <style>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 0.6; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.02); }
-          }
-        `}</style>
 
-        <h1 style={{ ...typography.h1, color: colors.onSurface, fontSize: '28px', marginBottom: spacing.lg }}>
-          Your Speech Is Being Written
-        </h1>
-
-        <div style={{ marginBottom: spacing.lg }}>
-          <CountdownTimer startSeconds={120} />
+        {/* Headline */}
+        <div>
+          <h1 style={{ color: colors.onSurface, fontSize: '26px', fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+            Crafting Your Masterpiece
+          </h1>
+          <p style={{ color: colors.onSurfaceVariant, fontSize: '15px', margin: 0 }}>
+            AI writing + voice recording in progress — this takes 1–5 minutes
+          </p>
         </div>
 
-        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
-          We&apos;re crafting your personalized speech now. This typically takes 2-3 minutes.
-        </p>
+        {/* Countdown + progress */}
+        <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
+            <span style={{ color: colors.outline, fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              Est. time remaining
+            </span>
+            <span style={{ color: colors.primary, fontSize: '32px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
+              {mins}:{secs.toString().padStart(2, '0')}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div style={{ height: 6, borderRadius: 3, background: colors.surface.containerHigh, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${progressPct}%`,
+              borderRadius: 3,
+              background: `linear-gradient(to right, #0B1472, ${colors.primary})`,
+              transition: 'width 1s linear',
+            }} />
+          </div>
+        </div>
 
-        <p style={{ ...typography.caption, color: colors.outline }}>
-          If you have somewhere to be, don&apos;t worry — we&apos;ll also send this to you by email at <strong>{email}</strong> and text you when it&apos;s ready.
+        {/* Rotating quote */}
+        <div
+          className={`standby-quote-wrap${quoteFading ? ' fading' : ''}`}
+          style={{
+            maxWidth: 480,
+            padding: '20px 24px',
+            borderRadius: 12,
+            background: `${colors.secondary}11`,
+            border: `1px solid ${colors.secondary}33`,
+            opacity: 1,
+            transform: 'translateY(0)',
+          }}
+        >
+          <p style={{
+            fontFamily: 'Georgia, "Times New Roman", serif',
+            fontSize: '16px',
+            lineHeight: 1.65,
+            color: colors.onSurface,
+            margin: '0 0 10px',
+            fontStyle: 'italic',
+          }}>
+            &ldquo;{quote.text}&rdquo;
+          </p>
+          <p style={{ fontSize: '12px', color: colors.primary, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', margin: 0 }}>
+            — {quote.author}
+          </p>
+        </div>
+
+        {/* Email / SMS note */}
+        <p style={{ color: colors.outline, fontSize: '13px', lineHeight: 1.6, maxWidth: 420, margin: '0 auto' }}>
+          No need to wait here — we&apos;ll email your speech to <strong style={{ color: colors.onSurfaceVariant }}>{email}</strong> and send you a text the moment it&apos;s ready.
         </p>
 
         {error && (
-          <p style={{ ...typography.caption, color: colors.error, marginTop: spacing.lg }}>
+          <p style={{ color: colors.error, fontSize: '13px', marginTop: 0 }}>
             {error}
           </p>
         )}
