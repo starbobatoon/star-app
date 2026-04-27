@@ -132,6 +132,31 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
       }
     }
 
+    // ------------------------------------------------------------------
+    // Model Slots — fix invalid seeded IDs and ensure slots exist
+    // ------------------------------------------------------------------
+    const SLOT_DEFAULTS = [
+      { slot: "primary",    model_id: "anthropic/claude-sonnet-4-6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
+      { slot: "brainstorm", model_id: "google/gemini-3.1-flash-lite-preview",  label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
+    ];
+    const INVALID_IDS = new Set(["google/gemini-3-pro", "google/gemini-2.5-flash"]);
+
+    for (const defaults of SLOT_DEFAULTS) {
+      const { data: slotRow } = await admin
+        .from("model_slots")
+        .select("slot, model_id")
+        .eq("slot", defaults.slot)
+        .maybeSingle();
+
+      if (!slotRow) {
+        await admin.from("model_slots").insert(defaults);
+      } else if (INVALID_IDS.has(slotRow.model_id)) {
+        await admin.from("model_slots")
+          .update({ model_id: defaults.model_id, label: defaults.label, max_output_tokens: defaults.max_output_tokens })
+          .eq("slot", defaults.slot);
+      }
+    }
+
     seeded = true;
   } catch (err) {
     // Non-fatal — log and continue. The service files have their own error handling.
