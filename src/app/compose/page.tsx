@@ -279,15 +279,13 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
         failCount = 0;
         setError(null);
         setSpeechStatus(data);
-        // Redirect immediately when complete — don't wait for the React effect.
-        // (Defense in depth: the effect below also watches speechStatus.status.)
-        if (data?.status === "complete" || data?.status === "completed") {
-          window.location.replace(`/speech/${speechId}`);
-        }
+        // No redirect — the SpeechViewer renders inline below as soon as
+        // transcript is available, and the audio appears in the same view
+        // when it's ready. User stays on the same page from submit to done.
       } catch {
         failCount += 1;
         if (failCount >= 6) {
-          setError("Having trouble checking status — click 'View My Speech' below to see it now.");
+          setError("Having trouble checking status — your speech is still being created. We'll keep trying.");
         }
       }
     };
@@ -302,18 +300,9 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
     };
   }, [speechId]);
 
-  // When the speech is fully complete, send the user to the dedicated speech
-  // page which has the polished UI: pretty rendering, audio player, Download
-  // PDF / Download Text / Share Link buttons, rating UI.
-  useEffect(() => {
-    if (speechStatus?.status === 'complete' || speechStatus?.status === 'completed') {
-      window.location.replace(`/speech/${speechId}`);
-    }
-  }, [speechStatus?.status, speechId]);
-
-  // Inline preview as soon as transcript is ready (audio still rendering) —
-  // keeps the user engaged while audio finishes. Once status flips to complete,
-  // the effect above redirects them to /speech/[id].
+  // When transcript is ready, render SpeechViewer in place on this page.
+  // SpeechViewer continues polling for the audio URL and shows the play
+  // button as soon as audio lands — all on the same screen, no redirect.
   if (speechStatus?.transcript) {
     return <SpeechViewer speech={speechStatus} email={email} />;
   }
@@ -435,25 +424,6 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
             — {quote.author}
           </p>
         </div>
-
-        {/* Manual escape hatch — always available so the user is never trapped */}
-        <a
-          href={`/speech/${speechId}`}
-          style={{
-            display: 'inline-block',
-            padding: '10px 20px',
-            border: `1px solid ${colors.primary}`,
-            borderRadius: 999,
-            color: colors.primary,
-            textDecoration: 'none',
-            fontSize: '13px',
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-          }}
-        >
-          View My Speech →
-        </a>
 
         {/* Email / SMS note */}
         <p style={{ color: colors.outline, fontSize: '13px', lineHeight: 1.6, maxWidth: 420, margin: '0 auto' }}>
