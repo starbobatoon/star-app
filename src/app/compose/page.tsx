@@ -224,109 +224,225 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
 }
 
 // ─── Speech Viewer Component ─────────────────────────────────────
-function SpeechViewer({ speech, email }: { speech: SpeechStatus; email: string }) {
+function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; email: string }) {
+  const [speech, setSpeech] = useState(initialSpeech);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // If audio is still generating when transcript first appears, keep polling for it
+  useEffect(() => {
+    if (speech.audioUrl) return;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/speeches/${speech.id}/status`);
+        if (!res.ok) return;
+        const data: SpeechStatus = await res.json();
+        if (data.audioUrl) setSpeech((prev) => ({ ...prev, audioUrl: data.audioUrl }));
+      } catch { /* silent — will retry */ }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [speech.audioUrl, speech.id]);
 
   const toggleAudio = () => {
     if (!speech.audioUrl) return;
 
     if (!audioRef.current) {
       audioRef.current = new Audio(speech.audioUrl);
-      audioRef.current.onended = () => setIsPlaying(false);
-      audioRef.current.onerror = () => setIsPlaying(false);
+      audioRef.current.onloadedmetadata = () => {
+        setAudioDuration(audioRef.current?.duration ?? 0);
+      };
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setAudioProgress(0);
+        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      };
+      audioRef.current.onerror = () => {
+        setIsPlaying(false);
+        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      };
     }
 
     if (isPlaying) {
       audioRef.current.pause();
-      audioRef.current.currentTime = 0;
       setIsPlaying(false);
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     } else {
       audioRef.current.play();
       setIsPlaying(true);
+      progressTimerRef.current = setInterval(() => {
+        setAudioProgress(audioRef.current?.currentTime ?? 0);
+      }, 500);
     }
   };
 
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
     };
   }, []);
+
+  const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL ?? '';
 
   return (
     <div style={pageStyle}>
       <ComposeNav />
-      <div style={{ ...mainContentStyle, maxWidth: 720 }}>
-        <div style={{ marginBottom: spacing.xl }}>
-          <span style={{ ...typography.uiLabel, color: colors.outline }}>YOUR SPEECH IS READY</span>
-          <h1 style={{ ...typography.h2, color: colors.onSurface, marginTop: spacing.sm }}>
-            Here&apos;s Your Personalized Speech
+      <div style={{ ...mainContentStyle, maxWidth: 740 }}>
+
+        {/* ── Header ── */}
+        <div style={{ textAlign: 'center', marginBottom: spacing.xl }}>
+          <div style={{
+            display: 'inline-block',
+            background: `linear-gradient(135deg, ${colors.primary}20, ${colors.secondary}20)`,
+            border: `1px solid ${colors.primary}44`,
+            borderRadius: radius.lg,
+            padding: `6px ${spacing.md}`,
+            marginBottom: spacing.sm,
+          }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: colors.primary, letterSpacing: '0.06em' }}>
+              ✓ YOUR SPEECH IS READY
+            </span>
+          </div>
+          <h1 style={{ ...typography.h2, color: colors.onSurface, marginBottom: spacing.sm }}>
+            Here&apos;s Your Personalized 5-Minute Speech
           </h1>
-          <p style={{ ...typography.caption, color: colors.onSurfaceVariant, marginTop: spacing.xs }}>
-            We&apos;ve also sent this to {email}
+          <p style={{ fontSize: '16px', color: colors.onSurfaceVariant, lineHeight: 1.6 }}>
+            We&apos;ve sent this to <strong style={{ color: colors.onSurface }}>{email}</strong> and will text you the link shortly.
           </p>
         </div>
 
+        {/* ── Audio Player ── */}
         <Card cardStyle={{ marginBottom: spacing.lg }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg }}>
-            <button
-              onClick={toggleAudio}
-              disabled={!speech.audioUrl}
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: colors.primary,
-                color: colors.onPrimary,
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: speech.audioUrl ? 'pointer' : 'not-allowed',
-                opacity: speech.audioUrl ? 1 : 0.5,
-                transition: 'transform 0.15s ease',
-              }}
-              onMouseEnter={(e) => { if (speech.audioUrl) e.currentTarget.style.transform = 'scale(1.05)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
-            >
-              {isPlaying ? <PauseIcon /> : <PlayIcon />}
-            </button>
-            <div>
-              <div style={{ ...typography.uiLabel, color: colors.onSurface }}>
-                {isPlaying ? 'Playing...' : 'Listen to Your Speech'}
-              </div>
-              <div style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
-                {speech.audioUrl ? 'Click to play audio version' : 'Audio generation in progress...'}
+          <div style={{ padding: `${spacing.sm} ${spacing.xs}` }}>
+            <div style={{
+              fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const,
+              color: colors.secondary, marginBottom: spacing.md,
+            }}>
+              🎙 Listen to Your Speech
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
+              <button
+                onClick={toggleAudio}
+                disabled={!speech.audioUrl}
+                aria-label={isPlaying ? 'Pause' : 'Play'}
+                style={{
+                  width: '64px', height: '64px', borderRadius: '50%', flexShrink: 0,
+                  background: speech.audioUrl ? colors.primary : colors.outlineVariant,
+                  color: colors.onPrimary, border: 'none', cursor: speech.audioUrl ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.15s ease',
+                }}
+                onMouseEnter={(e) => { if (speech.audioUrl) e.currentTarget.style.transform = 'scale(1.06)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; }}
+              >
+                {isPlaying ? <PauseIcon /> : <PlayIcon />}
+              </button>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '16px', fontWeight: 600, color: colors.onSurface, marginBottom: '6px' }}>
+                  {!speech.audioUrl ? 'Audio is being prepared…' : isPlaying ? 'Now Playing' : 'Your Speech — Star\'s Voice'}
+                </div>
+                {speech.audioUrl ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                    <div style={{
+                      flex: 1, height: '5px', background: colors.outlineVariant,
+                      borderRadius: '3px', overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        height: '100%', background: colors.primary, transition: 'width 0.4s linear',
+                        width: audioDuration > 0 ? `${(audioProgress / audioDuration) * 100}%` : '0%',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '13px', color: colors.onSurfaceVariant, whiteSpace: 'nowrap' }}>
+                      {fmtTime(audioProgress)}{audioDuration > 0 ? ` / ${fmtTime(audioDuration)}` : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <p style={{ fontSize: '14px', color: colors.onSurfaceVariant, margin: 0 }}>
+                    Generating your audio — it will appear here in a moment.
+                  </p>
+                )}
               </div>
             </div>
           </div>
         </Card>
 
+        {/* ── Transcript ── */}
         <div style={{
           background: colors.surface.container,
           borderRadius: radius.lg,
-          padding: spacing.lg,
           border: `1px solid ${colors.outlineVariant}`,
+          marginBottom: spacing.xl,
+          overflow: 'hidden',
         }}>
-          <div style={{ ...typography.uiLabel, color: colors.secondary, marginBottom: spacing.md, textTransform: 'uppercase' as const }}>
-            Transcript
+          <div style={{
+            padding: `${spacing.md} ${spacing.lg}`,
+            borderBottom: `1px solid ${colors.outlineVariant}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: colors.secondary }}>
+              📄 Your Written Speech
+            </span>
+            <span style={{ fontSize: '12px', color: colors.outline }}>Scroll to read ↕</span>
           </div>
-          <div
-            style={{
-              ...typography.transcriptBody,
-              color: colors.onSurface,
-              whiteSpace: 'pre-wrap',
-              lineHeight: '1.8',
-            }}
-          >
+          <div style={{
+            padding: spacing.lg,
+            maxHeight: '420px',
+            overflowY: 'auto' as const,
+            fontSize: '18px',
+            lineHeight: '1.95',
+            color: colors.onSurface,
+            fontFamily: 'Georgia, "Book Antiqua", Palatino, serif',
+            whiteSpace: 'pre-wrap' as const,
+          }}>
             {speech.transcript}
           </div>
         </div>
 
-        <div style={{ marginTop: spacing.xl, display: 'flex', gap: spacing.md, justifyContent: 'center' }}>
+        {/* ── Schedule CTA ── */}
+        {bookingUrl && (
+          <div style={{
+            background: `linear-gradient(135deg, ${colors.primary}14, ${colors.secondary}14)`,
+            border: `1px solid ${colors.primary}33`,
+            borderRadius: radius.lg,
+            padding: spacing.xl,
+            textAlign: 'center',
+            marginBottom: spacing.xl,
+          }}>
+            <div style={{ fontSize: '20px', fontWeight: 700, color: colors.onSurface, marginBottom: spacing.xs }}>
+              Want Help Perfecting Your Speech?
+            </div>
+            <p style={{ fontSize: '16px', color: colors.onSurfaceVariant, marginBottom: spacing.lg, lineHeight: 1.6 }}>
+              Schedule a 1-on-1 coaching session with Star Bobatoon to refine your message and delivery.
+            </p>
+            <a
+              href={bookingUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-block',
+                background: colors.primary,
+                color: colors.onPrimary,
+                padding: `${spacing.sm} ${spacing.xl}`,
+                borderRadius: radius.DEFAULT,
+                fontWeight: 700,
+                fontSize: '16px',
+                textDecoration: 'none',
+                letterSpacing: '0.02em',
+              }}
+            >
+              Schedule a Coaching Session →
+            </a>
+          </div>
+        )}
+
+        {/* ── Bottom actions ── */}
+        <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'center', flexWrap: 'wrap' as const }}>
           <Button variant="secondary" onClick={() => window.location.href = '/'}>
             ← Back to Home
           </Button>
@@ -334,6 +450,7 @@ function SpeechViewer({ speech, email }: { speech: SpeechStatus; email: string }
             Create Another Speech
           </Button>
         </div>
+
       </div>
     </div>
   );

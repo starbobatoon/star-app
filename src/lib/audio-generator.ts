@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { synthesizeSpeech } from "@/lib/fish-audio";
 import { decrypt } from "@/lib/encryption";
 import { writeAuditLog } from "@/lib/audit-log";
+import { uploadMedia } from "@/lib/ghl/media";
 
 export interface GenerateResult {
   success: boolean;
@@ -111,13 +112,29 @@ export async function generateSpeechAudio(
       throw new Error(`Failed to upload audio: ${uploadError.message}`);
     }
 
-    // Get public URL for GHL sync
+    // Get public URL from Supabase storage (fallback if GHL upload fails)
     const { data: publicUrlData } = supabaseAdmin
       .storage
       .from("speech-audio")
       .getPublicUrl(filePath);
 
-    const audioGhlUrl = publicUrlData?.publicUrl;
+    const supabaseAudioUrl = publicUrlData?.publicUrl;
+
+    // Attempt to upload to GHL Media Library for direct CRM delivery
+    let audioGhlUrl = supabaseAudioUrl;
+    try {
+      const ghlMedia = await uploadMedia({
+        file: audioBuffer,
+        fileName: `speech-${speechId}.mp3`,
+        contentType: "audio/mpeg",
+      });
+      audioGhlUrl = ghlMedia.url;
+      console.log(`[audio-generator] Audio uploaded to GHL media library: ${audioGhlUrl}`);
+    } catch (ghlErr) {
+      console.warn(
+        `[audio-generator] GHL media upload failed (using Supabase URL as fallback): ${ghlErr instanceof Error ? ghlErr.message : ghlErr}`
+      );
+    }
 
     // 6. Update speech record with storage path and GHL URL
     const { error: updateError } = await supabaseAdmin
