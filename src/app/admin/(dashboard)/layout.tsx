@@ -76,6 +76,15 @@ function IconSignOut() {
   );
 }
 
+function IconCompose() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
 // ─── Navigation Config ────────────────────────────────────────────
 
 function IconAppSettings() {
@@ -243,8 +252,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
+        {/* Compose shortcut */}
+        <div style={{ marginTop: 'auto', marginBottom: spacing.sm }}>
+          <Link
+            href="/compose"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: `${spacing.sm} ${spacing.md}`,
+              backgroundColor: `${colors.primary}18`,
+              color: colors.primary,
+              borderLeft: `2px solid ${colors.primary}`,
+              borderRadius: `0 ${radius.sm} ${radius.sm} 0`,
+              textDecoration: 'none',
+              ...typography.uiLabel,
+              letterSpacing: '0.1em',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = `${colors.primary}30`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = `${colors.primary}18`;
+            }}
+          >
+            <IconCompose />
+            COMPOSE
+          </Link>
+        </div>
+
         {/* Sign Out */}
-        <div style={{ marginTop: 'auto' }}>
+        <div>
           <button
             onClick={async () => {
               try {
@@ -331,44 +370,63 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             paddingTop: `calc(${spacing.md} + 0px)`,
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             gap: spacing.sm,
             borderBottom: `1px solid ${colors.outlineVariant}`,
             backgroundColor: colors.surface.containerLow,
           }}
           className="pt-16 md:pt-0"
         >
+          {/* Left: Admin > Page */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+            <Link
+              href="/admin"
+              style={{
+                ...typography.uiLabel,
+                color: colors.outline,
+                textDecoration: 'none',
+                letterSpacing: '0.05em',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = colors.primary; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = colors.outline; }}
+            >
+              Admin
+            </Link>
+            {breadcrumbLabel !== 'Dashboard' && (
+              <>
+                <span style={{ ...typography.uiLabel, color: colors.outlineVariant }}>/</span>
+                <span style={{ ...typography.uiLabel, color: colors.onSurface, letterSpacing: '0.05em' }}>
+                  {breadcrumbLabel}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Right: Compose shortcut */}
           <Link
-            href="/admin"
+            href="/compose"
             style={{
-              ...typography.uiLabel,
-              color: colors.outline,
+              display: 'flex',
+              alignItems: 'center',
+              gap: spacing.xs,
+              padding: `4px 12px`,
+              backgroundColor: `${colors.primary}18`,
+              color: colors.primary,
+              border: `1px solid ${colors.primary}44`,
+              borderRadius: radius.full,
               textDecoration: 'none',
-              letterSpacing: '0.05em',
-              transition: 'color 0.2s ease',
+              ...typography.uiLabel,
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              transition: 'all 0.2s ease',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.primary;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = colors.outline;
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}30`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = `${colors.primary}18`; }}
           >
-            Admin
+            <IconCompose />
+            Compose
           </Link>
-          {breadcrumbLabel !== 'Dashboard' && (
-            <>
-              <span style={{ ...typography.uiLabel, color: colors.outlineVariant }}>/</span>
-              <span
-                style={{
-                  ...typography.uiLabel,
-                  color: colors.onSurface,
-                  letterSpacing: '0.05em',
-                }}
-              >
-                {breadcrumbLabel}
-              </span>
-            </>
-          )}
         </div>
 
         {/* Page Content */}
@@ -427,6 +485,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </Link>
           );
         })}
+        {/* Compose shortcut in mobile nav */}
+        <Link
+          href="/compose"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            color: colors.primary,
+            textDecoration: 'none',
+            padding: `${spacing.xs} ${spacing.sm}`,
+            minWidth: 48,
+            flexShrink: 0,
+          }}
+        >
+          <IconCompose />
+          <span style={{
+            ...typography.caption,
+            fontSize: '9px',
+            textTransform: 'uppercase' as const,
+            letterSpacing: '0.05em',
+            textAlign: 'center' as const,
+          }}>
+            COMPOSE
+          </span>
+        </Link>
       </nav>
     </div>
   );
