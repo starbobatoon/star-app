@@ -24,13 +24,13 @@ interface ModelInfo {
 }
 
 const AVAILABLE_MODELS: ModelInfo[] = [
-  // Anthropic
+  // Anthropic — confirmed valid OpenRouter IDs
   {
-    id: 'anthropic/claude-opus-4-7',
-    label: 'Anthropic: Claude Opus 4.7',
+    id: 'anthropic/claude-sonnet-4-6',
+    label: 'Anthropic: Claude Sonnet 4.6 (Recommended)',
     contextWindow: '200K',
-    promptPrice: '$15.00/M',
-    completionPrice: '$75.00/M',
+    promptPrice: '$3.00/M',
+    completionPrice: '$15.00/M',
   },
   {
     id: 'anthropic/claude-opus-4-6',
@@ -40,20 +40,13 @@ const AVAILABLE_MODELS: ModelInfo[] = [
     completionPrice: '$75.00/M',
   },
   {
-    id: 'anthropic/claude-sonnet-4-6',
-    label: 'Anthropic: Claude Sonnet 4.6',
+    id: 'anthropic/claude-opus-4-7',
+    label: 'Anthropic: Claude Opus 4.7',
     contextWindow: '200K',
-    promptPrice: '$3.00/M',
-    completionPrice: '$15.00/M',
+    promptPrice: '$15.00/M',
+    completionPrice: '$75.00/M',
   },
-  // Google
-  {
-    id: 'google/gemini-3.1-pro-preview',
-    label: 'Google: Gemini 3.1 Pro Preview',
-    contextWindow: '1M',
-    promptPrice: '$1.25/M',
-    completionPrice: '$10.00/M',
-  },
+  // Google — confirmed valid OpenRouter IDs
   {
     id: 'google/gemini-3.1-flash-lite-preview',
     label: 'Google: Gemini 3.1 Flash Lite Preview',
@@ -61,75 +54,12 @@ const AVAILABLE_MODELS: ModelInfo[] = [
     promptPrice: '$0.15/M',
     completionPrice: '$0.60/M',
   },
-  // OpenRouter Free
   {
-    id: 'openrouter/free',
-    label: 'OpenRouter: Free Tier',
-    contextWindow: 'Variable',
-    promptPrice: '$0.00/M',
-    completionPrice: '$0.00/M',
-  },
-  // Mistral
-  {
-    id: 'openrouter/mistral/mistral-large-2411',
-    label: 'Mistral: Mistral Large',
-    contextWindow: '128K',
-    promptPrice: '$2.00/M',
-    completionPrice: '$6.00/M',
-  },
-  // Moonshot
-  {
-    id: 'openrouter/moonshotai/kimi-k2.6',
-    label: 'Moonshot: Kimi K2.6',
-    contextWindow: '256K',
-    promptPrice: '$0.50/M',
-    completionPrice: '$2.00/M',
-  },
-  // Xiaomi MiMo
-  {
-    id: 'openrouter/xiaomi/mimo-v2-pro',
-    label: 'Xiaomi: MiMo V2 Pro',
+    id: 'google/gemini-3.1-pro-preview',
+    label: 'Google: Gemini 3.1 Pro Preview',
     contextWindow: '1M',
-    promptPrice: '$0.20/M',
-    completionPrice: '$0.80/M',
-  },
-  {
-    id: 'openrouter/xiaomi/mimo-v2-omni',
-    label: 'Xiaomi: MiMo V2 Omni',
-    contextWindow: '262K',
-    promptPrice: '$0.30/M',
-    completionPrice: '$1.20/M',
-  },
-
-  // MiniMax
-  {
-    id: 'openrouter/minimax/minimax-m2.7',
-    label: 'MiniMax: MiniMax M2.7',
-    contextWindow: '200K',
-    promptPrice: '$0.30/M',
-    completionPrice: '$1.20/M',
-  },
-  {
-    id: 'openrouter/minimax/minimax-m2.5-free',
-    label: 'MiniMax: MiniMax M2.5 Free',
-    contextWindow: '200K',
-    promptPrice: '$0.00/M',
-    completionPrice: '$0.00/M',
-  },
-  // OpenAI
-  {
-    id: 'openai-codex/gpt-5.4',
-    label: 'OpenAI: GPT 5.4',
-    contextWindow: '256K',
-    promptPrice: '$2.50/M',
+    promptPrice: '$1.25/M',
     completionPrice: '$10.00/M',
-  },
-  {
-    id: 'openai-codex/gpt-5.4-mini',
-    label: 'OpenAI: GPT 5.4 Mini',
-    contextWindow: '128K',
-    promptPrice: '$0.60/M',
-    completionPrice: '$2.40/M',
   },
 ];
 

@@ -138,9 +138,15 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
     const SLOT_DEFAULTS = [
       { slot: "primary",      model_id: "anthropic/claude-sonnet-4-6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
       { slot: "brainstorm",   model_id: "google/gemini-3.1-flash-lite-preview",  label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
-      { slot: "speechwriter", model_id: "openrouter/xiaomi/mimo-v2-pro",         label: "MiMo V2 Pro (Speechwriter)",         temperature: 0.70, max_output_tokens: 4096 },
+      { slot: "speechwriter", model_id: "anthropic/claude-sonnet-4-6",            label: "Claude Sonnet 4.6 (Speechwriter)",   temperature: 0.70, max_output_tokens: 4096 },
     ];
-    const INVALID_IDS = new Set(["google/gemini-3-pro", "google/gemini-2.5-flash"]);
+    const INVALID_IDS = new Set([
+      "google/gemini-3-pro", "google/gemini-2.5-flash",
+      "openrouter/minimax/minimax-m2.7", "openrouter/minimax/minimax-m2.5-free",
+      "openrouter/xiaomi/mimo-v2-pro", "openrouter/xiaomi/mimo-v2-omni",
+      "openrouter/moonshotai/kimi-k2.6", "openrouter/mistral/mistral-large-2411",
+      "openrouter/free", "openai-codex/gpt-5.4", "openai-codex/gpt-5.4-mini",
+    ]);
 
     for (const defaults of SLOT_DEFAULTS) {
       const { data: slotRow } = await admin
