@@ -934,9 +934,9 @@ export default function VoiceConfigPage() {
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: spacing.sm, flexWrap: 'wrap' as const }}>
                 <button
-                  style={{ ...secondaryButtonStyle, opacity: fishAudioKey ? 1 : 0.5 }}
+                  style={{ ...secondaryButtonStyle, opacity: (fishAudioKey || fishAudioConfig?.isConfigured) ? 1 : 0.5 }}
                   onClick={handleTestVoice}
-                  disabled={!fishAudioKey || testVoiceStatus === 'testing'}
+                  disabled={(!fishAudioKey && !fishAudioConfig?.isConfigured) || testVoiceStatus === 'testing'}
                 >
                   {testVoiceStatus === 'testing' ? (
                     <>

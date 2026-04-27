@@ -18,13 +18,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Accept optional pit / locationId from body; fall back to saved DB values
+  // Accept optional pit / locationId from body; fall back to saved DB values.
+  // "unchanged:<locationId>" is a UI sentinel meaning "keep the saved key" — treat as absent.
   let pit: string | undefined;
   let locationId: string | undefined;
   try {
     const body = await request.json();
-    if (body?.pit && typeof body.pit === "string" && body.pit.trim()) pit = body.pit.trim();
-    if (body?.locationId && typeof body.locationId === "string" && body.locationId.trim()) locationId = body.locationId.trim();
+    if (body?.pit && typeof body.pit === "string" && body.pit.trim() && !body.pit.startsWith("unchanged:")) {
+      pit = body.pit.trim();
+    }
+    if (body?.locationId && typeof body.locationId === "string" && body.locationId.trim()) {
+      locationId = body.locationId.trim();
+    }
   } catch { /* empty body fine */ }
 
   if (!pit || !locationId) {

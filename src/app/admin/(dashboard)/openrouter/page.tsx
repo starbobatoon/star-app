@@ -278,7 +278,7 @@ export default function OpenRouterPage() {
 
   // ─── Section A: Test Connection ───────────────────────────────
   const handleTestConnection = useCallback(async () => {
-    if (!apiKey) return;
+    if (!apiKey && !isConfigured) return;
     setConnectionStatus('testing');
     setCredits(null);
     setConnectionError(null);
@@ -664,7 +664,7 @@ export default function OpenRouterPage() {
                   variant="secondary"
                   onClick={handleTestConnection}
                   loading={connectionStatus === 'testing'}
-                  disabled={!apiKey}
+                  disabled={!apiKey && !isConfigured}
                 >
                   Test Connection
                 </Button>
