@@ -29,6 +29,8 @@ interface DashboardData {
   avgRating: number | null;
   ratedSpeechesCount: number;
   openRouterConfigured: boolean;
+  openRouterCredits: number | null;
+  openRouterLastValidated: string | null;
   ghlConfigured: boolean;
   recentSpeeches: RecentSpeech[];
 }
@@ -263,7 +265,7 @@ export default function AdminDashboard() {
     fetchStats();
   }, [fetchStats]);
 
-  const showSetupCards = data && (!data.openRouterConfigured || !data.ghlConfigured);
+  const showSetupCards = data && (!data.openRouterConfigured || !data.ghlConfigured || data.openRouterConfigured);
 
   return (
     <div style={{ padding: `${spacing.xl} ${spacing.lg}`, minHeight: '100vh' }} className="pb-28 md:pb-xl">
@@ -323,7 +325,51 @@ export default function AdminDashboard() {
               <section
                 className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8"
               >
-                {!data.openRouterConfigured && (
+                {data.openRouterConfigured ? (
+                  <Card
+                    hoverable
+                    cardStyle={{
+                      cursor: 'pointer',
+                      borderColor: data.openRouterCredits != null && data.openRouterCredits < 1
+                        ? colors.error
+                        : colors.outlineVariant,
+                      minHeight: 'auto',
+                    }}
+                  >
+                    <a href="/admin/openrouter" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}>
+                        <IconCheck />
+                        <span style={{ ...typography.uiLabel, color: colors.primary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                          OpenRouter Connected
+                        </span>
+                      </div>
+                      <div>
+                        <h3 style={{ ...typography.h2, color: colors.onSurface, margin: 0, marginBottom: spacing.xs, fontSize: '20px' }}>
+                          AI Credits
+                        </h3>
+                        {data.openRouterCredits != null ? (
+                          <>
+                            <p style={{ ...typography.h1, color: data.openRouterCredits < 1 ? colors.error : colors.primary, margin: 0, fontSize: '28px' }}>
+                              ${data.openRouterCredits.toFixed(2)}
+                            </p>
+                            <p style={{ ...typography.caption, color: colors.outline, margin: `${spacing.xs} 0 0 0` }}>
+                              {data.openRouterLastValidated
+                                ? `Updated ${timeAgo(data.openRouterLastValidated)}`
+                                : 'Test connection to update'}
+                            </p>
+                          </>
+                        ) : (
+                          <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, margin: 0, fontSize: '14px' }}>
+                            Go to Model Settings → Test Connection to see credits
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, color: colors.onSurfaceVariant, ...typography.uiLabel, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                        Model Settings <IconArrow />
+                      </div>
+                    </a>
+                  </Card>
+                ) : (
                   <Card
                     hoverable
                     cardStyle={{
@@ -333,69 +379,22 @@ export default function AdminDashboard() {
                       minHeight: 'auto',
                     }}
                   >
-                    <a
-                      href="/admin/openrouter"
-                      style={{
-                        textDecoration: 'none',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: spacing.md,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing.sm,
-                          color: colors.secondary,
-                        }}
-                      >
+                    <a href="/admin/openrouter" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, color: colors.secondary }}>
                         <IconAlert />
-                        <span
-                          style={{
-                            ...typography.uiLabel,
-                            color: colors.secondary,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.1em',
-                          }}
-                        >
+                        <span style={{ ...typography.uiLabel, color: colors.secondary, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                           Setup Required
                         </span>
                       </div>
                       <div>
-                        <h3
-                          style={{
-                            ...typography.h2,
-                            color: colors.onSurface,
-                            margin: 0,
-                            marginBottom: spacing.xs,
-                            fontSize: '20px',
-                          }}
-                        >
+                        <h3 style={{ ...typography.h2, color: colors.onSurface, margin: 0, marginBottom: spacing.xs, fontSize: '20px' }}>
                           Connect OpenRouter
                         </h3>
-                        <p
-                          style={{
-                            ...typography.uiBody,
-                            color: colors.onSurfaceVariant,
-                            margin: 0,
-                            fontSize: '14px',
-                          }}
-                        >
+                        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, margin: 0, fontSize: '14px' }}>
                           Configure your OpenRouter API key to enable AI-powered speech generation. Required before generating any speeches.
                         </p>
                       </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: spacing.xs,
-                          color: colors.secondary,
-                          ...typography.uiLabel,
-                          letterSpacing: '0.1em',
-                          textTransform: 'uppercase',
-                        }}
-                      >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.xs, color: colors.secondary, ...typography.uiLabel, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                         Complete Setup <IconArrow />
                       </div>
                     </a>

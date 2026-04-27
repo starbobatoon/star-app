@@ -76,6 +76,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: userMessage, category });
     }
 
+    // Persist credits and validation timestamp so the dashboard can show them without a live call
+    try {
+      const admin = createAdminClient();
+      const { data: orRow } = await admin
+        .from("openrouter_integration")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      if (orRow?.id) {
+        await admin.from("openrouter_integration").update({
+          credits_remaining_usd: result.credits ?? null,
+          last_validated_at: new Date().toISOString(),
+          last_validation_status: "connected",
+        }).eq("id", orRow.id);
+      }
+    } catch { /* non-fatal */ }
+
     await writeAuditLog({ actorEmail: user.email ?? undefined, action: "test", entityType: "openrouter_integration", afterValue: { success: true, credits: result.credits } });
     return NextResponse.json({ ok: true, credits: result.credits });
   } catch (err) {

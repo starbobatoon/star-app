@@ -114,15 +114,18 @@ export async function GET() {
 
     // -- OpenRouter status (graceful fallback if table missing) --
     let openRouterConfigured = false;
+    let openRouterCredits: number | null = null;
+    let openRouterLastValidated: string | null = null;
     try {
       const { data: orIntegration, error: orError } = await admin
         .from("openrouter_integration")
-        .select("is_configured, api_key_encrypted")
+        .select("is_configured, api_key_encrypted, credits_remaining_usd, last_validated_at")
         .limit(1)
         .maybeSingle();
       if (orError) throw orError;
-      // Configured if flag is set OR if a key exists (key may have been seeded without flag)
       openRouterConfigured = orIntegration?.is_configured === true || !!orIntegration?.api_key_encrypted;
+      openRouterCredits = orIntegration?.credits_remaining_usd ?? null;
+      openRouterLastValidated = orIntegration?.last_validated_at ?? null;
     } catch (orErr: unknown) {
       const msg = orErr instanceof Error ? orErr.message : String(orErr);
       console.warn(
@@ -179,6 +182,8 @@ export async function GET() {
       avgRating,
       ratedSpeechesCount,
       openRouterConfigured,
+      openRouterCredits,
+      openRouterLastValidated,
       ghlConfigured,
       recentSpeeches,
     });

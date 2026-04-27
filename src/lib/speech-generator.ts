@@ -333,10 +333,39 @@ async function buildUserPrompt(speech: SpeechRecord, admin: ReturnType<typeof cr
  * Expects format: "Hook:", "Story:", "Point:", "CTA:", "Exit:" headers.
  */
 function parseSpeechSections(content: string): ParsedSpeechSections {
+  // ── JSON format (default seed prompt returns JSON object) ──────────────
+  // Try to extract sections from a JSON response first.
+  const trimmed = content.trim();
+  let jsonCandidate = trimmed;
+  if (trimmed.startsWith("```")) {
+    jsonCandidate = trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+  }
+  if (jsonCandidate.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(jsonCandidate) as Record<string, unknown>;
+      const hook  = typeof parsed.hook  === "string" ? parsed.hook  : "";
+      const story = typeof parsed.story === "string" ? parsed.story : "";
+      const point = typeof parsed.point === "string" ? parsed.point : "";
+      const cta   = typeof parsed.cta   === "string" ? parsed.cta   : "";
+      const exit  = typeof parsed.exit  === "string" ? parsed.exit  : "";
+      if (hook && story && point && cta && exit) {
+        return {
+          hook:  cleanSection(hook),
+          story: cleanSection(story),
+          point: cleanSection(point),
+          cta:   cleanSection(cta),
+          exit:  cleanSection(exit),
+        };
+      }
+    } catch {
+      // Not valid JSON — fall through to text header parsing
+    }
+  }
+
+  // ── Text section header format ─────────────────────────────────────────
+  // Accepts: "Hook:", "**Hook**:", "**Hook**", "## Hook", "# Hook"
   const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // Accept any of: "Hook:", "**Hook**:", "**Hook**", "## Hook", "# Hook"
-  // followed by content up to the next section header (or end of string).
   const h = (name: string) =>
     `(?:\\*{1,2}\\s*${name}\\s*\\*{1,2}\\s*:?|#{1,3}\\s*${name}\\s*:?|${name}\\s*:)`;
 
@@ -350,10 +379,9 @@ function parseSpeechSections(content: string): ParsedSpeechSections {
   const exitMatch  = normalized.match(new RegExp(`${h("Exit")}[ \\t]*\\n?([\\s\\S]*)$`, "i"));
 
   if (!hookMatch || !storyMatch || !pointMatch || !ctaMatch || !exitMatch) {
-    // Log the raw content for debugging then surface a clear error
     console.error("[speech-generator] Parse failure. Raw response (first 500 chars):", normalized.slice(0, 500));
     throw new Error(
-      "Could not parse all 5 sections. Expected headers: Hook, Story, Point, CTA, Exit (plain or **bold** or ## heading format)"
+      "Could not parse all 5 sections. Expected JSON object with hook/story/point/cta/exit fields, or text with Hook:/Story:/Point:/CTA:/Exit: headers"
     );
   }
 
