@@ -37,13 +37,15 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
         .limit(1)
         .maybeSingle();
 
+      // Env vars are the source of truth — always overwrite DB when env var is set.
+      // This means Vercel env vars are the "hardcoded" values: change them, redeploy, done.
       const fishUpdate: Record<string, unknown> = {};
-      if (fishApiKey && !fishRow?.api_key_encrypted) {
+      if (fishApiKey) {
         fishUpdate.api_key_encrypted = encrypt(fishApiKey);
         fishUpdate.api_key_preview = fishApiKey.slice(-4);
         fishUpdate.is_configured = true;
       }
-      if (fishVoiceId && !fishRow?.default_voice_id) {
+      if (fishVoiceId) {
         fishUpdate.default_voice_id = fishVoiceId;
       }
 
@@ -55,11 +57,11 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
         }
       }
 
-      // Seed voices table if no active voice exists
+      // Always sync the active voice to match FISH_AUDIO_VOICE_ID env var
       if (fishVoiceId) {
         const { data: activeVoice } = await admin
           .from("voices")
-          .select("id")
+          .select("id, fish_audio_voice_id")
           .eq("is_active", true)
           .limit(1)
           .maybeSingle();
@@ -70,6 +72,11 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
             label: "Star Bobatoon",
             is_active: true,
           });
+        } else if (activeVoice.fish_audio_voice_id !== fishVoiceId) {
+          // Active voice's fish ID drifted — force back to env var value
+          await admin.from("voices")
+            .update({ fish_audio_voice_id: fishVoiceId })
+            .eq("id", activeVoice.id);
         }
       }
     }
@@ -82,21 +89,20 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
     if (openrouterKey) {
       const { data: orRow } = await admin
         .from("openrouter_integration")
-        .select("id, api_key_encrypted")
+        .select("id")
         .limit(1)
         .maybeSingle();
 
-      if (!orRow?.api_key_encrypted) {
-        const orUpdate = {
-          api_key_encrypted: encrypt(openrouterKey),
-          api_key_preview: openrouterKey.slice(-4),
-          is_configured: true,
-        };
-        if (orRow?.id) {
-          await admin.from("openrouter_integration").update(orUpdate).eq("id", orRow.id);
-        } else {
-          await admin.from("openrouter_integration").insert(orUpdate);
-        }
+      // Env var always wins — overwrite on every cold start.
+      const orUpdate = {
+        api_key_encrypted: encrypt(openrouterKey),
+        api_key_preview: openrouterKey.slice(-4),
+        is_configured: true,
+      };
+      if (orRow?.id) {
+        await admin.from("openrouter_integration").update(orUpdate).eq("id", orRow.id);
+      } else {
+        await admin.from("openrouter_integration").insert(orUpdate);
       }
     }
 
@@ -113,13 +119,14 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
         .limit(1)
         .maybeSingle();
 
+      // Env vars always win — overwrite on every cold start.
       const ghlUpdate: Record<string, unknown> = {};
-      if (ghlPit && !ghlRow?.pit_encrypted) {
+      if (ghlPit) {
         ghlUpdate.pit_encrypted = encrypt(ghlPit);
         ghlUpdate.pit_preview = ghlPit.slice(-4);
         ghlUpdate.is_configured = true;
       }
-      if (ghlLocationId && !ghlRow?.location_id) {
+      if (ghlLocationId) {
         ghlUpdate.location_id = ghlLocationId;
       }
 
