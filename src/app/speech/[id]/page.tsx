@@ -435,11 +435,45 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
           </div>
           {sections.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, flexShrink: 0 }}>
-              <Button variant="secondary">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  if (navigator.share) {
+                    navigator.share({ title: 'My STAR Speech', url: window.location.href }).catch(() => {});
+                  } else {
+                    navigator.clipboard?.writeText(window.location.href).then(
+                      () => alert('Link copied to clipboard'),
+                      () => alert(window.location.href)
+                    );
+                  }
+                }}
+              >
                 <ShareIcon />
                 Share Link
               </Button>
-              <Button variant="primary">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  // Plain text download
+                  const text = sections.map(s => `${s.title.toUpperCase()}\n\n${s.content}`).join('\n\n\n');
+                  const blob = new Blob([text], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `STAR_Speech_${speechId.slice(0,8)}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
+                <DownloadIcon />
+                Download Text
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  window.open(`/api/speeches/${speechId}/pdf`, '_blank');
+                }}
+              >
                 <DownloadIcon />
                 Download PDF
               </Button>

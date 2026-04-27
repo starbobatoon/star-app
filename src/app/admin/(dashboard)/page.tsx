@@ -18,6 +18,8 @@ interface RecentSpeech {
   voiceProfile: string;
   duration: string;
   createdAt: string;
+  completedAt: string | null;
+  generationSeconds: number | null;
 }
 
 interface DashboardData {
@@ -96,10 +98,20 @@ function formatDuration(seconds: number | null): string {
 function formatCreatedAt(dateStr: string): string {
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    return `${date} · ${time}`;
   } catch {
     return dateStr;
   }
+}
+
+function formatGenerationTime(seconds: number | null): string {
+  if (seconds == null) return '—';
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const rem = seconds % 60;
+  return rem === 0 ? `${mins}m` : `${mins}m ${rem}s`;
 }
 
 function timeAgo(dateStr: string): string {
@@ -868,7 +880,12 @@ export default function AdminDashboard() {
                             {speech.duration}
                           </td>
                           <td style={{ padding: spacing.md, ...typography.uiBody, color: colors.onSurfaceVariant }}>
-                            {formatCreatedAt(speech.createdAt)}
+                            <div>{formatCreatedAt(speech.createdAt)}</div>
+                            {speech.generationSeconds != null && (
+                              <div style={{ ...typography.caption, color: colors.outline, marginTop: '2px' }}>
+                                Gen: {formatGenerationTime(speech.generationSeconds)}
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: spacing.md, paddingRight: spacing.lg, textAlign: 'right' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: spacing.sm }}>

@@ -30,7 +30,7 @@ export async function GET() {
       const { data, error } = await admin
         .from("speeches")
         .select(
-          "status, audio_duration_seconds, rating, created_at, first_name, last_name, email, voice_used, id"
+          "status, audio_duration_seconds, rating, created_at, completed_at, first_name, last_name, email, voice_used, id"
         );
 
       if (error) {
@@ -44,7 +44,7 @@ export async function GET() {
           const { data: fallbackData, error: fallbackError } = await admin
             .from("speeches")
             .select(
-              "status, audio_duration_seconds, created_at, first_name, last_name, email, voice_used, id"
+              "status, audio_duration_seconds, created_at, completed_at, first_name, last_name, email, voice_used, id"
             );
           if (fallbackError) {
             console.error(
@@ -70,6 +70,38 @@ export async function GET() {
         speeches = data ?? [];
         ratingAvailable = true;
       }
+    }
+
+    // ── Auto-fail stuck speeches ─────────────────────────────────────
+    // Anything in a pipeline-in-progress state for more than 6 minutes is dead.
+    // Vercel's max function duration is 5 min, so the underlying job has been
+    // killed. Mark these as failed so the dashboard doesn't show "Generating"
+    // forever and the user can hit Regenerate.
+    const STUCK_THRESHOLD_MS = 6 * 60 * 1000;
+    const PIPELINE_STATUSES = new Set([
+      "pending", "upserting_contact", "generating_text",
+      "generating_audio", "uploading", "syncing_ghl",
+    ]);
+    const now = Date.now();
+    const stuckSpeeches = speeches.filter((s) => {
+      if (!PIPELINE_STATUSES.has(s.status)) return false;
+      const updatedAt = new Date(s.created_at).getTime();
+      return now - updatedAt > STUCK_THRESHOLD_MS;
+    });
+    if (stuckSpeeches.length > 0) {
+      const ids = stuckSpeeches.map((s) => s.id);
+      await admin
+        .from("speeches")
+        .update({
+          status: "failed",
+          error: "Pipeline timed out (Vercel function exceeded 5-min limit). Click Regenerate to retry.",
+          updated_at: new Date().toISOString(),
+        })
+        .in("id", ids);
+      // Update in-memory copy so the response is consistent
+      speeches.forEach((s) => {
+        if (ids.includes(s.id)) s.status = "failed";
+      });
     }
 
     const all = speeches;
@@ -160,18 +192,30 @@ export async function GET() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
       .slice(0, 6)
-      .map((s) => ({
-        id: s.id,
-        title:
-          `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.email,
-        status: s.status,
-        voiceProfile: s.voice_used ?? "Default",
-        duration:
-          s.audio_duration_seconds != null
-            ? `${Math.floor(s.audio_duration_seconds / 60)}:${String(s.audio_duration_seconds % 60).padStart(2, "0")}`
-            : "--:--",
-        createdAt: s.created_at,
-      }));
+      .map((s) => {
+        // Generation time = wall-clock seconds from submit to complete
+        let generationSeconds: number | null = null;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const completedAt = (s as any).completed_at;
+        if (completedAt && s.created_at) {
+          generationSeconds = Math.round(
+            (new Date(completedAt).getTime() - new Date(s.created_at).getTime()) / 1000
+          );
+        }
+        return {
+          id: s.id,
+          title: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.email,
+          status: s.status,
+          voiceProfile: s.voice_used ?? "Default",
+          duration:
+            s.audio_duration_seconds != null
+              ? `${Math.floor(s.audio_duration_seconds / 60)}:${String(s.audio_duration_seconds % 60).padStart(2, "0")}`
+              : "--:--",
+          createdAt: s.created_at,
+          completedAt: completedAt ?? null,
+          generationSeconds,
+        };
+      });
 
     return NextResponse.json({
       totalSpeeches: all.length,

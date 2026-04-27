@@ -1,21 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generatePDF } from "@/lib/pdf-generator";
-import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
+// Public — anyone with the speech UUID can download. Same trust model
+// as /api/speeches/[id]/status. UUIDs are not guessable.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Auth check: must be authenticated and admin
-  const user = await getAuthenticatedUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  if (!isAdmin(user)) {
-    return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
-  }
-
   try {
     const { id } = await params;
     const supabase = createAdminClient();
