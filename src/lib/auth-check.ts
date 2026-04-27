@@ -41,17 +41,17 @@ export async function getAuthenticatedUser() {
 }
 
 /**
- * Checks if a user has admin privileges.
- * Admin = role='admin' in app_metadata (app scoping is NOT enforced for admins
- * because legacy admin accounts may not have app_metadata.app set to APP_ID).
- * The ADMIN_EMAIL env var bypass is kept for bootstrap convenience only.
+ * Checks if a user has admin privileges for the Star Speaker App.
+ * Requires role=admin AND app=APP_ID in app_metadata so that admins from
+ * other Supabase apps (e.g. AutoWebinar) don't bleed into this dashboard.
+ * ADMIN_EMAIL env var bypass is kept for bootstrap/recovery convenience.
  */
 export function isAdmin(user: { email?: string | null; app_metadata?: Record<string, unknown> } | null): boolean {
   if (!user) return false;
   const adminEmail = process.env.ADMIN_EMAIL;
   if (adminEmail && user.email === adminEmail) return true;
-  if (user.app_metadata?.role === "admin") return true;
-  return false;
+  const meta = (user.app_metadata ?? {}) as Record<string, unknown>;
+  return meta.role === "admin" && meta.app === APP_ID;
 }
 
 /**

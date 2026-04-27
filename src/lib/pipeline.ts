@@ -20,6 +20,7 @@ import { syncSpeechToGHL } from "@/lib/ghl-sync";
 import { notifyOnCompletion } from "@/lib/notify";
 import { writeAuditLog } from "@/lib/audit-log";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { seedDefaultsIfNeeded } from "@/lib/seed-defaults";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -53,6 +54,9 @@ export async function runSpeechPipeline(
   speechId: string
 ): Promise<PipelineResult> {
   console.log(`[pipeline] Starting pipeline for speech ${speechId}`);
+
+  // Populate integration config from env vars on first run (idempotent)
+  await seedDefaultsIfNeeded();
 
   // ── Stage 1: Generate text ──────────────────────────────────────────
   await writeAuditLog({

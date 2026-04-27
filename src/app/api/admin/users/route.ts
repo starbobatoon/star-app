@@ -65,6 +65,33 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
+      // If user already exists (e.g. from another app on the same Supabase project),
+      // promote them to admin for this app rather than returning an error.
+      const isExisting =
+        error.message.toLowerCase().includes('already') ||
+        error.message.toLowerCase().includes('email_exists') ||
+        (error as unknown as { code?: string }).code === 'email_exists';
+
+      if (isExisting) {
+        const { data: { users: allUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+        const existingUser = allUsers.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+
+        if (existingUser) {
+          const { data: promoted, error: promoteError } = await supabaseAdmin.auth.admin.updateUserById(
+            existingUser.id,
+            {
+              password,
+              app_metadata: { ...existingUser.app_metadata, role: 'admin', app: APP_ID },
+            }
+          );
+          if (promoteError) {
+            console.error('[admin/users] Promote error:', promoteError);
+            return NextResponse.json({ error: promoteError.message }, { status: 400 });
+          }
+          return NextResponse.json({ user: promoted.user, promoted: true });
+        }
+      }
+
       console.error('[admin/users] Create error:', error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
