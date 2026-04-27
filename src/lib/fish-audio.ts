@@ -220,14 +220,24 @@ export async function synthesizeSpeech(
   }
   const key = apiKey;
 
+  // Fish Audio API field structure (verified by direct API testing):
+  //   - speed/volume must be nested under a `prosody` object — sending them at
+  //     root is silently ignored. That's been the dummy-settings bug.
+  //   - text normalization is `normalize` at root (boolean).
+  //   - loudness_normalization has no direct Fish Audio equivalent; passed
+  //     through for forward compatibility but Fish Audio currently ignores it.
+  //   - The s2-pro model is selected via the URL path or the `chunk_length`
+  //     and other params; we leave `model` here for record-keeping.
   const body: Record<string, unknown> = {
     text,
     reference_id: voiceId,
     model,
-    volume,
-    speed,
+    prosody: {
+      speed,
+      volume,
+    },
+    normalize: textNormalization,
     loudness_normalization: loudnessNormalization,
-    text_normalization: textNormalization,
   };
 
   let response: Response;
