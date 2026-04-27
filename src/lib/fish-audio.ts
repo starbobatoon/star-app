@@ -242,32 +242,54 @@ export async function synthesizeSpeech(
 
   let response: Response;
 
-  // 90-second timeout — Fish Audio TTS for ~600 words usually takes 20-40s
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 90_000);
+  // Fish Audio Starter tier allows 5 concurrent requests. We absorb transient
+  // rate-limit hits with exponential backoff: 3s, 8s, 20s. After 3 attempts,
+  // surface the 429 to the caller so the pipeline marks the speech failed.
+  const RATE_LIMIT_BACKOFF_MS = [3_000, 8_000, 20_000];
+  const MAX_ATTEMPTS = RATE_LIMIT_BACKOFF_MS.length + 1;
 
-  try {
-    response = await fetch(FISH_AUDIO_API_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    const isAbort = err instanceof Error && err.name === "AbortError";
-    throw new FishAudioError(
-      isAbort
-        ? "Fish Audio API timed out after 90 seconds. Try a shorter speech or retry."
-        : `Network error calling Fish Audio API: ${err instanceof Error ? err.message : String(err)}`,
-      undefined,
-      "network"
-    );
-  } finally {
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // 90-second timeout per attempt
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+
+    try {
+      response = await fetch(FISH_AUDIO_API_URL, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      clearTimeout(timeout);
+      const isAbort = err instanceof Error && err.name === "AbortError";
+      throw new FishAudioError(
+        isAbort
+          ? "Fish Audio API timed out after 90 seconds. Try a shorter speech or retry."
+          : `Network error calling Fish Audio API: ${err instanceof Error ? err.message : String(err)}`,
+        undefined,
+        "network"
+      );
+    }
     clearTimeout(timeout);
+
+    // Auto-retry on 429 (rate limit). Other errors fall through to the handler below.
+    if (response.status === 429 && attempt < MAX_ATTEMPTS) {
+      const waitMs = RATE_LIMIT_BACKOFF_MS[attempt - 1];
+      console.warn(
+        `[fish-audio] Rate limited (HTTP 429), attempt ${attempt}/${MAX_ATTEMPTS}, waiting ${waitMs}ms before retry...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+      continue;
+    }
+    break; // Success, non-429 error, or exhausted retries — handle below
   }
+  // response is always assigned (the for-loop guarantees it), but TS can't see that.
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+  response = response!;
 
   // Handle error status codes with specific error categories
   if (!response.ok) {
