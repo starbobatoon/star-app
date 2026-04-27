@@ -745,14 +745,14 @@ function QuestionInput({
         />
         <div style={focusLineStyle} />
 
-        {/* Listening indicator overlay */}
+        {/* Listening indicator — full overlay so textarea text doesn't bleed through */}
         {showListening && (
           <div style={listeningOverlayStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-              <VoiceWaveformBars />
+            <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginBottom: spacing.sm }}>
+              <LiveWaveformBars isListening={isListening} />
               <span style={{ ...typography.uiLabel, color: colors.primary }}>Listening...</span>
             </div>
-            <p style={{ ...typography.caption, color: colors.onSurfaceVariant, marginTop: spacing.sm }}>
+            <p style={{ ...typography.caption, color: colors.onSurface, margin: 0, lineHeight: 1.6, overflowY: 'auto' as const, maxHeight: '120px' }}>
               {transcript || 'Speak now — your words will appear here'}
             </p>
           </div>
@@ -795,29 +795,69 @@ function QuestionInput({
   );
 }
 
-// ─── Voice Waveform Bars (shown when microphone is active) ───────
-function VoiceWaveformBars() {
+// ─── Live Waveform Bars — driven by real microphone audio levels ─
+function LiveWaveformBars({ isListening }: { isListening: boolean }) {
+  const [levels, setLevels] = useState<number[]>(Array.from({ length: 8 }, () => 0));
+  const rafRef = useRef<number | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (!isListening) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+      if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
+      analyserRef.current = null;
+      setLevels(Array.from({ length: 8 }, () => 0));
+      return;
+    }
+
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+
+    let active = true;
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+      if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
+      streamRef.current = stream;
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 32;
+      analyser.smoothingTimeConstant = 0.75;
+      analyserRef.current = analyser;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        if (!active) return;
+        analyser.getByteFrequencyData(data);
+        setLevels(Array.from({ length: 8 }, (_, i) => data[Math.floor((i / 8) * data.length)] / 255));
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch(() => { /* mic permission already granted by SpeechRecognition — ignore */ });
+
+    return () => {
+      active = false;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+      if (audioCtxRef.current) { audioCtxRef.current.close().catch(() => {}); audioCtxRef.current = null; }
+    };
+  }, [isListening]);
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '32px' }}>
-      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
-        const h = 6 + Math.abs(Math.sin(i * 1.1)) * 10;
-        const dur = Math.round(500 + Math.abs(Math.sin(i * 1.7)) * 500);
-        const delay = Math.round(Math.abs(Math.sin(i * 2.3)) * 300);
-        return (
-          <div
-            key={i}
-            style={{
-              width: '3px',
-              height: `${h}px`,
-              backgroundColor: colors.primary,
-              borderRadius: '2px',
-              transformOrigin: 'center',
-              animation: `voiceBarAnim ${dur}ms ease-in-out infinite`,
-              animationDelay: `${delay}ms`,
-            }}
-          />
-        );
-      })}
+      {levels.map((level, i) => (
+        <div
+          key={i}
+          style={{
+            width: '3px',
+            height: `${Math.max(3, Math.round(level * 28))}px`,
+            backgroundColor: colors.primary,
+            borderRadius: '2px',
+            transition: 'height 60ms ease-out',
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -1303,28 +1343,19 @@ const focusLineStyle: React.CSSProperties = {
 
 const listeningOverlayStyle: React.CSSProperties = {
   position: 'absolute',
-  bottom: '8px',
-  left: '8px',
-  right: '8px',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
   background: colors.surface.containerHigh,
   border: `1px solid ${colors.primary}`,
-  borderRadius: radius.md,
+  borderRadius: 0,
   padding: spacing.md,
   display: 'flex',
   flexDirection: 'column',
+  justifyContent: 'center',
 };
 
-const pulsingMicStyle: React.CSSProperties = {
-  width: '32px',
-  height: '32px',
-  borderRadius: '50%',
-  background: colors.primary,
-  color: colors.onPrimary,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  animation: 'pulse 1.5s ease-in-out infinite',
-};
 
 const micButtonStyle: React.CSSProperties = {
   display: 'inline-flex',
