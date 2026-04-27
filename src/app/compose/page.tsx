@@ -714,19 +714,27 @@ function QuestionInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showListening, setShowListening] = useState(false);
 
-  // When listening starts/stops, update UI state
+  // Snapshot the textarea value at the moment listening starts. Every interim
+  // transcript update REPLACES (base + transcript), instead of appending —
+  // that's what was duplicating the text 30 times as the user spoke.
+  const baseValueRef = useRef(value);
+  const wasListeningRef = useRef(false);
+
   useEffect(() => {
     setShowListening(isListening);
+    if (isListening && !wasListeningRef.current) {
+      // Just started listening — capture the baseline once.
+      baseValueRef.current = value;
+    }
+    wasListeningRef.current = isListening;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isListening]);
 
-  // When transcript changes from voice input, update the text
   useEffect(() => {
-    if (transcript) {
-      // Combine existing text with new transcript
-      const separator = value.trim() && !value.endsWith(' ') ? ' ' : '';
-      const newValue = value + separator + transcript;
-      onChange(newValue);
-    }
+    if (!transcript || !wasListeningRef.current) return;
+    const base = baseValueRef.current;
+    const separator = base.trim() && !base.endsWith(' ') ? ' ' : '';
+    onChange(base + separator + transcript);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transcript]);
 
@@ -1080,7 +1088,24 @@ export default function ComposePage() {
           </div>
           <div style={reviewListStyle}>
             <Card>
-              <h3 style={reviewSectionTitleStyle}>Contact Information</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                <h3 style={reviewSectionTitleStyle}>Contact Information</h3>
+                <button
+                  onClick={() => setStep(0)}
+                  style={{
+                    background: 'none',
+                    border: `1px solid ${colors.outlineVariant}`,
+                    color: colors.primary,
+                    padding: `${spacing.xs} ${spacing.md}`,
+                    borderRadius: radius.full,
+                    cursor: 'pointer',
+                    ...typography.uiLabel,
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  ✎ Edit
+                </button>
+              </div>
               <div style={reviewFieldStyle}>
                 <span style={reviewLabelStyle}>Name</span>
                 <span style={reviewValueStyle}>{contact.firstName} {contact.lastName}</span>
@@ -1096,9 +1121,27 @@ export default function ComposePage() {
                 </div>
               )}
             </Card>
-            {questions.map((q) => (
+            {questions.map((q, idx) => (
               <Card key={q.id}>
-                <p style={reviewQuestionStyle}>{q.question_text}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.md, marginBottom: spacing.sm }}>
+                  <p style={{ ...reviewQuestionStyle, flex: 1, margin: 0 }}>{q.question_text}</p>
+                  <button
+                    onClick={() => setStep(idx + 1)}
+                    style={{
+                      background: 'none',
+                      border: `1px solid ${colors.outlineVariant}`,
+                      color: colors.primary,
+                      padding: `${spacing.xs} ${spacing.md}`,
+                      borderRadius: radius.full,
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                      ...typography.uiLabel,
+                      letterSpacing: '0.06em',
+                    }}
+                  >
+                    ✎ Edit
+                  </button>
+                </div>
                 <p style={reviewAnswerStyle}>
                   {answers[q.id] || <em style={{ color: colors.onSurfaceVariant }}>No answer provided</em>}
                 </p>
