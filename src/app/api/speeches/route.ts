@@ -122,6 +122,19 @@ export async function POST(request: Request) {
     // Insert new speech record
     const admin = createAdminClient();
 
+    // Fetch the currently active voice from the voices table
+    let activeVoiceId: string | null = null;
+    const { data: activeVoice } = await admin
+      .from("voices")
+      .select("fish_audio_voice_id")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+
+    if (activeVoice) {
+      activeVoiceId = activeVoice.fish_audio_voice_id;
+    }
+
     const { data: speech, error: insertError } = await admin
       .from("speeches")
       .insert({
@@ -132,6 +145,7 @@ export async function POST(request: Request) {
         answers: answers,
         status: "pending",
         idempotency_key: key,
+        voice_used: activeVoiceId,
       })
       .select("id, status, created_at")
       .single();

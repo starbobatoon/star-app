@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
+import { runSpeechPipeline } from "@/lib/pipeline";
 
 export async function POST(
   request: NextRequest,
@@ -74,6 +75,13 @@ export async function POST(
     console.log(
       `[speeches.regenerate] Regeneration queued: ${actionDescription} for speech ${speechId}`
     );
+
+    // Fire-and-forget: kick off pipeline in background
+    if (isFullRegeneration) {
+      runSpeechPipeline(speechId).catch((pipelineErr) => {
+        console.error(`[speeches.regenerate] Pipeline failed for speech ${speechId}:`, pipelineErr);
+      });
+    }
 
     return NextResponse.json({
       speech: {

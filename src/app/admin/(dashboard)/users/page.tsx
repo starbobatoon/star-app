@@ -25,6 +25,8 @@ export default function UsersPage() {
   const [formData, setFormData] = useState({ email: '', password: '', confirmPassword: '' });
   const [formError, setFormError] = useState('');
   const [adding, setAdding] = useState(false);
+  const [passwordModal, setPasswordModal] = useState<{ userId: string; value: string; error: string } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ userId: string; email: string } | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -79,31 +81,45 @@ export default function UsersPage() {
     }
   };
 
-  const handleChangePassword = async (userId: string) => {
-    const newPassword = prompt('Enter new password (min 6 chars):');
-    if (!newPassword || newPassword.length < 6) return;
+  const handleChangePassword = (userId: string) => {
+    setPasswordModal({ userId, value: '', error: '' });
+  };
+
+  const submitPasswordChange = async () => {
+    if (!passwordModal) return;
+    if (passwordModal.value.length < 6) {
+      setPasswordModal(prev => prev ? { ...prev, error: 'Password must be at least 6 characters' } : null);
+      return;
+    }
     try {
-      const res = await fetch(`/api/admin/users/${userId}/password`, {
+      const res = await fetch(`/api/admin/users/${passwordModal.userId}/password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: newPassword }),
+        body: JSON.stringify({ password: passwordModal.value }),
       });
       if (!res.ok) throw new Error('Failed to update password');
-      alert('Password updated successfully');
+      setPasswordModal(null);
       fetchUsers();
-    } catch (err) {
-      alert('Failed to update password');
+    } catch {
+      setPasswordModal(prev => prev ? { ...prev, error: 'Failed to update password. Try again.' } : null);
     }
   };
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Delete this user? This is permanent.')) return;
+  const handleDelete = (userId: string) => {
+    const u = users.find(user => user.id === userId);
+    if (!u) return;
+    setDeleteModal({ userId, email: u.email });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete user');
+      const res = await fetch(`/api/admin/users/${deleteModal.userId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      setDeleteModal(null);
       fetchUsers();
-    } catch (err) {
-      alert('Failed to delete user');
+    } catch {
+      setDeleteModal(null);
     }
   };
 
@@ -164,6 +180,40 @@ export default function UsersPage() {
             </table>
           </div>
         </Card>
+      )}
+
+      {passwordModal && (
+        <Modal open onClose={() => setPasswordModal(null)} title="Change Password">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            <Input
+              type="password"
+              placeholder="New password (min 6 characters)"
+              value={passwordModal.value}
+              onChange={(e) => setPasswordModal(prev => prev ? { ...prev, value: e.target.value, error: '' } : null)}
+            />
+            {passwordModal.error && (
+              <p style={{ color: colors.error, ...typography.caption, margin: 0 }}>{passwordModal.error}</p>
+            )}
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              <Button variant="primary" onClick={submitPasswordChange}>Save Password</Button>
+              <Button variant="secondary" onClick={() => setPasswordModal(null)}>Cancel</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {deleteModal && (
+        <Modal open onClose={() => setDeleteModal(null)} title="Delete User">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
+            <p style={{ ...typography.uiBody, color: colors.onSurface, margin: 0 }}>
+              Permanently delete <strong>{deleteModal.email}</strong>? This cannot be undone.
+            </p>
+            <div style={{ display: 'flex', gap: spacing.sm }}>
+              <Button variant="primary" onClick={confirmDelete} style={{ backgroundColor: colors.error }}>Delete</Button>
+              <Button variant="secondary" onClick={() => setDeleteModal(null)}>Cancel</Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Add New Admin">

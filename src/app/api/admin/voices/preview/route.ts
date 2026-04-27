@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { synthesizeSpeech, FishAudioError } from "@/lib/fish-audio";
 import { decrypt } from "@/lib/encryption";
+import { isAdmin } from "@/lib/auth-check";
 
 // ── POST /api/admin/voices/preview ─────────────────────────────────────────
 // Generates a short audio preview of a Fish Audio voice.
@@ -29,6 +30,10 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
     }
 
     // ── Parse and validate request body ───────────────────────────────────

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, type CSSProperties } from 'react';
-import { colors, typography, radius, spacing } from '@/styles/design-tokens';
+import { colors, typography, radius, spacing } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Tag } from '@/components/ui/Tag';
@@ -444,6 +444,7 @@ export default function QuestionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -504,7 +505,7 @@ export default function QuestionsPage() {
       setShowAddModal(false);
     } catch (err) {
       console.error('[QuestionsPage] Failed to create:', err);
-      alert(err instanceof Error ? err.message : 'Failed to create question');
+      setActionError(err instanceof Error ? err.message : 'Failed to create question');
     } finally {
       setSaving(false);
     }
@@ -536,7 +537,7 @@ export default function QuestionsPage() {
       setEditQuestion(null);
     } catch (err) {
       console.error('[QuestionsPage] Failed to update:', err);
-      alert(err instanceof Error ? err.message : 'Failed to update question');
+      setActionError(err instanceof Error ? err.message : 'Failed to update question');
     } finally {
       setSaving(false);
     }
@@ -562,7 +563,7 @@ export default function QuestionsPage() {
       setDeleteQuestion(null);
     } catch (err) {
       console.error('[QuestionsPage] Failed to delete:', err);
-      alert(err instanceof Error ? err.message : 'Failed to delete question');
+      setActionError(err instanceof Error ? err.message : 'Failed to delete question');
     } finally {
       setSaving(false);
     }
@@ -667,6 +668,27 @@ export default function QuestionsPage() {
               </Button>
             </div>
           </header>
+
+          {/* Action Error Banner */}
+          {actionError && (
+            <div style={{
+              backgroundColor: `${colors.error}15`,
+              border: `1px solid ${colors.error}`,
+              color: colors.error,
+              padding: spacing.md,
+              borderRadius: radius.DEFAULT,
+              marginBottom: spacing.lg,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ ...typography.uiBody }}>{actionError}</span>
+              <button
+                onClick={() => setActionError(null)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.error, fontSize: '18px' }}
+              >✕</button>
+            </div>
+          )}
 
           {/* Error */}
           {error && (

@@ -124,8 +124,10 @@ export default function AnalyticsPage() {
         const speechesArr = speeches as Array<{ status?: string; created_at?: string; title?: string }>;
         const usersArr = users as Array<{ created_at?: string; email?: string }>;
 
-        const completed = speechesArr.filter((s) => s.status === 'completed').length;
-        const pending = speechesArr.filter((s) => s.status === 'pending' || s.status === 'processing').length;
+        const completed = speechesArr.filter((s) => s.status === 'complete').length;
+        const pending = speechesArr.filter((s) =>
+          ['pending', 'upserting_contact', 'generating_text', 'generating_audio', 'uploading', 'syncing_ghl'].includes(s.status || '')
+        ).length;
         const failed = speechesArr.filter((s) => s.status === 'failed').length;
 
         // Build recent activity from available data
@@ -135,7 +137,7 @@ export default function AnalyticsPage() {
         speechesArr.slice(0, 5).forEach((s, i) => {
           recentActivity.push({
             id: `speech-${i}`,
-            action: s.status === 'completed' ? 'Speech generated' : s.status === 'failed' ? 'Speech failed' : 'Speech queued',
+            action: s.status === 'complete' ? 'Speech generated' : s.status === 'failed' ? 'Speech failed' : 'Speech queued',
             detail: s.title || 'Untitled',
             timestamp: s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Recently',
           });

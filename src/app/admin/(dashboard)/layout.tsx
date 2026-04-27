@@ -264,7 +264,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* ── Main Content Area ── */}
-      <main style={{ flex: 1, minWidth: 0, paddingBottom: '96px' }} className="md:pb-0">
+      <main style={{ flex: 1, minWidth: 0, paddingBottom: '80px' }} className="md:pb-0">
         {/* Mobile Header */}
         <header
           className="md:hidden"
@@ -363,87 +363,48 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           right: 0,
           zIndex: 50,
           display: 'flex',
-          justifyContent: 'space-around',
           alignItems: 'center',
-          height: 80,
-          backgroundColor: 'rgba(10, 10, 10, 0.9)',
+          height: 64,
+          backgroundColor: 'rgba(10, 10, 10, 0.95)',
           backdropFilter: 'blur(12px)',
           borderTop: `1px solid ${colors.outlineVariant}`,
+          overflowX: 'auto',
+          paddingLeft: spacing.sm,
+          paddingRight: spacing.sm,
         }}
       >
-        <Link
-          href="/compose"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            color: pathname === '/compose' ? colors.primary : colors.outlineVariant,
-            textDecoration: 'none',
-          }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-            <line x1="16" x2="8" y1="13" y2="13" />
-            <line x1="16" x2="8" y1="17" y2="17" />
-          </svg>
-          <span style={{ ...typography.caption, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Compose
-          </span>
-        </Link>
-        <Link
-          href="/admin"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            color: colors.primary,
-            textDecoration: 'none',
-            fontWeight: 700,
-          }}
-        >
-          <IconAutoStories />
-          <span style={{ ...typography.caption, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Dashboard
-          </span>
-        </Link>
-        <Link
-          href="/admin/analytics"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            color: pathname.startsWith('/admin/analytics') ? colors.primary : colors.outlineVariant,
-            textDecoration: 'none',
-          }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-          </svg>
-          <span style={{ ...typography.caption, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Library
-          </span>
-        </Link>
-        <Link
-          href="/admin/openrouter"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            color: pathname.startsWith('/admin/openrouter') ? colors.primary : colors.outlineVariant,
-            textDecoration: 'none',
-          }}
-        >
-          <IconSettings />
-          <span style={{ ...typography.caption, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Settings
-          </span>
-        </Link>
+        {NAV_ITEMS.map((item) => {
+          const active = isActive(item.href);
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 2,
+                color: active ? colors.primary : colors.outlineVariant,
+                textDecoration: 'none',
+                padding: `${spacing.xs} ${spacing.sm}`,
+                minWidth: 48,
+                flexShrink: 0,
+              }}
+            >
+              <Icon />
+              <span style={{
+                ...typography.caption,
+                fontSize: '9px',
+                textTransform: 'uppercase' as const,
+                letterSpacing: '0.05em',
+                textAlign: 'center' as const,
+              }}>
+                {item.label.split(' ')[0]}
+              </span>
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );
