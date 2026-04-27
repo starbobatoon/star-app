@@ -366,6 +366,7 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
         </a>
       </header>
       <main
+        className="speech-main"
         style={{
           maxWidth: '720px',
           margin: '0 auto',
@@ -548,6 +549,7 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
         {!isGenerating && sections.length > 0 && (
           <>
             <article
+              className="speech-article"
               style={{
                 display: 'flex',
                 flexDirection: 'column',

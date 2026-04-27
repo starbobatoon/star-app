@@ -2,6 +2,26 @@
 
 All notable changes to STAR Speaker AI are documented here.
 
+## [0.4.0] — 2026-04-27
+
+### Added
+
+- **Brand palette** — Deep navy `#0B1472` replaces pure black for all surfaces; warm gold `#cba864` becomes the primary action color; clear blue `#7B93E8` handles AI labels and accents; brand gray `#9d9d9d` is the outline color. Glassmorphism updated to navy-tinted glass with a gold border accent. Progress bars run navy → gold.
+- **Voice visualization bars** — When the microphone is active during the questionnaire, 8 animated gold bars pulse in staggered waves instead of a static pulsing icon. Gives a clear "I'm recording" signal using CSS `voiceBarAnim` keyframes.
+- **Animated audio waveform** — AudioPlayer's 24 decorative bars animate during playback with staggered `audioBarAnim` keyframes; bars dim to 45% when paused.
+- **Real AI brainstorming** — Each questionnaire question now has a "✦ Need help? Brainstorm with AI" button that opens a streaming chat. Max 5 exchanges per question, then prompts "Are we agreed?" before populating the answer field.
+- **Knowledge Base** — Admin `/admin/knowledge-base` page lets Star upload text documents (title + body). Up to 10 documents are injected into the brainstorm system prompt so the AI references Star's material when helping users answer questions.
+- **Video hint per question** — Questions with a `video_url` show a "▶ Watch Star explain this question" pill button on the compose page. Clicking it expands a responsive 9:16 portrait video player inline. Supports YouTube, Vimeo, and direct video files (auto-detected and re-encoded to embed URLs). Admin `Questions` page already had the `Video URL` field.
+- **Slot-specific prompts** — Admin `Model Settings` can set a custom system prompt for the Speechwriter and Brainstorm slots independently, stored in the `prompts` table without any DDL changes.
+- **Speech section display** — Generated transcripts now include `**Hook**`, `**Story**`, `**Point**`, `**Call to Action**`, `**Exit**` markers. Both the compose result view and `/speech/[id]` page parse these into sections with a gold accent bar, uppercase blue label, and Newsreader serif body text.
+
+### Changed
+
+- **Full mobile responsiveness** — All pages (compose, speech display, admin) now adapt cleanly from 320 px phones through tablets to desktop. Responsive CSS classes (`compose-content`, `compose-question-title`, `speech-main`, `speech-article`) carry fluid padding, font-size, and layout adjustments at 640 px and 1024 px breakpoints. Admin mobile header/nav updated to brand navy glass.
+- **OpenRouter column fix** — Fixed column name `max_tokens` → `max_output_tokens` in `model_slots` query that caused every speech generation to fail with a PostgREST 400.
+- **Speechwriter slot** — Model settings PUT no longer includes a `custom_prompt` column (doesn't exist in DB); slot prompts stored in `prompts` table instead.
+- **`promptAvailable` always true** — Model settings GET always returns `promptAvailable: true`; textareas are no longer disabled.
+
 ## [0.3.0] — 2026-04-27
 
 ### Fixed

@@ -289,7 +289,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main style={{ flex: 1, minWidth: 0, paddingBottom: '80px' }} className="md:pb-0">
         {/* Mobile Header */}
         <header
-          className="md:hidden"
+          className="md:hidden admin-mobile-header"
           style={{
             position: 'fixed',
             top: 0,
@@ -301,7 +301,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             alignItems: 'center',
             padding: `0 ${spacing.lg}`,
             height: 64,
-            backgroundColor: 'rgba(10, 10, 10, 0.8)',
+            backgroundColor: 'rgba(8, 13, 34, 0.92)',
             backdropFilter: 'blur(12px)',
             borderBottom: `1px solid ${colors.outlineVariant}`,
           }}
@@ -377,7 +377,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── Mobile Bottom Nav ── */}
       <nav
-        className="md:hidden"
+        className="md:hidden admin-mobile-nav"
         style={{
           position: 'fixed',
           bottom: 0,
@@ -387,7 +387,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           display: 'flex',
           alignItems: 'center',
           height: 64,
-          backgroundColor: 'rgba(10, 10, 10, 0.95)',
+          backgroundColor: 'rgba(6, 10, 28, 0.97)',
           backdropFilter: 'blur(12px)',
           borderTop: `1px solid ${colors.outlineVariant}`,
           overflowX: 'auto',

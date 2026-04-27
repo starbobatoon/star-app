@@ -92,6 +92,97 @@ function ComposeNav() {
   );
 }
 
+// ─── Video embed URL resolver ────────────────────────────────────
+function resolveVideoEmbed(url: string): { src: string; type: 'iframe' | 'video' } {
+  // Direct video files
+  if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(url)) {
+    return { src: url, type: 'video' };
+  }
+  // YouTube
+  const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if (yt) {
+    return { src: `https://www.youtube.com/embed/${yt[1]}?rel=0&modestbranding=1&autoplay=1`, type: 'iframe' };
+  }
+  // Vimeo
+  const vm = url.match(/vimeo\.com\/(\d+)/);
+  if (vm) {
+    return { src: `https://player.vimeo.com/video/${vm[1]}?autoplay=1`, type: 'iframe' };
+  }
+  // Default: treat as embeddable iframe
+  return { src: url, type: 'iframe' };
+}
+
+// ─── Video Hint Component ─────────────────────────────────────────
+// Collapsed: small "Watch explanation" pill. Expanded: 9:16 player.
+function VideoHint({ videoUrl }: { videoUrl: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const { src, type } = resolveVideoEmbed(videoUrl);
+
+  if (isExpanded) {
+    return (
+      <div className="video-hint-player">
+        <div className="video-hint-player-ratio">
+          {type === 'video' ? (
+            // eslint-disable-next-line jsx-a11y/media-has-caption
+            <video src={src} autoPlay controls playsInline style={{ objectFit: 'cover' }} />
+          ) : (
+            <iframe
+              src={src}
+              allow="autoplay; encrypted-media; picture-in-picture"
+              allowFullScreen
+              title="Star explains this question"
+            />
+          )}
+        </div>
+        <button
+          onClick={() => setIsExpanded(false)}
+          style={{
+            marginTop: spacing.sm,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: colors.outline,
+            fontFamily: `var(${typography.caption.fontFamily})`,
+            fontSize: typography.caption.fontSize,
+            display: 'flex',
+            alignItems: 'center',
+            gap: spacing.xs,
+            padding: 0,
+          }}
+        >
+          ✕ Close video
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      className="video-hint-pill"
+      onClick={() => setIsExpanded(true)}
+      aria-label="Watch Star explain how to answer this question"
+    >
+      <div
+        style={{
+          width: '20px',
+          height: '20px',
+          borderRadius: '50%',
+          background: colors.primary,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: colors.onPrimary,
+          fontSize: '9px',
+          flexShrink: 0,
+        }}
+      >
+        ▶
+      </div>
+      Watch Star explain this question
+    </button>
+  );
+}
+
 // ─── Parse transcript into sections (for beautiful display) ─────
 function parseTranscriptSections(transcript: string) {
   if (!transcript) return [{ id: 'full', title: 'Your Speech', content: transcript }];
@@ -979,12 +1070,15 @@ export default function ComposePage() {
     <div style={pageStyle}>
       <ComposeNav />
       <ProgressBar value={progressPercent} height="2px" aria-label="Questionnaire progress" />
-      <div style={mainContentStyle}>
+      <div className="compose-content" style={mainContentStyle}>
         <div style={questionAreaStyle}>
           <span style={stepLabelStyle}>
             Question {step} of {totalSteps}
           </span>
-          <h1 style={questionTitleStyle}>{questionText}</h1>
+          <h1 className="compose-question-title" style={questionTitleStyle}>{questionText}</h1>
+          {currentQuestion?.video_url && (
+            <VideoHint videoUrl={currentQuestion.video_url} />
+          )}
           <QuestionInput
             questionIndex={questionIndex}
             value={currentAnswer}
@@ -1015,7 +1109,7 @@ export default function ComposePage() {
             </button>
           )}
         </div>
-        <div style={navStyle}>
+        <div className="compose-nav" style={navStyle}>
           <Button variant="secondary" onClick={handlePrevious}>
             ← Previous
           </Button>
