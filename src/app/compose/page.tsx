@@ -297,6 +297,18 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
     };
   }, [speechId]);
 
+  // When the speech is fully complete, send the user to the dedicated speech
+  // page which has the polished UI: pretty rendering, audio player, Download
+  // PDF / Download Text / Share Link buttons, rating UI.
+  useEffect(() => {
+    if (speechStatus?.status === 'complete' || speechStatus?.status === 'completed') {
+      window.location.replace(`/speech/${speechId}`);
+    }
+  }, [speechStatus?.status, speechId]);
+
+  // Inline preview as soon as transcript is ready (audio still rendering) —
+  // keeps the user engaged while audio finishes. Once status flips to complete,
+  // the effect above redirects them to /speech/[id].
   if (speechStatus?.transcript) {
     return <SpeechViewer speech={speechStatus} email={email} />;
   }

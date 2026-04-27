@@ -1,8 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 import { runSpeechPipeline } from "@/lib/pipeline";
+
+// Allow up to 5 minutes for the pipeline to run after the HTTP response
+// is sent. Without this, Vercel kills the function in ~10s and the
+// pipeline never completes.
+export const maxDuration = 300;
 
 export async function POST(
   request: NextRequest,
@@ -76,10 +81,15 @@ export async function POST(
       `[speeches.regenerate] Regeneration queued: ${actionDescription} for speech ${speechId}`
     );
 
-    // Fire-and-forget: kick off pipeline in background
+    // Run pipeline AFTER the HTTP response is sent. Vercel keeps the function
+    // alive for up to maxDuration (300s) to finish background work via after().
     if (isFullRegeneration) {
-      runSpeechPipeline(speechId).catch((pipelineErr) => {
-        console.error(`[speeches.regenerate] Pipeline failed for speech ${speechId}:`, pipelineErr);
+      after(async () => {
+        try {
+          await runSpeechPipeline(speechId);
+        } catch (pipelineErr) {
+          console.error(`[speeches.regenerate] Pipeline failed for speech ${speechId}:`, pipelineErr);
+        }
       });
     }
 
