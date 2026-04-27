@@ -1,51 +1,61 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decrypt } from "@/lib/encryption";
 import { testConnection } from "@/lib/openrouter";
 import { writeAuditLog } from "@/lib/audit-log";
-import { z } from "zod";
-
-const testSchema = z.object({
-  apiKey: z.string().min(1, "API key is required"),
-});
 
 export async function POST(request: Request) {
   try {
-    // Admin auth: verify authenticated user
+    // Admin auth
     const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse request body
-    const body = await request.json();
-    const parsed = testSchema.safeParse(body);
+    // Accept an optional apiKey from the request body
+    let providedKey: string | undefined;
+    try {
+      const body = await request.json();
+      if (body?.apiKey && typeof body.apiKey === "string" && body.apiKey.trim()) {
+        providedKey = body.apiKey.trim();
+      }
+    } catch { /* empty body is fine */ }
 
-    if (!parsed.success) {
-      const errors = parsed.error.flatten().fieldErrors;
-      return NextResponse.json(
-        { error: "Validation failed", details: errors },
-        { status: 400 }
-      );
+    // If no key was provided, use the one saved in the DB
+    let apiKey = providedKey;
+    if (!apiKey) {
+      const admin = createAdminClient();
+      const { data: integration } = await admin
+        .from("openrouter_integration")
+        .select("api_key_encrypted, is_configured")
+        .limit(1)
+        .maybeSingle();
+
+      if (!integration?.is_configured || !integration.api_key_encrypted) {
+        return NextResponse.json(
+          { ok: false, error: "No API key saved. Enter your OpenRouter key and save it first.", category: "missing" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        apiKey = decrypt(integration.api_key_encrypted);
+      } catch {
+        return NextResponse.json(
+          { ok: false, error: "Failed to decrypt saved API key. Ensure ENCRYPTION_KEY is set in Vercel.", category: "config" },
+          { status: 500 }
+        );
+      }
     }
 
-    const { apiKey } = parsed.data;
-
-    // Test the connection via OpenRouter
+    // Run the actual connection test
     const result = await testConnection(apiKey);
 
     if (!result.ok) {
-      // Categorize the error for the UI
       let category = "unknown";
       let userMessage = result.error || "Connection failed";
-
       if (result.error) {
         const errLower = result.error.toLowerCase();
         if (result.error.includes("401") || errLower.includes("unauthorized") || errLower.includes("invalid api key")) {
@@ -62,41 +72,14 @@ export async function POST(request: Request) {
           userMessage = "Cannot reach OpenRouter. Check your internet connection.";
         }
       }
-
-      // Log failure
-      await writeAuditLog({
-        actorEmail: user.email ?? undefined,
-        action: "test",
-        entityType: "openrouter_integration",
-        entityId: undefined,
-        afterValue: { success: false, category, error: result.error },
-      });
-
-      return NextResponse.json({
-        ok: false,
-        error: userMessage,
-        category,
-      });
+      await writeAuditLog({ actorEmail: user.email ?? undefined, action: "test", entityType: "openrouter_integration", afterValue: { success: false, category, error: result.error } });
+      return NextResponse.json({ ok: false, error: userMessage, category });
     }
 
-    // Log success
-    await writeAuditLog({
-      actorEmail: user.email ?? undefined,
-      action: "test",
-      entityType: "openrouter_integration",
-      entityId: undefined,
-      afterValue: { success: true, credits: result.credits },
-    });
-
-    return NextResponse.json({
-      ok: true,
-      credits: result.credits,
-    });
+    await writeAuditLog({ actorEmail: user.email ?? undefined, action: "test", entityType: "openrouter_integration", afterValue: { success: true, credits: result.credits } });
+    return NextResponse.json({ ok: true, credits: result.credits });
   } catch (err) {
-    console.error("Error testing OpenRouter connection:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("[openrouter/test] error:", err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
