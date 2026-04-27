@@ -87,6 +87,15 @@ function IconAppSettings() {
   );
 }
 
+function IconKnowledgeBase() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+      <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+    </svg>
+  );
+}
+
 function IconAnalytics() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -105,6 +114,7 @@ const NAV_ITEMS = [
   { label: 'QUESTIONS', href: '/admin/questions', icon: IconQuiz },
   { label: 'GHL INTEGRATION', href: '/admin/ghl-integration', icon: IconGHL },
   { label: 'ANALYTICS', href: '/admin/analytics', icon: IconAnalytics },
+  { label: 'KNOWLEDGE BASE', href: '/admin/knowledge-base', icon: IconKnowledgeBase },
   { label: 'SETTINGS', href: '/admin/settings', icon: IconAppSettings },
 ];
 
@@ -119,6 +129,7 @@ const BREADCRUMB_LABELS: Record<string, string> = {
   '/admin/ghl-integration': 'GHL Integration',
   '/admin/login': 'Login',
   '/admin/analytics': 'Analytics',
+  '/admin/knowledge-base': 'Knowledge Base',
   '/admin/settings': 'Settings',
 };
 

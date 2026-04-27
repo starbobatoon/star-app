@@ -141,12 +141,33 @@ export async function generateSpeechText(
     const userPrompt = await buildUserPrompt(speech, admin);
 
     // -------------------------------------------------------------------------
+    // Step 4b: Load speechwriter custom prompt (prepended to system prompt)
+    // -------------------------------------------------------------------------
+    let systemContent = promptRecord.content;
+    try {
+      const { data: slotPromptRow } = await admin
+        .from("prompts")
+        .select("content")
+        .eq("notes", "slot:speechwriter")
+        .eq("is_active", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (slotPromptRow?.content) {
+        systemContent = slotPromptRow.content + "\n\n" + promptRecord.content;
+      }
+    } catch {
+      // Non-fatal — proceed without the custom slot prompt
+    }
+
+    // -------------------------------------------------------------------------
     // Step 5: Call OpenRouter with the primary slot
     // -------------------------------------------------------------------------
     const messages = [
       {
         role: "system",
-        content: promptRecord.content,
+        content: systemContent,
       },
       {
         role: "user",

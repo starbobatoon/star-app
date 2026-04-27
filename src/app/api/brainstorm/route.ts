@@ -2,9 +2,10 @@ import { chat } from "@/lib/openrouter";
 import type { ChatMessage } from "@/lib/openrouter";
 import { z } from "zod";
 import { brainstormRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // ---------------------------------------------------------------------------
-// Zod validation schema (FIX 5)
+// Validation schema
 // ---------------------------------------------------------------------------
 
 const brainstormSchema = z.object({
@@ -18,17 +19,6 @@ const brainstormSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface BrainstormRequest {
-  questionId: string;
-  questionText: string;
-  currentAnswer: string;
-  messages: Array<{ role: "user" | "assistant"; content: string }>;
-}
-
-// ---------------------------------------------------------------------------
 // POST /api/brainstorm — SSE streaming brainstorming assistant
 // ---------------------------------------------------------------------------
 
@@ -37,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
   const rateLimitResponse = await checkRateLimit(brainstormRateLimiter, getClientIp(request));
   if (rateLimitResponse) return rateLimitResponse;
 
-  // Parse and validate request body with Zod
+  // Parse and validate request body
   let body: z.infer<typeof brainstormSchema>;
   try {
     const raw = await request.json();
@@ -59,14 +49,64 @@ export async function POST(request: Request): Promise<Response> {
 
   const { questionText, currentAnswer, messages } = body;
 
-  // Build system prompt with question context
-  const systemPrompt = `You are a speechwriting brainstorming assistant for STAR App. Help the user develop ideas for the question: ${questionText}. Be conversational, ask follow-up questions, suggest specific examples. Keep responses concise (2-3 sentences).${
-    currentAnswer ? `\n\nThe user has already started answering: "${currentAnswer}"` : ""
-  }`;
+  // ── Load brainstorm custom prompt and knowledge base context ──
+  let customBrainstormPrompt = "";
+  let knowledgeBaseContext = "";
+
+  try {
+    const admin = createAdminClient();
+
+    // Load custom brainstorm prompt from prompts table
+    const { data: slotPrompt } = await admin
+      .from("prompts")
+      .select("content")
+      .eq("notes", "slot:brainstorm")
+      .eq("is_active", false)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (slotPrompt?.content) {
+      customBrainstormPrompt = slotPrompt.content;
+    }
+
+    // Load knowledge base documents
+    const { data: kbDocs } = await admin
+      .from("prompts")
+      .select("notes, content")
+      .like("notes", "kb:%")
+      .eq("is_active", false)
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (kbDocs && kbDocs.length > 0) {
+      const kbParts = kbDocs.map((doc) => {
+        const title = doc.notes?.replace(/^kb:/, "") ?? "Document";
+        return `=== ${title} ===\n${doc.content}`;
+      });
+      knowledgeBaseContext = "\n\n## Star's Knowledge Base\n" + kbParts.join("\n\n");
+    }
+  } catch {
+    // Non-fatal — proceed without custom prompt or KB context
+  }
+
+  // ── Build system prompt ────────────────────────────────────────
+  const baseInstructions = [
+    customBrainstormPrompt ||
+      "You are a thoughtful, encouraging brainstorming partner helping someone develop their speech.",
+    "",
+    `Help the user answer this question for their speech: "${questionText}"`,
+    "Be conversational, ask follow-up questions, and suggest specific examples from their experience.",
+    "Keep responses concise (2-4 sentences). After each exchange, offer a refined version of their answer.",
+    currentAnswer
+      ? `\nThe user has already started: "${currentAnswer}"`
+      : "",
+    knowledgeBaseContext,
+  ].filter(Boolean).join("\n");
 
   // Assemble messages for OpenRouter
   const chatMessages: ChatMessage[] = [
-    { role: "system", content: systemPrompt },
+    { role: "system", content: baseInstructions },
     ...(messages ?? []).map((m) => ({
       role: m.role as string,
       content: m.content,
@@ -85,7 +125,6 @@ export async function POST(request: Request): Promise<Response> {
     const errorMessage =
       err instanceof Error ? err.message : "Unknown OpenRouter error";
 
-    // Return as SSE error stream so client can handle it gracefully
     const errorStream = new ReadableStream({
       start(controller) {
         const encoder = new TextEncoder();
@@ -130,23 +169,17 @@ export async function POST(request: Request): Promise<Response> {
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-
-          // Process complete SSE lines from OpenRouter
           const lines = buffer.split("\n");
-          buffer = lines.pop() ?? ""; // Keep incomplete line in buffer
+          buffer = lines.pop() ?? "";
 
           for (const line of lines) {
             const trimmed = line.trim();
-
-            // Skip empty lines and comments
             if (!trimmed || trimmed.startsWith(":")) continue;
 
-            // OpenRouter streaming format: "data: {...}" or "data: [DONE]"
             if (trimmed.startsWith("data: ")) {
-              const payload = trimmed.slice(6); // Remove "data: " prefix
+              const payload = trimmed.slice(6);
 
               if (payload === "[DONE]") {
-                // End of stream
                 controller.enqueue(encoder.encode("data: [DONE]\n\n"));
                 continue;
               }
@@ -154,18 +187,13 @@ export async function POST(request: Request): Promise<Response> {
               try {
                 const parsed = JSON.parse(payload);
                 const content = parsed.choices?.[0]?.delta?.content;
-
                 if (content) {
-                  // Forward content chunk as SSE
                   controller.enqueue(
                     encoder.encode(`data: ${JSON.stringify(content)}\n\n`)
                   );
                 }
               } catch {
-                // If JSON parse fails, forward raw payload
-                controller.enqueue(
-                  encoder.encode(`data: ${payload}\n\n`)
-                );
+                controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
               }
             }
           }
@@ -176,35 +204,25 @@ export async function POST(request: Request): Promise<Response> {
           const trimmed = buffer.trim();
           if (trimmed.startsWith("data: ")) {
             const payload = trimmed.slice(6);
-            if (payload === "[DONE]") {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            } else {
+            if (payload !== "[DONE]") {
               try {
                 const parsed = JSON.parse(payload);
                 const content = parsed.choices?.[0]?.delta?.content;
                 if (content) {
-                  controller.enqueue(
-                    encoder.encode(`data: ${JSON.stringify(content)}\n\n`)
-                  );
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(content)}\n\n`));
                 }
               } catch {
-                controller.enqueue(
-                  encoder.encode(`data: ${payload}\n\n`)
-                );
+                controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
               }
             }
           }
         }
 
-        // Ensure we always send [DONE] at the end
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : "Stream processing error";
+        const errorMsg = err instanceof Error ? err.message : "Stream processing error";
         controller.enqueue(
-          encoder.encode(
-            `event: error\ndata: ${JSON.stringify({ error: errorMsg })}\n\n`
-          )
+          encoder.encode(`event: error\ndata: ${JSON.stringify({ error: errorMsg })}\n\n`)
         );
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
       } finally {

@@ -51,7 +51,7 @@ interface ModelSlotRow {
   slot: string;
   model_id: string;
   temperature: number;
-  max_tokens: number;
+  max_output_tokens: number;
 }
 
 interface OpenRouterIntegrationRow {
@@ -126,7 +126,7 @@ export async function chat(params: ChatParams): Promise<Response> {
 
   const { data: slotRow, error: slotError } = await admin
     .from("model_slots")
-    .select("slot, model_id, temperature, max_tokens")
+    .select("slot, model_id, temperature, max_output_tokens")
     .eq("slot", slot)
     .single<ModelSlotRow>();
 
@@ -153,7 +153,7 @@ export async function chat(params: ChatParams): Promise<Response> {
     body: JSON.stringify({
       model: slotRow.model_id,
       temperature: slotRow.temperature,
-      max_tokens: slotRow.max_tokens,
+      max_tokens: slotRow.max_output_tokens,
       messages,
       stream,
     }),

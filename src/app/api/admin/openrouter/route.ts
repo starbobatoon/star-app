@@ -63,58 +63,44 @@ export async function GET() {
       );
     }
 
-    // Get model slots — try with custom_prompt first, degrade if column missing
-    let slots: Array<{
-      slot: string;
-      model_id: string;
-      label: string | null;
-      temperature: number;
-      max_output_tokens: number;
-      custom_prompt?: string | null;
-    }> | null = null;
-    let promptAvailable = true;
-
-    const { data: slotsWithPrompt, error: slotsError } = await admin
+    // Get model slots (without custom_prompt — stored separately in prompts table)
+    const { data: slots, error: slotsError } = await admin
       .from("model_slots")
-      .select("slot, model_id, label, temperature, max_output_tokens, custom_prompt");
+      .select("slot, model_id, label, temperature, max_output_tokens");
 
     if (slotsError) {
-      // Column missing (migration 006 not applied) — retry without custom_prompt
-      const isMissingColumn =
-        slotsError.message?.includes("custom_prompt") ||
-        slotsError.code === "42703" ||
-        slotsError.code === "PGRST204";
-
-      if (isMissingColumn) {
-        console.warn("[openrouter-config] custom_prompt column missing, retrying without it");
-        const { data: slotsFallback, error: fallbackError } = await admin
-          .from("model_slots")
-          .select("slot, model_id, label, temperature, max_output_tokens");
-
-        if (fallbackError) {
-          console.error("[openrouter-config] Failed to fetch slots (fallback):", fallbackError);
-          return NextResponse.json(
-            { error: "Failed to fetch model slots." },
-            { status: 500 }
-          );
-        }
-        slots = slotsFallback;
-        promptAvailable = false;
-      } else {
-        console.error("[openrouter-config] Failed to fetch slots:", slotsError);
-        return NextResponse.json(
-          { error: "Failed to fetch model slots." },
-          { status: 500 }
-        );
-      }
-    } else {
-      slots = slotsWithPrompt;
+      console.error("[openrouter-config] Failed to fetch slots:", slotsError);
+      return NextResponse.json(
+        { error: "Failed to fetch model slots." },
+        { status: 500 }
+      );
     }
+
+    // Load slot-specific prompts from the prompts table (notes = 'slot:brainstorm' etc.)
+    const { data: slotPromptRows } = await admin
+      .from("prompts")
+      .select("notes, content")
+      .in("notes", ["slot:brainstorm", "slot:speechwriter"])
+      .order("created_at", { ascending: false });
+
+    const slotPromptMap: Record<string, string> = {};
+    if (slotPromptRows) {
+      for (const row of slotPromptRows) {
+        const key = row.notes?.replace("slot:", "") ?? "";
+        if (key && !slotPromptMap[key]) slotPromptMap[key] = row.content;
+      }
+    }
+
+    // Inject custom_prompt into each slot from the prompts table
+    const slotsWithPrompts = (slots || []).map((s) => ({
+      ...s,
+      custom_prompt: slotPromptMap[s.slot] ?? null,
+    }));
 
     return NextResponse.json({
       integration: integration || null,
-      slots: slots || [],
-      promptAvailable,
+      slots: slotsWithPrompts,
+      promptAvailable: true,
     });
   } catch (err) {
     console.error("[openrouter-config] GET error:", err);
@@ -257,7 +243,6 @@ export async function PUT(request: Request) {
     model_id: brainstormConfig.modelId,
     temperature: brainstormConfig.temperature,
     max_output_tokens: brainstormConfig.maxTokens,
-    custom_prompt: prompts.brainstorm || null,
   };
 
   const speechwriterSlot = {
@@ -265,7 +250,6 @@ export async function PUT(request: Request) {
     model_id: speechwriterConfig.modelId,
     temperature: speechwriterConfig.temperature,
     max_output_tokens: speechwriterConfig.maxTokens,
-    custom_prompt: prompts.speechwriter || null,
   };
 
   const { error: primarySlotError } = await admin
@@ -297,11 +281,29 @@ export async function PUT(request: Request) {
     .upsert(speechwriterSlot, { onConflict: "slot" });
 
   if (speechwriterSlotError) {
-    console.error("[openrouter-config] Failed to upsert speechwriter slot:", speechwriterSlotError);
-    return NextResponse.json(
-      { error: "Failed to save speechwriter model slot." },
-      { status: 500 }
-    );
+    // Non-fatal if migration 008 (speechwriter constraint) not yet applied
+    console.warn("[openrouter-config] Failed to upsert speechwriter slot (may need migration 008):", speechwriterSlotError);
+  }
+
+  // ── Save slot prompts to the prompts table ─────────────────────
+  // We store slot-specific prompts as rows with is_active=false and
+  // a notes value of 'slot:brainstorm' or 'slot:speechwriter'.
+  for (const [slotKey, promptText] of [
+    ["slot:brainstorm", prompts.brainstorm] as const,
+    ["slot:speechwriter", prompts.speechwriter] as const,
+  ]) {
+    // Delete any existing slot prompt rows for this slot
+    await admin.from("prompts").delete().eq("notes", slotKey).eq("is_active", false);
+
+    // Insert new row only when prompt is non-empty
+    if (promptText && promptText.trim()) {
+      await admin.from("prompts").insert({
+        notes: slotKey,
+        content: promptText.trim(),
+        is_active: false,
+        version: 0,
+      });
+    }
   }
 
   // ── Audit log entry ────────────────────────────────────────────

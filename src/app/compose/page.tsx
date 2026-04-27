@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
-import { Modal } from "@/components/ui/Modal";
 import { useVoiceInput } from "@/lib/voice-input";
+import { BrainstormingModal } from "@/components/BrainstormingModal";
 
 // ─── Live Question Type (from /api/questions) ─────────────────────
 interface LiveQuestion {
@@ -460,64 +460,6 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
   );
 }
 
-// ─── Brainstorm Modal ────────────────────────────────────────────
-interface BrainstormModalProps {
-  question: string;
-  currentAnswer: string;
-  onApply: (text: string) => void;
-  onClose: () => void;
-}
-
-function BrainstormModal({ question, currentAnswer, onApply, onClose }: BrainstormModalProps) {
-  const [suggestion, setSuggestion] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleBrainstorm = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/brainstorm', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, currentAnswer }),
-      });
-      const data = await res.json();
-      setSuggestion(data.suggestion || 'Try thinking about personal experiences that relate to this topic.');
-    } catch {
-      setSuggestion('Think about your audience. What would resonate with them most?');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    handleBrainstorm();
-  }, []);
-
-  return (
-    <Modal open onClose={onClose} title="Brainstorm Ideas">
-      <div style={{ padding: spacing.md }}>
-        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.md }}>
-          <strong>Question:</strong> {question}
-        </p>
-        <div style={{ background: colors.surface.container, padding: spacing.md, borderRadius: radius.DEFAULT, marginBottom: spacing.md }}>
-          {loading ? (
-            <p style={{ ...typography.caption, color: colors.outline }}>Generating ideas...</p>
-          ) : (
-            <p style={{ ...typography.uiBody, color: colors.onSurface }}>{suggestion}</p>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: spacing.sm, justifyContent: 'flex-end' }}>
-          <Button variant="secondary" onClick={handleBrainstorm} disabled={loading}>
-            Try Another
-          </Button>
-          <Button variant="primary" onClick={() => onApply(suggestion)} disabled={loading || !suggestion}>
-            Use This
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
 
 // ─── Question Input Component (with Voice) ───────────────────────
 function QuestionInput({
@@ -972,6 +914,30 @@ export default function ComposePage() {
             value={currentAnswer}
             onChange={(val) => currentQuestion && handleAnswerChange(currentQuestion.id, val)}
           />
+          {currentQuestion && (
+            <button
+              onClick={() => setBrainstormStep(questionIndex)}
+              style={{
+                background: 'none',
+                border: `1px solid ${colors.outlineVariant}`,
+                borderRadius: radius.full,
+                padding: `${spacing.xs} ${spacing.md}`,
+                color: colors.secondary,
+                cursor: 'pointer',
+                fontFamily: `var(${typography.caption.fontFamily})`,
+                fontSize: typography.caption.fontSize,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                marginTop: spacing.sm,
+                transition: 'border-color 0.2s ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.secondary; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.outlineVariant; }}
+            >
+              ✦ Need help? Brainstorm with AI
+            </button>
+          )}
         </div>
         <div style={navStyle}>
           <Button variant="secondary" onClick={handlePrevious}>
@@ -982,12 +948,16 @@ export default function ComposePage() {
           </Button>
         </div>
       </div>
-      {brainstormStep !== null && questions[brainstormStep] && (
-        <BrainstormModal
-          question={questions[brainstormStep].question_text}
-          currentAnswer={answers[questions[brainstormStep].id] || ""}
-          onApply={(text) => {
-            handleAnswerChange(questions[brainstormStep].id, text);
+
+      {/* Real brainstorming modal */}
+      {currentQuestion && (
+        <BrainstormingModal
+          questionId={currentQuestion.id}
+          questionText={currentQuestion.question_text}
+          currentAnswer={currentAnswer}
+          isOpen={brainstormStep === questionIndex}
+          onUseAnswer={(text) => {
+            handleAnswerChange(currentQuestion.id, text);
             setBrainstormStep(null);
           }}
           onClose={() => setBrainstormStep(null)}

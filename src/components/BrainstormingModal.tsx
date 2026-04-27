@@ -20,17 +20,11 @@ import {
 // ─── Props ────────────────────────────────────────────────────────
 
 export interface BrainstormingModalProps {
-  /** The ID of the question being brainstormed. */
   questionId: string;
-  /** The question text shown as context in the modal header. */
   questionText: string;
-  /** The current answer already in the field (pre-populated for context). */
   currentAnswer: string;
-  /** Called when the user taps "Use this answer" with the chosen AI response. */
   onUseAnswer: (answer: string) => void;
-  /** Called when the modal requests to close. */
   onClose: () => void;
-  /** Whether the modal is currently open. */
   isOpen: boolean;
 }
 
@@ -43,17 +37,10 @@ interface ChatMessage {
   isStreaming?: boolean;
 }
 
+const MAX_EXCHANGES = 5;
+
 // ─── Component ─────────────────────────────────────────────────────
 
-/**
- * BrainstormingModal — conversational AI brainstorming overlay.
- *
- * Opens on top of the questionnaire when the user taps "Help me brainstorm."
- * Provides a chat UI with mock SSE streaming. AI messages use Electric Indigo,
- * user messages use Soft Gold. Glass-style modal with backdrop-blur-12.
- * "Use this answer" closes the modal and populates the active question field.
- * Esc key closes.
- */
 export function BrainstormingModal({
   questionId,
   questionText,
@@ -62,27 +49,26 @@ export function BrainstormingModal({
   onClose,
   isOpen,
 }: BrainstormingModalProps) {
-  // ── State ─────────────────────────────────────────────────────
-
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const [streamingText, setStreamingText] = useState('');
+  const [exchangeCount, setExchangeCount] = useState(0);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // ── Scroll to bottom on new messages ──────────────────────────
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isAiThinking, streamingText]);
+  }, [messages, isAiThinking]);
 
   // ── Focus input when modal opens ──────────────────────────────
 
   useEffect(() => {
     if (isOpen) {
-      // Small delay so the DOM is painted
       const timer = setTimeout(() => inputRef.current?.focus(), 100);
       return () => clearTimeout(timer);
     }
@@ -104,61 +90,110 @@ export function BrainstormingModal({
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
-  // ── Mock SSE streaming ───────────────────────────────────────
+  // ── Call real brainstorm API with SSE ─────────────────────────
 
-  const mockAiResponse = useCallback(
-    (userMessage: string) => {
+  const callBrainstormApi = useCallback(
+    async (historyMessages: Array<{ role: 'user' | 'assistant'; content: string }>) => {
       setIsAiThinking(true);
+      setStreamError(null);
 
-      // Simulate a brief "thinking" delay
-      const thinkDelay = 800 + Math.random() * 600;
+      const streamId = `ai-${Date.now()}`;
+      setMessages((prev) => [
+        ...prev,
+        { id: streamId, role: 'ai', text: '', isStreaming: true },
+      ]);
 
-      setTimeout(() => {
-        setIsAiThinking(false);
+      abortRef.current = new AbortController();
 
-        // Mock AI responses based on the question context
-        const responses = getMockResponses(questionText, userMessage, currentAnswer);
-        const fullText = responses[Math.floor(Math.random() * responses.length)];
+      try {
+        const res = await fetch('/api/brainstorm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: abortRef.current.signal,
+          body: JSON.stringify({
+            questionId,
+            questionText,
+            currentAnswer,
+            messages: historyMessages,
+          }),
+        });
 
-        // Stream the response character by character
-        let charIndex = 0;
-        const streamId = `ai-${Date.now()}`;
+        if (!res.body) throw new Error('No response body');
 
-        setMessages((prev) => [
-          ...prev,
-          { id: streamId, role: 'ai', text: '', isStreaming: true },
-        ]);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
 
-        const streamInterval = setInterval(() => {
-          charIndex += 1;
-          const partial = fullText.slice(0, charIndex);
-          setStreamingText(partial);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === streamId ? { ...m, text: partial } : m,
-            ),
-          );
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? '';
 
-          if (charIndex >= fullText.length) {
-            clearInterval(streamInterval);
-            setStreamingText('');
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === streamId ? { ...m, isStreaming: false } : m,
-              ),
-            );
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith(':')) continue;
+
+            if (trimmed.startsWith('event: error')) continue;
+
+            if (trimmed.startsWith('data: ')) {
+              const payload = trimmed.slice(6);
+              if (payload === '[DONE]') continue;
+
+              // Check if it's an error event
+              try {
+                const parsed = JSON.parse(payload);
+                if (parsed?.error) {
+                  setStreamError(parsed.error);
+                  continue;
+                }
+                // String chunk
+                if (typeof parsed === 'string') {
+                  fullText += parsed;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === streamId ? { ...m, text: fullText } : m,
+                    ),
+                  );
+                }
+              } catch {
+                // plain string, not JSON
+                fullText += payload;
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === streamId ? { ...m, text: fullText } : m,
+                  ),
+                );
+              }
+            }
           }
-        }, 18); // ~55 chars/sec — natural reading speed
-      }, thinkDelay);
+        }
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === streamId ? { ...m, isStreaming: false } : m,
+          ),
+        );
+      } catch (err) {
+        if ((err as { name?: string }).name === 'AbortError') return;
+        const msg = err instanceof Error ? err.message : 'Connection error';
+        setStreamError(msg);
+        setMessages((prev) => prev.filter((m) => m.id !== streamId));
+      } finally {
+        setIsAiThinking(false);
+      }
     },
-    [questionText, currentAnswer],
+    [questionId, questionText, currentAnswer],
   );
 
   // ── Send message ─────────────────────────────────────────────
@@ -169,17 +204,33 @@ export function BrainstormingModal({
       const trimmed = inputValue.trim();
       if (!trimmed || isAiThinking) return;
 
+      const newCount = exchangeCount + 1;
+      setExchangeCount(newCount);
+
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
         text: trimmed,
       };
 
-      setMessages((prev) => [...prev, userMsg]);
+      setMessages((prev) => {
+        const updated = [...prev, userMsg];
+        // Build history for API call
+        const history: Array<{ role: 'user' | 'assistant'; content: string }> = updated
+          .filter((m) => !m.isStreaming)
+          .map((m) => ({
+            role: m.role === 'ai' ? 'assistant' : 'user',
+            content: m.text,
+          }));
+
+        // Kick off API call asynchronously
+        setTimeout(() => callBrainstormApi(history), 0);
+        return updated;
+      });
+
       setInputValue('');
-      mockAiResponse(trimmed);
     },
-    [inputValue, isAiThinking, mockAiResponse],
+    [inputValue, isAiThinking, exchangeCount, callBrainstormApi],
   );
 
   // ── Use this answer ──────────────────────────────────────────
@@ -187,24 +238,33 @@ export function BrainstormingModal({
   const handleUseAnswer = useCallback(
     (text: string) => {
       onUseAnswer(text);
-      onClose();
+      handleClose();
     },
-    [onUseAnswer, onClose],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onUseAnswer],
   );
 
   // ── Reset on close ────────────────────────────────────────────
 
   const handleClose = useCallback(() => {
+    abortRef.current?.abort();
     setMessages([]);
     setInputValue('');
     setIsAiThinking(false);
-    setStreamingText('');
+    setExchangeCount(0);
+    setStreamError(null);
     onClose();
   }, [onClose]);
 
-  // ── Early return if not open ──────────────────────────────────
-
   if (!isOpen) return null;
+
+  // ── Derived state ─────────────────────────────────────────────
+
+  const lastAiMessage = [...messages]
+    .reverse()
+    .find((m) => m.role === 'ai' && !m.isStreaming);
+
+  const reachedLimit = exchangeCount >= MAX_EXCHANGES;
 
   // ── Styles ────────────────────────────────────────────────────
 
@@ -243,37 +303,6 @@ export function BrainstormingModal({
     flexShrink: 0,
   };
 
-  const headerTitleStyle: CSSProperties = {
-    fontFamily: `var(${typography.uiLabel.fontFamily})`,
-    fontSize: typography.uiLabel.fontSize,
-    fontWeight: typography.uiLabel.fontWeight,
-    letterSpacing: typography.uiLabel.letterSpacing,
-    color: colors.secondary, // Electric Indigo
-    textTransform: 'uppercase',
-    margin: 0,
-  };
-
-  const headerSubtitleStyle: CSSProperties = {
-    fontFamily: `var(${typography.caption.fontFamily})`,
-    fontSize: typography.caption.fontSize,
-    fontWeight: typography.caption.fontWeight,
-    lineHeight: typography.caption.lineHeight,
-    color: colors.onSurfaceVariant,
-    marginTop: spacing.xs,
-  };
-
-  const closeBtnStyle: CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: colors.onSurfaceVariant,
-    fontSize: '20px',
-    cursor: 'pointer',
-    padding: spacing.xs,
-    lineHeight: 1,
-    borderRadius: radius.DEFAULT,
-    transition: 'color 0.2s ease',
-  };
-
   const chatAreaStyle: CSSProperties = {
     flex: 1,
     overflowY: 'auto',
@@ -286,7 +315,7 @@ export function BrainstormingModal({
   const aiBubbleStyle: CSSProperties = {
     alignSelf: 'flex-start',
     maxWidth: '85%',
-    backgroundColor: `${colors.secondaryContainer}`, // Indigo container
+    backgroundColor: `${colors.secondaryContainer}`,
     border: `1px solid ${colors.onSecondaryFixedVariant}33`,
     borderRadius: `${radius.lg} ${radius.lg} ${radius.lg} 2px`,
     padding: `${spacing.md} ${spacing.lg}`,
@@ -294,13 +323,14 @@ export function BrainstormingModal({
     fontSize: typography.transcriptBody.fontSize,
     fontWeight: typography.transcriptBody.fontWeight,
     lineHeight: typography.transcriptBody.lineHeight,
-    color: colors.secondary, // Electric Indigo text
+    color: colors.secondary,
+    whiteSpace: 'pre-wrap',
   };
 
   const userBubbleStyle: CSSProperties = {
     alignSelf: 'flex-end',
     maxWidth: '85%',
-    backgroundColor: `${colors.primaryContainer}44`, // Soft Gold container w/ alpha
+    backgroundColor: `${colors.primaryContainer}44`,
     border: `1px solid ${colors.primaryContainer}55`,
     borderRadius: `${radius.lg} ${radius.lg} 2px ${radius.lg}`,
     padding: `${spacing.md} ${spacing.lg}`,
@@ -308,7 +338,7 @@ export function BrainstormingModal({
     fontSize: typography.uiBody.fontSize,
     fontWeight: typography.uiBody.fontWeight,
     lineHeight: typography.uiBody.lineHeight,
-    color: colors.primary, // Soft Gold text
+    color: colors.primary,
   };
 
   const avatarStyle: CSSProperties = {
@@ -326,26 +356,6 @@ export function BrainstormingModal({
     color: colors.secondary,
   };
 
-  const typingIndicatorStyle: CSSProperties = {
-    alignSelf: 'flex-start',
-    display: 'flex',
-    alignItems: 'center',
-    gap: spacing.xs,
-    padding: `${spacing.sm} ${spacing.md}`,
-    color: colors.secondary,
-    fontFamily: `var(${typography.caption.fontFamily})`,
-    fontSize: typography.caption.fontSize,
-    fontStyle: 'italic',
-  };
-
-  const dotStyle: CSSProperties = {
-    width: '6px',
-    height: '6px',
-    borderRadius: radius.full,
-    backgroundColor: colors.secondary,
-    animation: 'typingBounce 1.2s infinite ease-in-out both',
-  };
-
   const footerStyle: CSSProperties = {
     padding: `${spacing.md} ${spacing.lg}`,
     borderTop: `1px solid ${colors.outlineVariant}`,
@@ -355,18 +365,10 @@ export function BrainstormingModal({
     gap: spacing.sm,
   };
 
-  const inputRowStyle: CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: spacing.sm,
-  };
-
   const inputStyle: CSSProperties = {
     flex: 1,
     fontFamily: `var(${typography.uiBody.fontFamily})`,
     fontSize: typography.uiBody.fontSize,
-    fontWeight: typography.uiBody.fontWeight,
-    lineHeight: typography.uiBody.lineHeight,
     color: colors.onSurface,
     backgroundColor: 'transparent',
     border: 'none',
@@ -374,18 +376,6 @@ export function BrainstormingModal({
     padding: `${spacing.sm} 0`,
     outline: 'none',
     caretColor: colors.secondary,
-    transition: 'border-bottom-color 0.2s ease',
-  };
-
-  const sendBtnStyle: CSSProperties = {
-    background: 'none',
-    border: 'none',
-    color: colors.secondary,
-    cursor: inputValue.trim() && !isAiThinking ? 'pointer' : 'not-allowed',
-    fontSize: '20px',
-    padding: spacing.xs,
-    opacity: inputValue.trim() && !isAiThinking ? 1 : 0.4,
-    transition: 'color 0.2s ease, opacity 0.2s ease',
   };
 
   const useAnswerBtnStyle: CSSProperties = {
@@ -407,14 +397,6 @@ export function BrainstormingModal({
     transition: 'background-color 0.2s ease',
   };
 
-  // ── Find the last completed AI message for "Use this answer" ─
-
-  const lastAiMessage = [...messages]
-    .reverse()
-    .find((m) => m.role === 'ai' && !m.isStreaming);
-
-  // ── Render ────────────────────────────────────────────────────
-
   return (
     <>
       <style>{`
@@ -427,32 +409,56 @@ export function BrainstormingModal({
         .typing-dot:nth-child(3) { animation-delay: 0.3s; }
       `}</style>
 
-      {/* Backdrop */}
       <div
         style={backdropStyle}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) handleClose();
-        }}
+        onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
         role="presentation"
       >
-        {/* Glass Modal */}
         <div style={modalStyle} role="dialog" aria-modal="true" aria-label="Brainstorming Mode">
+
           {/* ── Header ─────────────────────────────────────── */}
           <div style={headerStyle}>
             <div>
-              <p style={headerTitleStyle}>Brainstorm</p>
-              <p style={headerSubtitleStyle}>{questionText}</p>
+              <p style={{
+                fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                fontSize: typography.uiLabel.fontSize,
+                fontWeight: typography.uiLabel.fontWeight,
+                letterSpacing: typography.uiLabel.letterSpacing,
+                color: colors.secondary,
+                textTransform: 'uppercase',
+                margin: 0,
+              }}>
+                Brainstorm
+                {exchangeCount > 0 && (
+                  <span style={{ opacity: 0.6, marginLeft: spacing.sm }}>
+                    {exchangeCount}/{MAX_EXCHANGES}
+                  </span>
+                )}
+              </p>
+              <p style={{
+                fontFamily: `var(${typography.caption.fontFamily})`,
+                fontSize: typography.caption.fontSize,
+                color: colors.onSurfaceVariant,
+                marginTop: spacing.xs,
+                maxWidth: 420,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {questionText}
+              </p>
             </div>
             <button
-              style={closeBtnStyle}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: colors.onSurfaceVariant,
+                fontSize: '20px',
+                cursor: 'pointer',
+                padding: spacing.xs,
+              }}
               onClick={handleClose}
               aria-label="Close brainstorming modal"
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = colors.onSurface;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = colors.onSurfaceVariant;
-              }}
             >
               ✕
             </button>
@@ -460,48 +466,37 @@ export function BrainstormingModal({
 
           {/* ── Chat Area ───────────────────────────────────── */}
           <div style={chatAreaStyle}>
-            {/* Welcome message when empty */}
             {messages.length === 0 && !isAiThinking && (
               <div style={{ textAlign: 'center', padding: spacing.xl }}>
-                <div
-                  style={{
-                    ...avatarStyle,
-                    width: '48px',
-                    height: '48px',
-                    margin: '0 auto',
-                    marginBottom: spacing.md,
-                    fontSize: '22px',
-                  }}
-                >
+                <div style={{
+                  ...avatarStyle,
+                  width: '48px',
+                  height: '48px',
+                  margin: '0 auto',
+                  marginBottom: spacing.md,
+                  fontSize: '22px',
+                }}>
                   ✦
                 </div>
-                <p
-                  style={{
-                    fontFamily: `var(${typography.transcriptDisplay.fontFamily})`,
-                    fontSize: typography.transcriptDisplay.fontSize,
-                    fontWeight: typography.transcriptDisplay.fontWeight,
-                    lineHeight: typography.transcriptDisplay.lineHeight,
-                    color: colors.onSurface,
-                    marginBottom: spacing.sm,
-                  }}
-                >
+                <p style={{
+                  fontFamily: `var(${typography.transcriptDisplay.fontFamily})`,
+                  fontSize: typography.transcriptDisplay.fontSize,
+                  fontWeight: typography.transcriptDisplay.fontWeight,
+                  color: colors.onSurface,
+                  marginBottom: spacing.sm,
+                }}>
                   Let&apos;s think about this together.
                 </p>
-                <p
-                  style={{
-                    fontFamily: `var(${typography.uiBody.fontFamily})`,
-                    fontSize: typography.uiBody.fontSize,
-                    fontWeight: typography.uiBody.fontWeight,
-                    lineHeight: typography.uiBody.lineHeight,
-                    color: colors.onSurfaceVariant,
-                  }}
-                >
-                  Describe your thoughts and I&apos;ll help you shape a strong answer.
+                <p style={{
+                  fontFamily: `var(${typography.uiBody.fontFamily})`,
+                  fontSize: typography.uiBody.fontSize,
+                  color: colors.onSurfaceVariant,
+                }}>
+                  Share your thoughts and I&apos;ll help you shape a strong answer.
                 </p>
               </div>
             )}
 
-            {/* Message bubbles */}
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -512,38 +507,65 @@ export function BrainstormingModal({
                   flexDirection: msg.role === 'ai' ? 'row' : 'row-reverse',
                 }}
               >
-                {/* Avatar */}
-                {msg.role === 'ai' && (
-                  <div style={avatarStyle}>✦</div>
-                )}
-
-                {/* Bubble */}
+                {msg.role === 'ai' && <div style={avatarStyle}>✦</div>}
                 <div style={msg.role === 'ai' ? aiBubbleStyle : userBubbleStyle}>
                   {msg.text}
                   {msg.isStreaming && (
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: '2px',
-                        height: '1em',
-                        backgroundColor: colors.secondary,
-                        marginLeft: '2px',
-                        verticalAlign: 'text-bottom',
-                        animation: 'typingBounce 0.8s infinite ease-in-out both',
-                      }}
-                    />
+                    <span style={{
+                      display: 'inline-block',
+                      width: '2px',
+                      height: '1em',
+                      backgroundColor: colors.secondary,
+                      marginLeft: '2px',
+                      verticalAlign: 'text-bottom',
+                      animation: 'typingBounce 0.8s infinite ease-in-out both',
+                    }} />
                   )}
                 </div>
               </div>
             ))}
 
-            {/* Typing indicator */}
             {isAiThinking && (
-              <div style={typingIndicatorStyle}>
+              <div style={{
+                alignSelf: 'flex-start',
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.xs,
+                padding: `${spacing.sm} ${spacing.md}`,
+                color: colors.secondary,
+              }}>
                 <div style={avatarStyle}>✦</div>
-                <span className="typing-dot" style={dotStyle} />
-                <span className="typing-dot" style={dotStyle} />
-                <span className="typing-dot" style={dotStyle} />
+                <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both' }} />
+                <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both', animationDelay: '0.15s' }} />
+                <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both', animationDelay: '0.3s' }} />
+              </div>
+            )}
+
+            {streamError && (
+              <div style={{
+                backgroundColor: `${colors.error}15`,
+                border: `1px solid ${colors.error}`,
+                borderRadius: radius.DEFAULT,
+                padding: spacing.sm,
+                color: colors.error,
+                fontSize: '13px',
+              }}>
+                {streamError}
+              </div>
+            )}
+
+            {reachedLimit && !isAiThinking && lastAiMessage && (
+              <div style={{
+                alignSelf: 'flex-start',
+                backgroundColor: `${colors.primary}15`,
+                border: `1px solid ${colors.primary}33`,
+                borderRadius: radius.DEFAULT,
+                padding: spacing.md,
+                fontSize: '13px',
+                color: colors.onSurfaceVariant,
+                fontStyle: 'italic',
+              }}>
+                We&apos;ve had a great conversation. Ready to use an answer? Click &ldquo;Use this answer&rdquo; below, or keep chatting.
               </div>
             )}
 
@@ -552,45 +574,45 @@ export function BrainstormingModal({
 
           {/* ── Footer ──────────────────────────────────────── */}
           <div style={footerStyle}>
-            {/* Use this answer button — shows when there's a completed AI message */}
             {lastAiMessage && (
               <button
                 style={useAnswerBtnStyle}
                 onClick={() => handleUseAnswer(lastAiMessage.text)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.primaryFixedDim;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = colors.primary;
-                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.primaryFixedDim; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.primary; }}
               >
-                Use this answer
-                <span style={{ fontSize: '16px' }}>↓</span>
+                Use this answer ↓
               </button>
             )}
 
-            {/* Input row */}
-            <form onSubmit={handleSend} style={inputRowStyle}>
+            <form
+              onSubmit={handleSend}
+              style={{ display: 'flex', alignItems: 'center', gap: spacing.sm }}
+            >
               <input
                 ref={inputRef}
                 style={inputStyle}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Share your thoughts..."
+                placeholder={reachedLimit ? "Keep chatting or use the answer above…" : "Share your thoughts…"}
                 disabled={isAiThinking}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderBottomColor = colors.secondary;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderBottomColor = colors.outlineVariant;
-                }}
+                onFocus={(e) => { e.currentTarget.style.borderBottomColor = colors.secondary; }}
+                onBlur={(e) => { e.currentTarget.style.borderBottomColor = colors.outlineVariant; }}
               />
               <button
                 type="submit"
-                style={sendBtnStyle}
                 disabled={!inputValue.trim() || isAiThinking}
                 aria-label="Send message"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: colors.secondary,
+                  cursor: inputValue.trim() && !isAiThinking ? 'pointer' : 'not-allowed',
+                  fontSize: '20px',
+                  padding: spacing.xs,
+                  opacity: inputValue.trim() && !isAiThinking ? 1 : 0.4,
+                }}
               >
                 ↑
               </button>
@@ -603,26 +625,3 @@ export function BrainstormingModal({
 }
 
 export default BrainstormingModal;
-
-// ─── Mock Response Generator ──────────────────────────────────────
-
-function getMockResponses(
-  questionText: string,
-  userMessage: string,
-  currentAnswer: string,
-): string[] {
-  // Contextual mock responses that feel natural for a brainstorming AI
-  const contextual = [
-    `That's a strong starting point. Here's how I'd refine it: Think about the specific impact you want to have. Instead of staying general, narrow your focus to one vivid moment or decision that changed everything. That gives your answer both credibility and emotional weight. What part of your experience feels most essential to share?`,
-
-    `I like where your head is at. Consider structuring your answer around a "before and after" — what was the situation, and what changed? That contrast is what makes any answer memorable. You could start with "${currentAnswer ? currentAnswer.slice(0, 40) : 'the moment you realized'}..." and build from there. Want me to draft a fuller version?`,
-
-    `Good instinct. Here's a different angle: What if you answered this from the perspective of what you learned, not just what you did? The question "${questionText.slice(0, 60)}" is really asking about growth. Frame your response around a lesson, and it becomes a story rather than a list. Does that resonate?`,
-
-    `Let me push you a bit. Your instinct is solid, but the strongest answers to this kind of question usually have three elements: a specific situation, the choice you made, and the result. Right now you have the situation. Can you tell me more about the choice and what happened next? That's where the real answer lives.`,
-
-    `Here's a framework that might help: Answer the question in three sentences. First sentence: what you believe. Second: why you believe it. Third: what you did because of it. That forces clarity and eliminates filler. Based on what you've said, it might look something like this — try filling in the specifics and see if it feels right.`,
-  ];
-
-  return contextual;
-}

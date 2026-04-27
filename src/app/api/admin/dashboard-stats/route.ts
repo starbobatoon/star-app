@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
+import { seedDefaultsIfNeeded } from "@/lib/seed-defaults";
 
 // GET /api/admin/dashboard-stats
 // Returns aggregated stats for the admin dashboard.
@@ -11,6 +12,9 @@ export async function GET() {
     if (!user || !isAdmin(user)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    // Seed integration credentials from env vars on first admin page load (idempotent)
+    await seedDefaultsIfNeeded();
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
