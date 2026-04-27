@@ -937,6 +937,9 @@ export default function ComposePage() {
   const progressPercent = (step / totalSteps) * 100;
 
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Holds draft answers loaded when email matches — applied on Begin click, not immediately.
+  // Using a ref avoids a state update (and re-render) in the email effect.
+  const pendingDraftAnswersRef = useRef<Record<string, string>>({});
 
   const saveDraft = useCallback(() => {
     if (!contact.email) return;
@@ -955,16 +958,17 @@ export default function ComposePage() {
       if (!raw) return;
       const draft: DraftData = JSON.parse(raw);
       if (draft.contact.email === contact.email) {
-        // Pre-fill other fields from the saved draft — helpful if they return
-        // to finish later — but do NOT auto-advance the step. The user must
-        // explicitly click "Begin →" after reviewing their contact details.
+        // Only restore contact fields here — no setAnswers, no setStep.
+        // Restoring answers via setAnswers here triggers extra re-renders that
+        // interact badly with browser autocomplete and can advance the step.
+        // Answers are applied later in handleNext when the user clicks Begin →.
         setContact((prev) => ({
           ...prev,
           firstName: draft.contact.firstName || prev.firstName,
           lastName: draft.contact.lastName || prev.lastName,
           phone: draft.contact.phone || prev.phone,
         }));
-        setAnswers((prev) => ({ ...prev, ...draft.answers }));
+        pendingDraftAnswersRef.current = draft.answers || {};
       }
     } catch {
       // Corrupt draft — ignore
@@ -1000,6 +1004,12 @@ export default function ComposePage() {
 
   const handleNext = () => {
     if (step < totalSteps) {
+      // Apply any draft answers that were loaded when the email matched —
+      // batched with the step increment so they land in the same render.
+      if (step === 0 && Object.keys(pendingDraftAnswersRef.current).length > 0) {
+        setAnswers((prev) => ({ ...prev, ...pendingDraftAnswersRef.current }));
+        pendingDraftAnswersRef.current = {};
+      }
       saveDraft();
       setStep((s) => s + 1);
     }
