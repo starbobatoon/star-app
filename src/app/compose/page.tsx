@@ -263,22 +263,38 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
     return () => clearInterval(t);
   }, []);
 
-  // Poll for speech status every 5 seconds
+  // Poll for speech status every 5 seconds.
+  // Only surface an error after 6 consecutive failures (~30 s) — transient
+  // network blips and the brief window before the row is fully committed
+  // should not show alarming red text to the user.
   useEffect(() => {
     if (!speechId) return;
+    let failCount = 0;
+    let interval: ReturnType<typeof setInterval> | null = null;
     const poll = async () => {
       try {
         const res = await fetch(`/api/speeches/${speechId}/status`);
-        if (!res.ok) throw new Error('Failed to fetch status');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
+        failCount = 0;
+        setError(null);
         setSpeechStatus(data);
       } catch {
-        setError('Unable to check speech status. Please refresh the page.');
+        failCount += 1;
+        if (failCount >= 6) {
+          setError("Having trouble checking status — we'll keep trying. Your speech is still being created.");
+        }
       }
     };
-    poll();
-    const interval = setInterval(poll, 5000);
-    return () => clearInterval(interval);
+    // Brief delay so the speech row is fully committed before first fetch
+    const initialTimer = setTimeout(() => {
+      poll();
+      interval = setInterval(poll, 5000);
+    }, 2000);
+    return () => {
+      clearTimeout(initialTimer);
+      if (interval) clearInterval(interval);
+    };
   }, [speechId]);
 
   if (speechStatus?.transcript) {
