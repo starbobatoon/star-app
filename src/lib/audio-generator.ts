@@ -35,10 +35,10 @@ export async function generateSpeechAudio(
   const supabaseAdmin = createAdminClient();
 
   try {
-    // 1. Fetch speech transcript
+    // 1. Fetch speech sections (use clean section fields, NOT the markdown transcript)
     const { data: speech, error: speechError } = await supabaseAdmin
       .from("speeches")
-      .select("transcript, voice_used")
+      .select("transcript, voice_used, hook, story, point, cta, exit")
       .eq("id", speechId)
       .single();
 
@@ -46,9 +46,22 @@ export async function generateSpeechAudio(
       throw new Error(`Failed to fetch speech: ${speechError?.message || "Not found"}`);
     }
 
-    if (!speech.transcript) {
-      throw new Error("Speech transcript is empty");
+    // Build clean text for TTS: section content joined with Fish Audio break tags.
+    // Do NOT send the raw transcript — it contains markdown like '**Hook**' which
+    // Fish Audio reads literally as 'asterisk asterisk Hook'.
+    // Fish Audio S2 inline tags: (break) ~0.5s pause, (long-break) ~1s pause.
+    const cleanText = [speech.hook, speech.story, speech.point, speech.cta, speech.exit]
+      .filter((s): s is string => !!s && s.trim().length > 0)
+      .map((s) => stripMarkdown(s))
+      .join(" (long-break) ");
+
+    if (!cleanText) {
+      // Fall back to stripping the raw transcript if section fields are empty
+      if (!speech.transcript) {
+        throw new Error("Speech transcript is empty");
+      }
     }
+    const ttsText = cleanText || stripMarkdown(speech.transcript);
 
     // 2. Fetch Fish Audio config
     const { data: config, error: configError } = await supabaseAdmin
@@ -87,7 +100,7 @@ export async function generateSpeechAudio(
     console.log(`[audio-generator] Using voice ${voiceId} for speech ${speechId}`);
 
     const audioBuffer = await synthesizeSpeech({
-      text: speech.transcript,
+      text: ttsText,
       voiceId,
       format: "mp3",
       apiKey,
@@ -95,7 +108,9 @@ export async function generateSpeechAudio(
       volume: config.volume ?? 0,
       speed: config.speed ?? 1.0,
       loudnessNormalization: config.loudness_normalization ?? true,
-      textNormalization: config.text_normalization ?? false,
+      // Force text normalization ON so Fish Audio handles numbers, dates,
+      // currency, etc. naturally (e.g. "2026" -> "twenty twenty-six").
+      textNormalization: true,
     });
 
     // 5. Upload to Supabase storage bucket "speech-audio"
@@ -192,4 +207,36 @@ export async function generateSpeechAudio(
 
     return { success: false, error: errorMsg };
   }
+}
+
+/**
+ * Strip markdown syntax that Fish Audio would read literally.
+ * Keeps Fish Audio's own inline tags like (break), (emphasis), (slow), (whisper).
+ */
+function stripMarkdown(text: string): string {
+  return text
+    // Remove section header lines like "**Hook**" or "**Call to Action**"
+    .replace(/^\*\*\s*(Hook|Story|Point|CTA|Call to Action|Exit)\s*\*\*\s*$/gim, "")
+    // Bold: **text** -> text
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    // Italic: *text* or _text_ -> text
+    .replace(/(?<![*_])\*([^*\n]+)\*(?!\*)/g, "$1")
+    .replace(/(?<![_*])_([^_\n]+)_(?![_*])/g, "$1")
+    // Markdown headings: "## Hook" -> ""
+    .replace(/^#{1,6}\s.*$/gm, "")
+    // Strikethrough: ~~text~~ -> text
+    .replace(/~~([^~]+)~~/g, "$1")
+    // Inline code: `text` -> text
+    .replace(/`([^`]+)`/g, "$1")
+    // Links: [text](url) -> text
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Collapse 3+ newlines into 2
+    .replace(/\n{3,}/g, "\n\n")
+    // Trim trailing whitespace on each line
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
