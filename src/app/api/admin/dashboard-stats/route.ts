@@ -117,11 +117,12 @@ export async function GET() {
     try {
       const { data: orIntegration, error: orError } = await admin
         .from("openrouter_integration")
-        .select("is_configured")
+        .select("is_configured, api_key_encrypted")
         .limit(1)
         .maybeSingle();
       if (orError) throw orError;
-      openRouterConfigured = orIntegration?.is_configured === true;
+      // Configured if flag is set OR if a key exists (key may have been seeded without flag)
+      openRouterConfigured = orIntegration?.is_configured === true || !!orIntegration?.api_key_encrypted;
     } catch (orErr: unknown) {
       const msg = orErr instanceof Error ? orErr.message : String(orErr);
       console.warn(
@@ -135,11 +136,12 @@ export async function GET() {
     try {
       const { data: ghlIntegration, error: ghlError } = await admin
         .from("ghl_integration")
-        .select("id")
+        .select("id, pit_encrypted, location_id")
         .limit(1)
         .maybeSingle();
       if (ghlError) throw ghlError;
-      ghlConfigured = !!ghlIntegration;
+      // Configured if a row exists with either a PIT or a location ID
+      ghlConfigured = !!(ghlIntegration?.pit_encrypted || ghlIntegration?.location_id);
     } catch (ghlErr: unknown) {
       const msg = ghlErr instanceof Error ? ghlErr.message : String(ghlErr);
       console.warn(

@@ -79,6 +79,10 @@ export async function GET() {
     }
 
     if (!fishResponse.ok) {
+      // 404 means no models exist under this account (using marketplace/shared voices) — not a real error
+      if (fishResponse.status === 404) {
+        return NextResponse.json({ voices: [], total: 0, info: "No custom voices found in your Fish Audio account. Enter a voice ID from the Fish Audio marketplace manually below." });
+      }
       const body = await fishResponse.text().catch(() => "");
       return NextResponse.json(
         { error: `Fish Audio API error (HTTP ${fishResponse.status}): ${body.slice(0, 200)}`, voices: [] },

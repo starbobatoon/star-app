@@ -489,12 +489,15 @@ export default function VoiceConfigPage() {
     setFishVoicesError(null);
     try {
       const res = await fetch('/api/admin/fish-audio/voices');
+      const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        const data = await res.json();
         setFishAudioVoices(data.voices || []);
+        // Show info message if no custom voices (using marketplace IDs) — not an error
+        if (data.info && !data.voices?.length) {
+          setFishVoicesError(null); // clear any prior error
+        }
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setFishVoicesError(errData.error || 'Failed to load voices from Fish Audio');
+        setFishVoicesError(data.error || 'Failed to load voices from Fish Audio');
       }
     } catch {
       setFishVoicesError('Network error loading Fish Audio voices');
