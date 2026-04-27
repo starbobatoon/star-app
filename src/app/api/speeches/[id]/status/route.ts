@@ -18,12 +18,21 @@ export async function GET(
 
     const { data: speech, error } = await supabase
       .from("speeches")
-      .select("id, status, transcript, audio_url, audio_storage_path, created_at, completed_at")
+      .select("id, status, transcript, audio_storage_path, audio_ghl_url, created_at, completed_at")
       .eq("id", id)
       .single();
 
     if (error || !speech) {
-      return NextResponse.json({ error: "Speech not found" }, { status: 404 });
+      // Surface the actual error so we don't blame "not found" for a schema bug
+      console.error("[status] DB query failed:", error);
+      const isNotFound = error?.code === "PGRST116" || !speech;
+      return NextResponse.json(
+        {
+          error: isNotFound ? "Speech not found" : `DB error: ${error?.message ?? "unknown"}`,
+          code: error?.code,
+        },
+        { status: isNotFound ? 404 : 500 }
+      );
     }
 
     // Build a public-safe response
