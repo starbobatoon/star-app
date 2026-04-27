@@ -37,15 +37,15 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
         .limit(1)
         .maybeSingle();
 
-      // Env vars are the source of truth — always overwrite DB when env var is set.
-      // This means Vercel env vars are the "hardcoded" values: change them, redeploy, done.
+      // API key follows env var (it's a credential).
+      // Voice ID is admin-controlled — only seed if missing, never overwrite.
       const fishUpdate: Record<string, unknown> = {};
       if (fishApiKey) {
         fishUpdate.api_key_encrypted = encrypt(fishApiKey);
         fishUpdate.api_key_preview = fishApiKey.slice(-4);
         fishUpdate.is_configured = true;
       }
-      if (fishVoiceId) {
+      if (fishVoiceId && !fishRow?.default_voice_id) {
         fishUpdate.default_voice_id = fishVoiceId;
       }
 
@@ -57,11 +57,12 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
         }
       }
 
-      // Always sync the active voice to match FISH_AUDIO_VOICE_ID env var
+      // Voices table — only insert if no active voice exists. Never overwrite the
+      // admin-selected voice ID; it's curated through Voice Config in the admin UI.
       if (fishVoiceId) {
         const { data: activeVoice } = await admin
           .from("voices")
-          .select("id, fish_audio_voice_id")
+          .select("id")
           .eq("is_active", true)
           .limit(1)
           .maybeSingle();
@@ -72,11 +73,6 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
             label: "Star Bobatoon",
             is_active: true,
           });
-        } else if (activeVoice.fish_audio_voice_id !== fishVoiceId) {
-          // Active voice's fish ID drifted — force back to env var value
-          await admin.from("voices")
-            .update({ fish_audio_voice_id: fishVoiceId })
-            .eq("id", activeVoice.id);
         }
       }
     }
@@ -144,9 +140,9 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
     // ------------------------------------------------------------------
     // OpenRouter Anthropic IDs use DOTS in version numbers (claude-sonnet-4.6), not dashes.
     const SLOT_DEFAULTS = [
-      { slot: "primary",      model_id: "anthropic/claude-sonnet-4.6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
-      { slot: "brainstorm",   model_id: "google/gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
-      { slot: "speechwriter", model_id: "anthropic/claude-sonnet-4.6",          label: "Claude Sonnet 4.6 (Speechwriter)",   temperature: 0.70, max_output_tokens: 4096 },
+      { slot: "primary",    model_id: "anthropic/claude-sonnet-4.6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
+      { slot: "brainstorm", model_id: "google/gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
+      // speechwriter slot omitted — DB CHECK constraint blocks it, and speech-generator only uses primary
     ];
     // Anything in this set gets auto-corrected back to the slot default on cold start.
     const INVALID_IDS = new Set([

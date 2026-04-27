@@ -17,14 +17,15 @@ const brainstormSlotSchema = slotConfigSchema.extend({
   usePrimary: z.boolean().optional().default(false),
 });
 
-const speechwriterSlotSchema = slotConfigSchema;
-
 const putOpenRouterConfigSchema = z.object({
   apiKey: z.string().optional(),
   slots: z.object({
     primary: slotConfigSchema,
     brainstorm: brainstormSlotSchema,
-    speechwriter: speechwriterSlotSchema,
+    // speechwriter slot removed — DB constraint blocks it and the model is unused by
+    // speech-generator (only primary slot is used). The speechwriter PROMPT lives in
+    // the prompts table and is still managed below.
+    speechwriter: slotConfigSchema.optional(),
   }),
   prompts: z.object({
     brainstorm: z.string().optional().default(''),
@@ -145,13 +146,6 @@ export async function PUT(request: Request) {
 
   const { apiKey, slots, prompts } = parsed.data;
 
-  // ── Resolve speechwriter slot config ──────────────────────────
-  const speechwriterConfig = {
-    modelId: slots.speechwriter.modelId,
-    temperature: slots.speechwriter.temperature,
-    maxTokens: slots.speechwriter.maxTokens,
-  };
-
   // ── Resolve brainstorm slot config ──────────────────────────────
   const brainstormConfig = slots.brainstorm.usePrimary
     ? {
@@ -246,13 +240,6 @@ export async function PUT(request: Request) {
     max_output_tokens: brainstormConfig.maxTokens,
   };
 
-  const speechwriterSlot = {
-    slot: "speechwriter",
-    model_id: speechwriterConfig.modelId,
-    temperature: speechwriterConfig.temperature,
-    max_output_tokens: speechwriterConfig.maxTokens,
-  };
-
   const { error: primarySlotError } = await admin
     .from("model_slots")
     .upsert(primarySlot, { onConflict: "slot" });
@@ -276,15 +263,9 @@ export async function PUT(request: Request) {
       { status: 500 }
     );
   }
-
-  const { error: speechwriterSlotError } = await admin
-    .from("model_slots")
-    .upsert(speechwriterSlot, { onConflict: "slot" });
-
-  if (speechwriterSlotError) {
-    // Non-fatal if migration 008 (speechwriter constraint) not yet applied
-    console.warn("[openrouter-config] Failed to upsert speechwriter slot (may need migration 008):", speechwriterSlotError);
-  }
+  // speechwriter model slot intentionally NOT saved — DB CHECK constraint blocks it
+  // and the model isn't used by speech-generator anyway. The speechwriter PROMPT below
+  // is what actually shapes Star's voice.
 
   // ── Save slot prompts to the prompts table ─────────────────────
   // Stored as rows with is_active=false and notes = 'slot:brainstorm' / 'slot:speechwriter'.
@@ -331,7 +312,6 @@ export async function PUT(request: Request) {
       brainstorm_slot: brainstormConfig.modelId,
       brainstorm_uses_primary: slots.brainstorm.usePrimary ?? false,
       has_brainstorm_prompt: !!prompts.brainstorm,
-      speechwriter_slot: speechwriterConfig.modelId,
       has_speechwriter_prompt: !!prompts.speechwriter,
     },
   });
