@@ -141,23 +141,41 @@ export async function chat(params: ChatParams): Promise<Response> {
   // Decrypt the API key server-side
   const apiKey = await getDecryptedApiKey();
 
-  // Call OpenRouter chat completions
-  const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://star.app",
-      "X-Title": "STAR App",
-    },
-    body: JSON.stringify({
-      model: slotRow.model_id,
-      temperature: slotRow.temperature,
-      max_tokens: slotRow.max_output_tokens,
-      messages,
-      stream,
-    }),
-  });
+  // 120-second timeout — most models respond within 30-60s; some slow ones (Kimi, MiMo)
+  // can take longer. Without a timeout, a stuck OpenRouter call hangs the function until
+  // Vercel kills it at maxDuration, leaving the speech orphaned.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL ?? "https://star.app",
+        "X-Title": "STAR App",
+      },
+      body: JSON.stringify({
+        model: slotRow.model_id,
+        temperature: slotRow.temperature,
+        max_tokens: slotRow.max_output_tokens,
+        messages,
+        stream,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(
+        `OpenRouter call timed out after 120s for model "${slotRow.model_id}". Try a faster model like anthropic/claude-sonnet-4.6.`
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const body = await response.text();
