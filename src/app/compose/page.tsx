@@ -899,6 +899,9 @@ export default function ComposePage() {
       if (!raw) return;
       const draft: DraftData = JSON.parse(raw);
       if (draft.contact.email === contact.email) {
+        // Pre-fill other fields from the saved draft — helpful if they return
+        // to finish later — but do NOT auto-advance the step. The user must
+        // explicitly click "Begin →" after reviewing their contact details.
         setContact((prev) => ({
           ...prev,
           firstName: draft.contact.firstName || prev.firstName,
@@ -906,9 +909,6 @@ export default function ComposePage() {
           phone: draft.contact.phone || prev.phone,
         }));
         setAnswers((prev) => ({ ...prev, ...draft.answers }));
-        if (step === 0 && draft.currentStep > 0) {
-          setStep(draft.currentStep);
-        }
       }
     } catch {
       // Corrupt draft — ignore
@@ -937,7 +937,10 @@ export default function ComposePage() {
   };
 
   const canProceedFromContact =
-    contact.email.trim().length > 0 && contact.phone.trim().length > 0;
+    contact.firstName.trim().length > 0 &&
+    contact.lastName.trim().length > 0 &&
+    contact.email.trim().length > 0 &&
+    contact.phone.trim().length > 0;
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -1071,18 +1074,20 @@ export default function ComposePage() {
               <div style={contactGridStyle}>
                 <div style={contactFieldStyle}>
                   <Input
-                    label="First Name"
+                    label="First Name *"
                     placeholder="First name"
                     value={contact.firstName}
                     onChange={(e) => handleContactChange("firstName", e.target.value)}
+                    required
                   />
                 </div>
                 <div style={contactFieldStyle}>
                   <Input
-                    label="Last Name"
+                    label="Last Name *"
                     placeholder="Last name"
                     value={contact.lastName}
                     onChange={(e) => handleContactChange("lastName", e.target.value)}
+                    required
                   />
                 </div>
               </div>

@@ -18,13 +18,8 @@ export default function LandingPage() {
     router.push('/compose');
   }, [router]);
 
-  const handleBrainstorm = useCallback(() => {
-    router.push('/compose?mode=brainstorm');
-  }, [router]);
-
   const navItems = [
     { label: 'Compose', icon: 'edit_note', href: '/compose', active: true },
-    { label: 'Brainstorm', icon: 'psychology', href: '/compose?mode=brainstorm', active: false },
     { label: 'Library', icon: 'auto_stories', href: '/library', active: false },
   ] as const;
 
@@ -265,34 +260,6 @@ export default function LandingPage() {
             >
               <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1 }}>✏️</span>
               Start Writing
-            </button>
-            <button
-              onClick={handleBrainstorm}
-              aria-label="Brainstorm speech ideas"
-              style={{
-                width: '100%',
-                maxWidth: '320px',
-                padding: '16px 32px',
-                backgroundColor: 'transparent',
-                color: colors.onSurface,
-                borderRadius: radius.full,
-                fontFamily: `var(${typography.uiLabel.fontFamily}), system-ui, sans-serif`,
-                fontSize: typography.uiLabel.fontSize,
-                fontWeight: typography.uiLabel.fontWeight,
-                letterSpacing: typography.uiLabel.letterSpacing,
-                lineHeight: typography.uiLabel.lineHeight,
-                textTransform: 'uppercase' as const,
-                border: `1px solid ${colors.outlineVariant}`,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: spacing.xs,
-                transition: 'border-color 0.3s ease, color 0.3s ease',
-              }}
-            >
-              <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1 }}>💡</span>
-              Brainstorm Ideas
             </button>
           </div>
         </div>
