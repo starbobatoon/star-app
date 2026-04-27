@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
+import { isAdmin } from "@/lib/auth-check";
 
 // ── GET /api/admin/voices ───────────────────────────────────────────────────
 // Lists all voices. Requires admin auth.
@@ -20,10 +21,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add is_blocked check on user metadata when available
-    // if (user.user_metadata?.is_blocked) {
-    //   return NextResponse.json({ error: "Account is blocked" }, { status: 403 });
-    // }
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
 
     // Fetch all voices, newest first
     const { data: voices, error } = await supabase
@@ -71,10 +71,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // TODO: Add is_blocked check on user metadata when available
-    // if (user.user_metadata?.is_blocked) {
-    //   return NextResponse.json({ error: "Account is blocked" }, { status: 403 });
-    // }
+    if (!isAdmin(user)) {
+      return NextResponse.json({ error: "Forbidden: Admin access required" }, { status: 403 });
+    }
 
     // Parse and validate request body
     const body = await request.json();

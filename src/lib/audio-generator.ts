@@ -68,9 +68,21 @@ export async function generateSpeechAudio(
     const apiKey = decrypt(config.api_key_encrypted);
 
     // 4. Synthesize speech
-    const voiceId = speech.voice_used || config.default_voice_id || "";
+    let voiceId = speech.voice_used || config.default_voice_id || "";
+
+    // Fallback: query the active voice directly if both are null
     if (!voiceId) {
-      throw new Error("No voice ID configured for speech generation");
+      const { data: activeVoiceFallback } = await supabaseAdmin
+        .from("voices")
+        .select("fish_audio_voice_id")
+        .eq("is_active", true)
+        .limit(1)
+        .maybeSingle();
+      voiceId = activeVoiceFallback?.fish_audio_voice_id || "";
+    }
+
+    if (!voiceId) {
+      throw new Error("No voice ID configured. Set an active voice in admin Voice Config.");
     }
 
     const audioBuffer = await synthesizeSpeech({
@@ -85,11 +97,11 @@ export async function generateSpeechAudio(
       textNormalization: config.text_normalization ?? false,
     });
 
-    // 5. Upload to Supabase storage bucket "speeches"
+    // 5. Upload to Supabase storage bucket "speech-audio"
     const filePath = `${speechId}.mp3`;
     const { error: uploadError } = await supabaseAdmin
       .storage
-      .from("speeches")
+      .from("speech-audio")
       .upload(filePath, audioBuffer, {
         contentType: "audio/mpeg",
         upsert: true,
@@ -99,19 +111,20 @@ export async function generateSpeechAudio(
       throw new Error(`Failed to upload audio: ${uploadError.message}`);
     }
 
-    // Get public URL
+    // Get public URL for GHL sync
     const { data: publicUrlData } = supabaseAdmin
       .storage
-      .from("speeches")
+      .from("speech-audio")
       .getPublicUrl(filePath);
 
-    const audioUrl = publicUrlData?.publicUrl;
+    const audioGhlUrl = publicUrlData?.publicUrl;
 
-    // 6. Update speech record
+    // 6. Update speech record with storage path and GHL URL
     const { error: updateError } = await supabaseAdmin
       .from("speeches")
       .update({
-        audio_url: audioUrl,
+        audio_storage_path: filePath,
+        audio_ghl_url: audioGhlUrl,
         status: "complete",
         completed_at: new Date().toISOString(),
       })
@@ -127,7 +140,7 @@ export async function generateSpeechAudio(
       entityType: "speech",
       entityId: speechId,
       beforeValue: { status: "generating_audio" },
-      afterValue: { status: "complete", audio_url: audioUrl },
+      afterValue: { status: "complete", audio_ghl_url: audioGhlUrl },
     });
 
     console.log(`[audio-generator] Audio generated successfully for speech ${speechId}`);

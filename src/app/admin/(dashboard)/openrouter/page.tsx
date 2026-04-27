@@ -6,7 +6,7 @@ import {
   typography,
   radius,
   spacing,
-} from '@/styles/design-tokens';
+} from '@/lib/design-tokens';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';

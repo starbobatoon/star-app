@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { colors, typography, radius, spacing } from '@/styles/design-tokens';
+import { colors, typography, radius, spacing } from '@/lib/design-tokens';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');

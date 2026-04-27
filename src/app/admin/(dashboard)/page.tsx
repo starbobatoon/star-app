@@ -876,6 +876,12 @@ export default function AdminDashboard() {
                               {speech.status === 'failed' && (
                                 <button
                                   title="Regenerate"
+                                  onClick={async () => {
+                                    try {
+                                      await fetch(`/api/speeches/${speech.id}/regenerate`, { method: 'POST' });
+                                      fetchStats();
+                                    } catch { /* ignore */ }
+                                  }}
                                   style={{
                                     background: 'none',
                                     border: 'none',
@@ -897,6 +903,9 @@ export default function AdminDashboard() {
                                 <>
                                   <button
                                     title="Listen"
+                                    onClick={() => {
+                                      window.open(`/api/speeches/${speech.id}/audio`, '_blank');
+                                    }}
                                     style={{
                                       background: 'none',
                                       border: 'none',
@@ -915,6 +924,12 @@ export default function AdminDashboard() {
                                   </button>
                                   <button
                                     title="Download"
+                                    onClick={async () => {
+                                      const a = document.createElement('a');
+                                      a.href = `/api/speeches/${speech.id}/audio`;
+                                      a.download = `speech-${speech.id}.mp3`;
+                                      a.click();
+                                    }}
                                     style={{
                                       background: 'none',
                                       border: 'none',
@@ -1024,7 +1039,7 @@ export default function AdminDashboard() {
               margin: 0,
             }}
           >
-            &copy; 2024 STAR SPEAKER AI. ALL RIGHTS RESERVED.
+            &copy; {new Date().getFullYear()} STAR SPEAKER AI. ALL RIGHTS RESERVED.
           </p>
         </footer>
     </div>

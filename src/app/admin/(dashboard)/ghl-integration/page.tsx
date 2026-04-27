@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { colors, typography, radius, spacing } from '@/styles/design-tokens';
+import { colors, typography, radius, spacing } from '@/lib/design-tokens';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
