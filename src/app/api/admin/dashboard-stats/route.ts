@@ -30,7 +30,7 @@ export async function GET() {
       const { data, error } = await admin
         .from("speeches")
         .select(
-          "status, audio_duration_seconds, rating, created_at, completed_at, first_name, last_name, email, voice_used, id"
+          "status, audio_duration_seconds, rating, created_at, completed_at, first_name, last_name, email, voice_used, id, error"
         );
 
       if (error) {
@@ -44,7 +44,7 @@ export async function GET() {
           const { data: fallbackData, error: fallbackError } = await admin
             .from("speeches")
             .select(
-              "status, audio_duration_seconds, created_at, completed_at, first_name, last_name, email, voice_used, id"
+              "status, audio_duration_seconds, created_at, completed_at, first_name, last_name, email, voice_used, id, error"
             );
           if (fallbackError) {
             console.error(
@@ -214,6 +214,8 @@ export async function GET() {
           createdAt: s.created_at,
           completedAt: completedAt ?? null,
           generationSeconds,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          error: (s as any).error ?? null,
         };
       });
 

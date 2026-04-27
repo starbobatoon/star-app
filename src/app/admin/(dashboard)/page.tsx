@@ -20,6 +20,7 @@ interface RecentSpeech {
   createdAt: string;
   completedAt: string | null;
   generationSeconds: number | null;
+  error: string | null;
 }
 
 interface DashboardData {
