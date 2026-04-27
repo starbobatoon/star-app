@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
@@ -10,6 +10,10 @@ import { runSpeechPipeline } from "@/lib/pipeline";
 import { speechRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
+// Allow up to 5 minutes — covers OpenRouter LLM generation + Fish Audio TTS.
+// Without this Vercel kills the function at 10–15 s, abandoning the pipeline.
+export const maxDuration = 300;
+
 const contactSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
@@ -19,7 +23,7 @@ const contactSchema = z.object({
 
 const answerSchema = z.object({
   questionId: z.string().min(1, "Question ID is required"),
-  answer: z.string().min(1, "Answer is required"),
+  answer: z.string(), // Allow empty — skipped questions send ""
 });
 
 const createSpeechSchema = z.object({
@@ -171,16 +175,20 @@ export async function POST(request: Request) {
       },
     });
 
-    // Fire-and-forget: kick off the speech generation pipeline in the
-    // background. We intentionally do NOT await this so the user gets an
-    // immediate HTTP 201 response while the pipeline (brainstorm → draft →
-    // audio → GHL) runs asynchronously. Pipeline errors are logged inside
-    // runSpeechPipeline and do not affect the response.
-    runSpeechPipeline(speech.id).catch((pipelineErr) => {
-      console.error(
-        `[speeches] Pipeline failed for speech ${speech.id}:`,
-        pipelineErr
-      );
+    // Schedule the pipeline to run after the response is sent.
+    // `after()` tells Vercel to keep this function alive until the callback
+    // resolves — without it, the function is terminated the moment the 201
+    // response is returned and the pipeline never runs.
+    const speechIdForPipeline = speech.id;
+    after(async () => {
+      try {
+        await runSpeechPipeline(speechIdForPipeline);
+      } catch (pipelineErr) {
+        console.error(
+          `[speeches] Pipeline failed for speech ${speechIdForPipeline}:`,
+          pipelineErr
+        );
+      }
     });
 
     return NextResponse.json({ speech }, { status: 201 });

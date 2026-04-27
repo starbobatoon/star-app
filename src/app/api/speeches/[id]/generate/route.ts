@@ -4,6 +4,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { writeAuditLog } from "@/lib/audit-log";
 import { runSpeechPipeline } from "@/lib/pipeline";
 
+// Allow up to 5 minutes for admin-triggered regeneration.
+export const maxDuration = 300;
+
 // ── POST /api/speeches/[id]/generate ─────────────────────────────────────
 // Triggers the full pipeline (text → audio → GHL) for a speech.
 // Requires admin auth.
