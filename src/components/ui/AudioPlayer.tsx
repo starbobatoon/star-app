@@ -1,23 +1,17 @@
 'use client';
 
-import React, { type CSSProperties, useRef, useState, useEffect, useCallback } from 'react';
+import React, { type CSSProperties, useRef, useState, useCallback } from 'react';
 import { colors, spacing, radius, typography, glassmorphism } from '@/lib/design-tokens';
 
 export interface AudioPlayerProps {
-  /** Audio source URL. */
   src: string;
-  /** Accessible label for the player. */
   'aria-label'?: string;
-  /** Additional styles for the outer container. */
   containerStyle?: CSSProperties;
 }
 
 /**
- * Floating glassmorphism AudioPlayer component following the Star Speaker App design system.
- *
- * Features play/pause, scrubbing, and time display. Uses the `.glass` CSS class
- * for the backdrop blur effect. Waveform visualization uses thin vertical
- * Electric Indigo lines. All values use design tokens.
+ * Floating glassmorphism AudioPlayer (navy-tinted glass, gold accents).
+ * Waveform bars animate during playback using CSS keyframes from globals.css.
  */
 export function AudioPlayer({
   src,
@@ -97,7 +91,7 @@ export function AudioPlayer({
   const playBtnStyle: CSSProperties = {
     background: 'none',
     border: 'none',
-    color: colors.secondary,
+    color: colors.primary,  // Gold play button
     fontSize: '20px',
     cursor: 'pointer',
     padding: spacing.xs,
@@ -107,6 +101,7 @@ export function AudioPlayer({
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: '32px',
+    transition: 'opacity 0.15s ease',
   };
 
   const timeStyle: CSSProperties = {
@@ -131,25 +126,33 @@ export function AudioPlayer({
   const fillStyle: CSSProperties = {
     width: `${progressRatio * 100}%`,
     height: '100%',
-    background: `linear-gradient(to right, ${colors.secondary}, ${colors.primary})`,
+    background: `linear-gradient(to right, ${colors.secondaryContainer}, ${colors.primary})`,
     borderRadius: radius.full,
     transition: 'width 0.1s linear',
   };
 
-  // Generate waveform bars (decorative)
-  const barCount = 40;
+  // Waveform bars — animate using audioBarAnim keyframes (globals.css) when playing
+  const barCount = 24;
   const waveformBars = Array.from({ length: barCount }, (_, i) => {
-    const height = `${8 + Math.sin(i * 0.4) * 6 + Math.random() * 4}px`;
+    const h = 6 + Math.abs(Math.sin(i * 0.5)) * 5 + Math.abs(Math.sin(i * 0.9)) * 4;
+    const durMs = Math.round(500 + Math.abs(Math.sin(i * 1.7)) * 600);
+    const delayMs = Math.round(Math.abs(Math.sin(i * 2.3)) * 400);
     return (
       <div
         key={i}
         style={{
           width: '2px',
-          height,
-          backgroundColor: colors.secondary,
-          opacity: 0.4,
+          height: `${h}px`,
+          backgroundColor: colors.primary,
+          opacity: isPlaying ? 0.9 : 0.45,
           borderRadius: radius.full,
           flexShrink: 0,
+          transformOrigin: 'center',
+          animation: isPlaying
+            ? `audioBarAnim ${durMs}ms ease-in-out infinite alternate`
+            : undefined,
+          animationDelay: isPlaying ? `${delayMs}ms` : undefined,
+          transition: 'opacity 0.3s ease',
         }}
       />
     );
@@ -169,6 +172,8 @@ export function AudioPlayer({
         onClick={togglePlay}
         aria-label={isPlaying ? 'Pause' : 'Play'}
         type="button"
+        onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.75'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
       >
         {isPlaying ? '⏸' : '▶'}
       </button>

@@ -368,18 +368,24 @@ function cleanSection(text: string): string {
 }
 
 /**
- * Builds the full transcript by concatenating all sections with appropriate spacing.
+ * Builds the full transcript with **Section** title markers so the speech
+ * display pages can parse and render each section with proper typography.
  */
 function buildFullTranscript(sections: ParsedSpeechSections): string {
   return [
+    "**Hook**",
     sections.hook,
     "",
+    "**Story**",
     sections.story,
     "",
+    "**Point**",
     sections.point,
     "",
+    "**Call to Action**",
     sections.cta,
     "",
+    "**Exit**",
     sections.exit,
   ].join("\n");
 }

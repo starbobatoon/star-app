@@ -561,20 +561,23 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
             >
               {sections.map((section) => (
                 <section key={section.id}>
-                  <h3
-                    style={{
-                      fontFamily: `var(${typography.uiLabel.fontFamily})`,
-                      fontSize: typography.uiLabel.fontSize,
-                      fontWeight: typography.uiLabel.fontWeight,
-                      lineHeight: typography.uiLabel.lineHeight,
-                      letterSpacing: typography.uiLabel.letterSpacing,
-                      color: colors.secondary,
-                      textTransform: 'uppercase',
-                      marginBottom: spacing.sm,
-                    }}
-                  >
-                    {section.title}
-                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
+                    <div style={{ width: '3px', height: '16px', background: colors.primary, borderRadius: '2px', flexShrink: 0 }} />
+                    <h3
+                      style={{
+                        fontFamily: `var(${typography.uiLabel.fontFamily})`,
+                        fontSize: typography.uiLabel.fontSize,
+                        fontWeight: typography.uiLabel.fontWeight,
+                        lineHeight: typography.uiLabel.lineHeight,
+                        letterSpacing: '0.1em',
+                        color: colors.secondary,
+                        textTransform: 'uppercase',
+                        margin: 0,
+                      }}
+                    >
+                      {section.title}
+                    </h3>
+                  </div>
                   <p
                     style={{
                       fontFamily: `var(${typography.transcriptBody.fontFamily})`,
@@ -584,6 +587,7 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
                       letterSpacing: typography.transcriptBody.letterSpacing,
                       color: colors.onSurface,
                       margin: 0,
+                      paddingLeft: '11px',
                     }}
                   >
                     {section.content}

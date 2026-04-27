@@ -1,56 +1,57 @@
 @import "tailwindcss";
 
 /* ─── Star Speaker App Design Tokens ──────────────────────────────── */
-/* Single source of truth for all visual values. Derived from DESIGN.md. */
-/* Dark mode only — no light mode / prefers-color-scheme rules. */
+/* Single source of truth for all visual values.                       */
+/* Brand: Navy #0B1472 · Gold #cba864 · Gray #9d9d9d                  */
+/* Dark-mode only — no light-mode / prefers-color-scheme rules.        */
 
 :root {
   /* ── Font variables (set by next/font in layout.tsx) ── */
   --font-inter: var(--font-inter);
   --font-newsreader: var(--font-newsreader);
 
-  /* ── Surface hierarchy ── */
-  --color-surface-base: #0A0A0A;
-  --color-surface-dim: #131313;
-  --color-surface-bright: #393939;
-  --color-surface-container-lowest: #0e0e0e;
-  --color-surface-container-low: #1c1b1b;
-  --color-surface-container: #201f1f;
-  --color-surface-container-high: #2a2a2a;
-  --color-surface-container-highest: #353534;
-  --color-surface-default: #131313;
+  /* ── Surface hierarchy — navy-tinted dark layers ── */
+  --color-surface-base: #05081A;
+  --color-surface-dim: #080D22;
+  --color-surface-bright: #1E2B60;
+  --color-surface-container-lowest: #060A1C;
+  --color-surface-container-low: #0B1030;
+  --color-surface-container: #0E1640;
+  --color-surface-container-high: #131C52;
+  --color-surface-container-highest: #182460;
+  --color-surface-default: #080D22;
 
   /* ── Content colors ── */
-  --color-on-surface: #e5e2e1;
-  --color-on-surface-variant: #d0c5af;
-  --color-inverse-surface: #e5e2e1;
-  --color-inverse-on-surface: #313030;
+  --color-on-surface: #EDE9FC;
+  --color-on-surface-variant: #B8B2D8;
+  --color-inverse-surface: #EDE9FC;
+  --color-inverse-on-surface: #1A1A40;
 
-  /* ── Outlines ── */
-  --color-outline: #99907c;
-  --color-outline-variant: #4d4635;
+  /* ── Outlines — brand gray ── */
+  --color-outline: #9d9d9d;
+  --color-outline-variant: #2E3670;
 
   /* ── Surface tint ── */
-  --color-surface-tint: #e9c349;
+  --color-surface-tint: #cba864;
 
-  /* ── Primary — Soft Gold ── */
-  --color-primary: #f2ca50;
-  --color-on-primary: #3c2f00;
-  --color-primary-container: #d4af37;
-  --color-on-primary-container: #554300;
-  --color-inverse-primary: #735c00;
+  /* ── Primary — Warm Gold ── */
+  --color-primary: #cba864;
+  --color-on-primary: #3A2800;
+  --color-primary-container: #7A5A28;
+  --color-on-primary-container: #F5E0A8;
+  --color-inverse-primary: #4A3200;
 
-  /* ── Secondary — Electric Indigo ── */
-  --color-secondary: #c0c1ff;
-  --color-on-secondary: #1000a9;
-  --color-secondary-container: #3131c0;
-  --color-on-secondary-container: #b0b2ff;
+  /* ── Secondary — Clear Blue (brand navy derived) ── */
+  --color-secondary: #7B93E8;
+  --color-on-secondary: #0A1060;
+  --color-secondary-container: #0B1472;
+  --color-on-secondary-container: #C0CCFF;
 
-  /* ── Tertiary — cool blue ── */
-  --color-tertiary: #bfcdff;
-  --color-on-tertiary: #082b72;
-  --color-tertiary-container: #97b0ff;
-  --color-on-tertiary-container: #254188;
+  /* ── Tertiary — cool sky blue ── */
+  --color-tertiary: #A8C8FF;
+  --color-on-tertiary: #0A2060;
+  --color-tertiary-container: #1A3080;
+  --color-on-tertiary-container: #C8DCFF;
 
   /* ── Error states ── */
   --color-error: #ffb4ab;
@@ -59,42 +60,42 @@
   --color-on-error-container: #ffdad6;
 
   /* ── Fixed variants ── */
-  --color-primary-fixed: #ffe088;
-  --color-primary-fixed-dim: #e9c349;
-  --color-on-primary-fixed: #241a00;
-  --color-on-primary-fixed-variant: #574500;
+  --color-primary-fixed: #F5DFA8;
+  --color-primary-fixed-dim: #D4AC5A;
+  --color-on-primary-fixed: #2A1800;
+  --color-on-primary-fixed-variant: #4A3000;
 
-  --color-secondary-fixed: #e1e0ff;
-  --color-secondary-fixed-dim: #c0c1ff;
-  --color-on-secondary-fixed: #07006c;
-  --color-on-secondary-fixed-variant: #2f2ebe;
+  --color-secondary-fixed: #C8D4FF;
+  --color-secondary-fixed-dim: #8898E8;
+  --color-on-secondary-fixed: #050840;
+  --color-on-secondary-fixed-variant: #0B1472;
 
-  --color-tertiary-fixed: #dbe1ff;
-  --color-tertiary-fixed-dim: #b4c5ff;
-  --color-on-tertiary-fixed: #00174b;
-  --color-on-tertiary-fixed-variant: #27438a;
+  --color-tertiary-fixed: #D0E0FF;
+  --color-tertiary-fixed-dim: #90B4FF;
+  --color-on-tertiary-fixed: #001840;
+  --color-on-tertiary-fixed-variant: #182868;
 
   /* ── Background ── */
-  --color-background: #131313;
-  --color-on-background: #e5e2e1;
+  --color-background: #080D22;
+  --color-on-background: #EDE9FC;
 
   /* ── Surface variant ── */
-  --color-surface-variant: #353534;
+  --color-surface-variant: #182460;
 
-  /* ── Elevation (tonal layering — no shadows) ── */
-  --color-elevation-base: #0A0A0A;
-  --color-elevation-surface: #1A1A1A;
-  --color-elevation-accent: #2A2A2A;
-  --color-elevation-border: #2A2A2A;
+  /* ── Elevation (tonal navy layering — no shadows) ── */
+  --color-elevation-base: #05081A;
+  --color-elevation-surface: #0B1236;
+  --color-elevation-accent: #131C52;
+  --color-elevation-border: #131C52;
 
-  /* ── Glassmorphism ── */
+  /* ── Glassmorphism — navy-tinted glass ── */
   --glass-backdrop-blur: 12px;
-  --glass-background: rgba(255, 255, 255, 0.10);
-  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-background: rgba(11, 20, 114, 0.30);
+  --glass-border: 1px solid rgba(203, 168, 100, 0.20);
 
-  /* ── Progress bar ── */
-  --progress-fill-from: #c0c1ff;
-  --progress-fill-to: #f2ca50;
+  /* ── Progress bar — Navy → Gold brand gradient ── */
+  --progress-fill-from: #0B1472;
+  --progress-fill-to: #cba864;
 
   /* ── Spacing ── */
   --spacing-unit: 4px;
@@ -159,25 +160,24 @@
 
 /* ─── Base Styles ───────────────────────────────────────────────── */
 body {
-  background: #131313;
-  color: #e5e2e1;
+  background: #080D22;
+  color: #EDE9FC;
   font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ─── Glassmorphism ──────────────────────────────────────────────── */
-/* Reserved for Audio Player & sticky navigation bars. */
+/* Navy-tinted frosted glass for floating audio player & nav. */
 .glass {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 0.10);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(11, 20, 114, 0.30);
+  border: 1px solid rgba(203, 168, 100, 0.20);
 }
 
 /* ─── Progress Bar Fill ──────────────────────────────────────────── */
-/* Horizontal bar at top of viewport during questionnaires. */
-/* Gradient: Electric Indigo → Soft Gold. */
+/* Navy → Gold: brand journey gradient. */
 .progress-fill {
   background: linear-gradient(
     90deg,
@@ -187,7 +187,7 @@ body {
 }
 
 /* ─── Transcript Content ────────────────────────────────────────── */
-/* Speech content uses Newsreader serif for literary, authoritative feel. */
+/* Newsreader serif for literary, authoritative speech presentation. */
 .transcript-content {
   font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
   font-size: 20px;
@@ -197,8 +197,22 @@ body {
 }
 
 /* ─── Focus Ring ────────────────────────────────────────────────── */
-/* Electric Indigo focus indicator for keyboard navigation. */
+/* Gold focus indicator — reinforces primary brand color for accessibility. */
 *:focus-visible {
-  outline: 2px solid #c0c1ff;
+  outline: 2px solid #cba864;
   outline-offset: 2px;
+}
+
+/* ─── Audio Waveform Animation ───────────────────────────────────── */
+/* Used by AudioPlayer bars during playback. */
+@keyframes audioBarAnim {
+  0%   { transform: scaleY(0.15); }
+  100% { transform: scaleY(1); }
+}
+
+/* ─── Voice Input Waveform Animation ─────────────────────────────── */
+/* Used by VoiceWaveformBars when microphone is active. */
+@keyframes voiceBarAnim {
+  0%, 100% { transform: scaleY(0.2); }
+  50%       { transform: scaleY(1); }
 }

@@ -92,6 +92,29 @@ function ComposeNav() {
   );
 }
 
+// ─── Parse transcript into sections (for beautiful display) ─────
+function parseTranscriptSections(transcript: string) {
+  if (!transcript) return [{ id: 'full', title: 'Your Speech', content: transcript }];
+  const boldRegex = /\*\*(.+?)\*\*/g;
+  const matches: { title: string; index: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = boldRegex.exec(transcript)) !== null) {
+    matches.push({ title: m[1].trim(), index: m.index });
+  }
+  if (matches.length === 0) {
+    return [{ id: 'full', title: 'Your Speech', content: transcript.trim() }];
+  }
+  return matches.map((match, i) => {
+    const contentStart = match.index + match.title.length + 4;
+    const contentEnd = matches[i + 1]?.index ?? transcript.length;
+    return {
+      id: match.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      title: match.title,
+      content: transcript.slice(contentStart, contentEnd).trim(),
+    };
+  }).filter((s) => s.content);
+}
+
 // ─── Play Icon Component ─────────────────────────────────────────
 function PlayIcon() {
   return (
@@ -396,15 +419,43 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
           </div>
           <div style={{
             padding: spacing.lg,
-            maxHeight: '420px',
+            maxHeight: '520px',
             overflowY: 'auto' as const,
-            fontSize: '18px',
-            lineHeight: '1.95',
-            color: colors.onSurface,
-            fontFamily: 'Georgia, "Book Antiqua", Palatino, serif',
-            whiteSpace: 'pre-wrap' as const,
+            scrollbarWidth: 'thin' as const,
+            scrollbarColor: `${colors.outlineVariant} transparent`,
           }}>
-            {speech.transcript}
+            {parseTranscriptSections(speech.transcript ?? '').map((section) => (
+              <div key={section.id} style={{ marginBottom: spacing.xl }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  marginBottom: spacing.sm,
+                }}>
+                  <div style={{ width: '3px', height: '16px', background: colors.primary, borderRadius: '2px', flexShrink: 0 }} />
+                  <span style={{
+                    fontFamily: 'var(--font-inter)',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase' as const,
+                    color: colors.secondary,
+                  }}>
+                    {section.title}
+                  </span>
+                </div>
+                <p style={{
+                  fontFamily: 'Georgia, "Book Antiqua", Palatino, serif',
+                  fontSize: '18px',
+                  lineHeight: '1.9',
+                  color: colors.onSurface,
+                  margin: 0,
+                  whiteSpace: 'pre-wrap' as const,
+                }}>
+                  {section.content}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -526,13 +577,11 @@ function QuestionInput({
         {showListening && (
           <div style={listeningOverlayStyle}>
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-              <div style={pulsingMicStyle}>
-                <MicIcon active />
-              </div>
+              <VoiceWaveformBars />
               <span style={{ ...typography.uiLabel, color: colors.primary }}>Listening...</span>
             </div>
             <p style={{ ...typography.caption, color: colors.onSurfaceVariant, marginTop: spacing.sm }}>
-              {transcript || 'Speak now'}
+              {transcript || 'Speak now — your words will appear here'}
             </p>
           </div>
         )}
@@ -570,6 +619,33 @@ function QuestionInput({
           {error}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Voice Waveform Bars (shown when microphone is active) ───────
+function VoiceWaveformBars() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '32px' }}>
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => {
+        const h = 6 + Math.abs(Math.sin(i * 1.1)) * 10;
+        const dur = Math.round(500 + Math.abs(Math.sin(i * 1.7)) * 500);
+        const delay = Math.round(Math.abs(Math.sin(i * 2.3)) * 300);
+        return (
+          <div
+            key={i}
+            style={{
+              width: '3px',
+              height: `${h}px`,
+              backgroundColor: colors.primary,
+              borderRadius: '2px',
+              transformOrigin: 'center',
+              animation: `voiceBarAnim ${dur}ms ease-in-out infinite`,
+              animationDelay: `${delay}ms`,
+            }}
+          />
+        );
+      })}
     </div>
   );
 }

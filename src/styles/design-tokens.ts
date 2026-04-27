@@ -2,67 +2,67 @@
  * Star Speaker App Design Tokens
  *
  * Single source of truth for all visual values in the Star Speaker App.
- * Derived from DESIGN.md (Star Speaker theme).
  *
- * Design philosophy: Minimalism & Deep Focus — a "Digital Study" feel
- * where technology serves the craft of rhetoric.
+ * Brand palette:
+ *   Navy   #0B1472 — rich surfaces, depth, structural backgrounds
+ *   Gold   #cba864 — primary actions, highlights, key moments
+ *   Gray   #9d9d9d — outlines, muted text, neutral accents
  *
  * ⚠️  NEVER hardcode colors, fonts, spacing, or radii in components.
  *     Always import from this file.
  */
 
 // ─── Colors ───────────────────────────────────────────────────────
-// A sophisticated dark-mode palette built on layered "Ink" and "Charcoal" tones.
-// Primary (Soft Gold) = high-value actions & finalized moments.
-// Accent (Electric Indigo) = AI-driven features, active states, focus.
-// Neutral = cool-toned grays for information density without visual noise.
+// Navy-tinted dark palette. Surfaces derive from #0B1472 so the app
+// feels richly branded instead of purely black.
+// Primary (Warm Gold) = high-value actions & finalized moments.
+// Secondary (Clear Blue) = AI features, active states, labels.
 
 export const colors = {
-  /** Surface hierarchy — darkest to lightest, for tonal layering */
+  /** Surface hierarchy — darkest to lightest, tonal navy layering */
   surface: {
-    base: '#0A0A0A', // Base layer — deepest background
-    dim: '#131313', // Surface-dim (YAML value)
-    bright: '#393939', // Surface-bright
-    containerLowest: '#0e0e0e',
-    containerLow: '#1c1b1b',
-    container: '#201f1f', // Surface layer — cards & containers (YAML value)
-    containerHigh: '#2a2a2a',
-    containerHighest: '#353534',
-    /** Main surface background (YAML) */
-    default: '#131313',
+    base: '#05081A',             // Near-black navy base
+    dim: '#080D22',              // Deep navy default surface
+    bright: '#1E2B60',           // Brighter navy for emphasis areas
+    containerLowest: '#060A1C',
+    containerLow: '#0B1030',
+    container: '#0E1640',        // Main card / panel background
+    containerHigh: '#131C52',
+    containerHighest: '#182460',
+    default: '#080D22',
   },
 
-  /** Content colors on surfaces */
-  onSurface: '#e5e2e1',
-  onSurfaceVariant: '#d0c5af',
-  inverseSurface: '#e5e2e1',
-  inverseOnSurface: '#313030',
+  /** Content colors on navy surfaces */
+  onSurface: '#EDE9FC',          // Soft lavender-white — high contrast on navy
+  onSurfaceVariant: '#B8B2D8',   // Muted lavender for secondary text
+  inverseSurface: '#EDE9FC',
+  inverseOnSurface: '#1A1A40',
 
-  /** Outlines — subtle boundary definitions, no shadows */
-  outline: '#99907c',
-  outlineVariant: '#4d4635',
+  /** Outlines — brand gray as the neutral boundary definition */
+  outline: '#9d9d9d',            // Brand accent gray
+  outlineVariant: '#2E3670',     // Navy-tinted muted outline
 
-  /** Surface tint */
-  surfaceTint: '#e9c349',
+  /** Surface tint — gold tint for elevated surfaces */
+  surfaceTint: '#cba864',
 
-  /** Primary — Soft Gold: high-value actions, finalized moments */
-  primary: '#f2ca50',
-  onPrimary: '#3c2f00',
-  primaryContainer: '#d4af37',
-  onPrimaryContainer: '#554300',
-  inversePrimary: '#735c00',
+  /** Primary — Warm Gold: high-value actions, buttons, highlights */
+  primary: '#cba864',
+  onPrimary: '#3A2800',          // Dark brown for text on gold
+  primaryContainer: '#7A5A28',   // Deeper gold for containers
+  onPrimaryContainer: '#F5E0A8', // Light gold text on dark container
+  inversePrimary: '#4A3200',
 
-  /** Secondary — Electric Indigo: AI features, active states, focus */
-  secondary: '#c0c1ff',
-  onSecondary: '#1000a9',
-  secondaryContainer: '#3131c0',
-  onSecondaryContainer: '#b0b2ff',
+  /** Secondary — Clear Blue: AI features, labels, active states */
+  secondary: '#7B93E8',          // Medium blue derived from brand navy
+  onSecondary: '#0A1060',
+  secondaryContainer: '#0B1472', // Pure brand navy as container
+  onSecondaryContainer: '#C0CCFF',
 
-  /** Tertiary — cool blue accent */
-  tertiary: '#bfcdff',
-  onTertiary: '#082b72',
-  tertiaryContainer: '#97b0ff',
-  onTertiaryContainer: '#254188',
+  /** Tertiary — cool sky blue accent */
+  tertiary: '#A8C8FF',
+  onTertiary: '#0A2060',
+  tertiaryContainer: '#1A3080',
+  onTertiaryContainer: '#C8DCFF',
 
   /** Error states */
   error: '#ffb4ab',
@@ -70,28 +70,28 @@ export const colors = {
   errorContainer: '#93000a',
   onErrorContainer: '#ffdad6',
 
-  /** Fixed variants — stable across light/dark mode switches */
-  primaryFixed: '#ffe088',
-  primaryFixedDim: '#e9c349',
-  onPrimaryFixed: '#241a00',
-  onPrimaryFixedVariant: '#574500',
+  /** Fixed variants — stable color references */
+  primaryFixed: '#F5DFA8',
+  primaryFixedDim: '#D4AC5A',
+  onPrimaryFixed: '#2A1800',
+  onPrimaryFixedVariant: '#4A3000',
 
-  secondaryFixed: '#e1e0ff',
-  secondaryFixedDim: '#c0c1ff',
-  onSecondaryFixed: '#07006c',
-  onSecondaryFixedVariant: '#2f2ebe',
+  secondaryFixed: '#C8D4FF',
+  secondaryFixedDim: '#8898E8',
+  onSecondaryFixed: '#050840',
+  onSecondaryFixedVariant: '#0B1472',
 
-  tertiaryFixed: '#dbe1ff',
-  tertiaryFixedDim: '#b4c5ff',
-  onTertiaryFixed: '#00174b',
-  onTertiaryFixedVariant: '#27438a',
+  tertiaryFixed: '#D0E0FF',
+  tertiaryFixedDim: '#90B4FF',
+  onTertiaryFixed: '#001840',
+  onTertiaryFixedVariant: '#182868',
 
-  /** Background & its content color */
-  background: '#131313',
-  onBackground: '#e5e2e1',
+  /** Background */
+  background: '#080D22',
+  onBackground: '#EDE9FC',
 
   /** Surface variant */
-  surfaceVariant: '#353534',
+  surfaceVariant: '#182460',
 } as const;
 
 // ─── Typography ───────────────────────────────────────────────────
@@ -165,96 +165,57 @@ export const typography = {
 } as const;
 
 // ─── Border Radius ───────────────────────────────────────────────
-// Soft, architectural roundedness. Standard = 0.25rem for precise feel.
-// Progress bars are the exception — full pill shape for fluid motion.
-
 export const radius = {
-  /** 2px — minimal rounding */
   sm: '0.125rem',
-  /** 4px — standard inputs, buttons, small cards */
   DEFAULT: '0.25rem',
-  /** 6px — medium containers */
   md: '0.375rem',
-  /** 8px — larger modules, admin panels */
   lg: '0.5rem',
-  /** 12px — prominent containers */
   xl: '0.75rem',
-  /** 9999px — pill shape for progress bars and chips */
   full: '9999px',
 } as const;
 
 // ─── Spacing ─────────────────────────────────────────────────────
-// Based on 4px unit / 8px scale rhythm.
-// Large xl/xxl values between major sections emphasize minimalism.
-
 export const spacing = {
-  /** Base unit: 4px */
   unit: '4px',
-  /** Extra small: 4px */
   xs: '4px',
-  /** Small: 8px */
   sm: '8px',
-  /** Medium: 16px */
   md: '16px',
-  /** Large: 24px */
   lg: '24px',
-  /** Extra large: 48px — major section gaps */
   xl: '48px',
-  /** Extra extra large: 80px — generous breathing room */
   xxl: '80px',
-  /** Container max width: 1200px (admin 12-col grid) */
   containerMax: '1200px',
-  /** Gutter between grid columns: 24px */
   gutter: '24px',
 } as const;
 
 // ─── Elevation (Tonal Layering) ───────────────────────────────────
-// NO shadows. Visual hierarchy through tonal differences only.
-// Darker = further back. Lighter = closer to user.
+// NO shadows. Visual hierarchy through tonal navy differences only.
 
 export const elevation = {
-  /** Base layer — deepest, furthest back */
-  base: '#0A0A0A',
-  /** Surface layer — cards, containers, floating elements */
-  surface: '#1A1A1A',
-  /** Accent outline — 1px boundaries without bulk */
-  accent: '#2A2A2A',
-  /** Border for subtle boundary definition */
-  border: '#2A2A2A',
+  base: '#05081A',
+  surface: '#0B1236',
+  accent: '#131C52',
+  border: '#131C52',
 } as const;
 
 // ─── Glassmorphism ────────────────────────────────────────────────
-// Reserved for Audio Player & sticky navigation bars.
-// Floating, premium utility without breaking the dark aesthetic.
+// Navy-tinted glass for the floating audio player & sticky nav.
 
 export const glassmorphism = {
-  /** Backdrop blur — 12px for frosted glass effect */
   backdropBlur: '12px',
-  /** 10% white tint for translucent layering */
-  background: 'rgba(255, 255, 255, 0.10)',
-  /** Subtle border to define glass edges */
-  border: '1px solid rgba(255, 255, 255, 0.08)',
+  background: 'rgba(11, 20, 114, 0.30)',    // Navy-tinted glass
+  border: '1px solid rgba(203, 168, 100, 0.20)', // Gold-tinted border
 } as const;
 
 // ─── Progress Bar ─────────────────────────────────────────────────
-// Horizontal linear bar at top of viewport during questionnaires.
-// Track = deep charcoal. Fill gradient: Electric Indigo → Soft Gold.
+// Navy → Gold gradient: brand journey metaphor.
 
 export const progressBar = {
-  /** Gradient start — Electric Indigo */
-  fillFrom: '#c0c1ff',
-  /** Gradient end — Soft Gold */
-  fillTo: '#f2ca50',
+  fillFrom: '#0B1472',  // Brand navy start
+  fillTo: '#cba864',    // Brand gold finish
 } as const;
 
 // ─── Font CSS Variables ──────────────────────────────────────────
-// Next.js font optimization registers these as CSS custom properties.
-// Use via var(--font-inter) / var(--font-newsreader) in CSS,
-// or reference typography tokens above which already use these vars.
-
 export const fontVars = {
-  /** Inter — sans-serif for all UI, navigation, admin, metadata */
   inter: '--font-inter',
-  /** Newsreader — serif for speech content & transcripts only */
   newsreader: '--font-newsreader',
 } as const;
