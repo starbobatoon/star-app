@@ -335,25 +335,34 @@ async function buildUserPrompt(speech: SpeechRecord, admin: ReturnType<typeof cr
 function parseSpeechSections(content: string): ParsedSpeechSections {
   const normalized = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
-  // Extract each section using regex
-  const hookMatch = normalized.match(/Hook:\s*\n?([\s\S]*?)(?=\n\s*Story:|$)/i);
-  const storyMatch = normalized.match(/Story:\s*\n?([\s\S]*?)(?=\n\s*Point:|$)/i);
-  const pointMatch = normalized.match(/Point:\s*\n?([\s\S]*?)(?=\n\s*CTA:|$)/i);
-  const ctaMatch = normalized.match(/CTA:\s*\n?([\s\S]*?)(?=\n\s*Exit:|$)/i);
-  const exitMatch = normalized.match(/Exit:\s*\n?([\s\S]*?)$/i);
+  // Accept any of: "Hook:", "**Hook**:", "**Hook**", "## Hook", "# Hook"
+  // followed by content up to the next section header (or end of string).
+  const h = (name: string) =>
+    `(?:\\*{1,2}\\s*${name}\\s*\\*{1,2}\\s*:?|#{1,3}\\s*${name}\\s*:?|${name}\\s*:)`;
+
+  const between = (a: string, b: string) =>
+    new RegExp(`${h(a)}[ \\t]*\\n?([\\s\\S]*?)(?=\\n[ \\t]*${h(b)}|$)`, "i");
+
+  const hookMatch  = normalized.match(between("Hook",  "Story"));
+  const storyMatch = normalized.match(between("Story", "Point"));
+  const pointMatch = normalized.match(between("Point", "CTA|Call to Action"));
+  const ctaMatch   = normalized.match(between("CTA|Call to Action", "Exit"));
+  const exitMatch  = normalized.match(new RegExp(`${h("Exit")}[ \\t]*\\n?([\\s\\S]*)$`, "i"));
 
   if (!hookMatch || !storyMatch || !pointMatch || !ctaMatch || !exitMatch) {
+    // Log the raw content for debugging then surface a clear error
+    console.error("[speech-generator] Parse failure. Raw response (first 500 chars):", normalized.slice(0, 500));
     throw new Error(
-      "Could not parse all 5 sections. Expected headers: Hook:, Story:, Point:, CTA:, Exit:"
+      "Could not parse all 5 sections. Expected headers: Hook, Story, Point, CTA, Exit (plain or **bold** or ## heading format)"
     );
   }
 
   return {
-    hook: cleanSection(hookMatch[1]),
+    hook:  cleanSection(hookMatch[1]),
     story: cleanSection(storyMatch[1]),
     point: cleanSection(pointMatch[1]),
-    cta: cleanSection(ctaMatch[1]),
-    exit: cleanSection(exitMatch[1]),
+    cta:   cleanSection(ctaMatch[1]),
+    exit:  cleanSection(exitMatch[1]),
   };
 }
 
@@ -403,7 +412,7 @@ async function failSpeech(
       .from("speeches")
       .update({
         status: "failed",
-        error_message: errorMessage,
+        error: errorMessage,
         updated_at: new Date().toISOString(),
       })
       .eq("id", speechId);

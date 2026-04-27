@@ -100,6 +100,7 @@ export async function GET() {
     return NextResponse.json({
       integration: integration || null,
       slots: slotsWithPrompts,
+      slotPrompts: slotPromptMap,
       promptAvailable: true,
     });
   } catch (err) {
@@ -286,23 +287,36 @@ export async function PUT(request: Request) {
   }
 
   // ── Save slot prompts to the prompts table ─────────────────────
-  // We store slot-specific prompts as rows with is_active=false and
-  // a notes value of 'slot:brainstorm' or 'slot:speechwriter'.
+  // Stored as rows with is_active=false and notes = 'slot:brainstorm' / 'slot:speechwriter'.
   for (const [slotKey, promptText] of [
     ["slot:brainstorm", prompts.brainstorm] as const,
     ["slot:speechwriter", prompts.speechwriter] as const,
   ]) {
-    // Delete any existing slot prompt rows for this slot
-    await admin.from("prompts").delete().eq("notes", slotKey).eq("is_active", false);
+    const { error: deleteErr } = await admin
+      .from("prompts")
+      .delete()
+      .eq("notes", slotKey)
+      .eq("is_active", false);
 
-    // Insert new row only when prompt is non-empty
+    if (deleteErr) {
+      console.error(`[openrouter-config] Failed to delete ${slotKey} prompt:`, deleteErr);
+    }
+
     if (promptText && promptText.trim()) {
-      await admin.from("prompts").insert({
+      const { error: insertErr } = await admin.from("prompts").insert({
         notes: slotKey,
         content: promptText.trim(),
         is_active: false,
         version: 0,
       });
+
+      if (insertErr) {
+        console.error(`[openrouter-config] Failed to save ${slotKey} prompt:`, insertErr);
+        return NextResponse.json(
+          { error: `Failed to save ${slotKey.replace("slot:", "")} prompt: ${insertErr.message}` },
+          { status: 500 }
+        );
+      }
     }
   }
 

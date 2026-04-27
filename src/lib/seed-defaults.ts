@@ -136,8 +136,9 @@ export async function seedDefaultsIfNeeded(): Promise<void> {
     // Model Slots — fix invalid seeded IDs and ensure slots exist
     // ------------------------------------------------------------------
     const SLOT_DEFAULTS = [
-      { slot: "primary",    model_id: "anthropic/claude-sonnet-4-6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
-      { slot: "brainstorm", model_id: "google/gemini-3.1-flash-lite-preview",  label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
+      { slot: "primary",      model_id: "anthropic/claude-sonnet-4-6",          label: "Claude Sonnet 4.6 (Primary)",        temperature: 0.70, max_output_tokens: 4096 },
+      { slot: "brainstorm",   model_id: "google/gemini-3.1-flash-lite-preview",  label: "Gemini 3.1 Flash Lite (Brainstorm)", temperature: 0.80, max_output_tokens: 2048 },
+      { slot: "speechwriter", model_id: "openrouter/xiaomi/mimo-v2-pro",         label: "MiMo V2 Pro (Speechwriter)",         temperature: 0.70, max_output_tokens: 4096 },
     ];
     const INVALID_IDS = new Set(["google/gemini-3-pro", "google/gemini-2.5-flash"]);
 

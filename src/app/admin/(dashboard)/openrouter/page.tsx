@@ -245,9 +245,6 @@ export default function OpenRouterPage() {
             temperature: brainstormData.temperature,
             maxTokens: brainstormData.max_output_tokens,
           });
-          if (data.promptAvailable !== false) {
-            setBrainstormPrompt(brainstormData.custom_prompt || '');
-          }
           // Check if brainstorm uses primary
           if (primaryData && brainstormData.model_id === primaryData.model_id &&
               brainstormData.temperature === primaryData.temperature &&
@@ -264,10 +261,13 @@ export default function OpenRouterPage() {
             temperature: speechwriterData.temperature,
             maxTokens: speechwriterData.max_output_tokens,
           });
-          if (data.promptAvailable !== false) {
-            setSpeechwriterPrompt(speechwriterData.custom_prompt || '');
-          }
         }
+      }
+
+      // Load slot prompts directly from slotPrompts map (independent of slot rows)
+      if (data.promptAvailable !== false && data.slotPrompts) {
+        setBrainstormPrompt(data.slotPrompts.brainstorm || '');
+        setSpeechwriterPrompt(data.slotPrompts.speechwriter || '');
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load configuration');
@@ -859,7 +859,7 @@ export default function OpenRouterPage() {
               </h2>
             </div>
 
-            {/* Speechwriter Slot */}
+            {/* Primary (Speech Generation) Slot */}
             <div style={{ marginBottom: spacing.lg }}>
               <h3
                 style={{
@@ -869,7 +869,7 @@ export default function OpenRouterPage() {
                   margin: `0 0 ${spacing.md} 0`,
                 }}
               >
-                Speechwriter Slot
+                Primary (Speech Generation) Slot
               </h3>
               <div style={rowStyle}>
                 <div>
