@@ -28,6 +28,7 @@ export interface UpsertByEmailParams {
   lastName?: string;
   phone?: string;
   customFields?: Record<string, string>;
+  locationId?: string;
 }
 
 export interface UpsertByEmailResult {
@@ -40,9 +41,12 @@ export interface UpsertByEmailResult {
  */
 async function searchContactByEmail(
   email: string,
-  headers: Record<string, string>
+  headers: Record<string, string>,
+  locationId?: string
 ): Promise<{ id: string } | null> {
-  const url = `${GHL_API_BASE}/contacts/?query=${encodeURIComponent(email)}`;
+  const params = new URLSearchParams({ query: email });
+  if (locationId) params.set("locationId", locationId);
+  const url = `${GHL_API_BASE}/contacts/?${params.toString()}`;
   const res = await fetch(url, { method: "GET", headers });
 
   if (!res.ok) {
@@ -78,6 +82,7 @@ async function createContact(
     email: params.email,
   };
 
+  if (params.locationId) body.locationId = params.locationId;
   if (params.firstName) body.firstName = params.firstName;
   if (params.lastName) body.lastName = params.lastName;
   if (params.phone) body.phone = params.phone;
@@ -161,7 +166,7 @@ export async function upsertByEmail(
   const headers = await getGhlHeaders();
 
   // Search for existing contact by email
-  const existing = await searchContactByEmail(params.email, headers);
+  const existing = await searchContactByEmail(params.email, headers, params.locationId);
 
   if (existing) {
     // Update existing contact

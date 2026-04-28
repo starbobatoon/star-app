@@ -28,7 +28,7 @@ export async function GET(
       const isNotFound = error?.code === "PGRST116" || !speech;
       return NextResponse.json(
         {
-          error: isNotFound ? "Speech not found" : `DB error: ${error?.message ?? "unknown"}`,
+          error: isNotFound ? "Speech not found" : `DB error: ${(error as { message?: string } | null)?.message ?? "unknown"}`,
           code: error?.code,
         },
         { status: isNotFound ? 404 : 500 }

@@ -71,7 +71,7 @@ export async function notifyOnCompletion(
   const { data: config, error: configError } = await admin
     .from("ghl_integration")
     .select(
-      "id, pit_encrypted, location_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
+      "id, pit_encrypted, location_id, workflow_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
     )
     .limit(1)
     .maybeSingle();
@@ -99,13 +99,14 @@ export async function notifyOnCompletion(
   // ── Email delivery ───────────────────────────────────────────────
   // Primary path: GHL workflow trigger (already done in ghl-sync.ts Stage 7)
   // Secondary path: n8n webhook for email if GHL workflow is not set
-  if (config.email_workflow_id && config.pit_encrypted) {
+  const activeWorkflowId = (config as Record<string, unknown>).workflow_id as string | null || config.email_workflow_id;
+  if (activeWorkflowId && config.pit_encrypted) {
     // GHL workflow was already triggered in ghl-sync.ts — record that it was handled there
     status.email.attempted = true;
     status.email.method = "ghl_workflow";
     status.email.success = true;
     console.log(
-      `[notify] Email delivery handled via GHL workflow ${config.email_workflow_id} for speech ${speechId}`
+      `[notify] Email delivery handled via GHL workflow ${activeWorkflowId} for speech ${speechId}`
     );
   } else if (config.n8n_enabled && config.n8n_webhook_url && speech.email) {
     // Fallback: n8n webhook can handle email sending

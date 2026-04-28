@@ -39,6 +39,7 @@ interface GhlIntegrationRow {
   id: string;
   pit_encrypted: string;
   location_id: string;
+  workflow_id: string | null;
   email_workflow_id: string | null;
   n8n_webhook_url: string | null;
   n8n_enabled: boolean;
@@ -241,7 +242,7 @@ export async function syncSpeechToGHL(
   const { data: ghlConfig, error: configError } = await adminClient
     .from("ghl_integration")
     .select(
-      "id, pit_encrypted, location_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
+      "id, pit_encrypted, location_id, workflow_id, email_workflow_id, n8n_webhook_url, n8n_enabled"
     )
     .limit(1)
     .maybeSingle();
@@ -333,6 +334,7 @@ export async function syncSpeechToGHL(
       firstName: speech.first_name ?? undefined,
       lastName: speech.last_name ?? undefined,
       phone: speech.phone ?? undefined,
+      locationId: locationId ?? undefined,
     });
 
     contactId = result.contactId;
@@ -399,11 +401,12 @@ export async function syncSpeechToGHL(
   // -----------------------------------------------------------------------
   // 7. Trigger GHL workflow if configured
   // -----------------------------------------------------------------------
-  if (ghlConfig.email_workflow_id) {
+  const activeWorkflowId = ghlConfig.workflow_id || ghlConfig.email_workflow_id;
+  if (activeWorkflowId) {
     try {
       await triggerWorkflow({
         contactId,
-        workflowId: ghlConfig.email_workflow_id,
+        workflowId: activeWorkflowId,
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

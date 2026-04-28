@@ -123,7 +123,7 @@ export default function LandingPage() {
               }}
             >
               <span aria-hidden="true" style={{ fontSize: '16px', lineHeight: 1 }}>
-                {item.icon === 'edit_note' ? '✏️' : item.icon === 'psychology' ? '🧠' : '📖'}
+                {item.icon === 'edit_note' ? '✏️' : '📖'}
               </span>
               {item.label}
             </a>
@@ -309,7 +309,7 @@ export default function LandingPage() {
             }}
           >
             <span aria-hidden="true" style={{ fontSize: '20px', lineHeight: 1 }}>
-              {item.icon === 'edit_note' ? '✏️' : item.icon === 'psychology' ? '🧠' : item.icon === 'auto_stories' ? '📖' : '⚙️'}
+              {item.icon === 'edit_note' ? '✏️' : item.icon === 'auto_stories' ? '📖' : '⚙️'}
             </span>
             {item.label}
           </a>
