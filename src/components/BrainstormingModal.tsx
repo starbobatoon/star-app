@@ -8,6 +8,7 @@ import React, {
   type CSSProperties,
   type FormEvent,
 } from 'react';
+import { Sparkles, X } from 'lucide-react';
 import {
   colors,
   spacing,
@@ -460,7 +461,7 @@ export function BrainstormingModal({
               onClick={handleClose}
               aria-label="Close brainstorming modal"
             >
-              ✕
+              <X size={20} />
             </button>
           </div>
 
@@ -474,9 +475,9 @@ export function BrainstormingModal({
                   height: '48px',
                   margin: '0 auto',
                   marginBottom: spacing.md,
-                  fontSize: '22px',
+                  color: colors.secondary,
                 }}>
-                  ✦
+                  <Sparkles size={22} />
                 </div>
                 <p style={{
                   fontFamily: `var(${typography.transcriptDisplay.fontFamily})`,
@@ -507,7 +508,7 @@ export function BrainstormingModal({
                   flexDirection: msg.role === 'ai' ? 'row' : 'row-reverse',
                 }}
               >
-                {msg.role === 'ai' && <div style={avatarStyle}>✦</div>}
+                {msg.role === 'ai' && <div style={avatarStyle}><Sparkles size={16} /></div>}
                 <div style={msg.role === 'ai' ? aiBubbleStyle : userBubbleStyle}>
                   {msg.text}
                   {msg.isStreaming && (
@@ -534,7 +535,7 @@ export function BrainstormingModal({
                 padding: `${spacing.sm} ${spacing.md}`,
                 color: colors.secondary,
               }}>
-                <div style={avatarStyle}>✦</div>
+                <div style={avatarStyle}><Sparkles size={16} /></div>
                 <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both' }} />
                 <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both', animationDelay: '0.15s' }} />
                 <span className="typing-dot" style={{ width: '6px', height: '6px', borderRadius: radius.full, backgroundColor: colors.secondary, animation: 'typingBounce 1.2s infinite ease-in-out both', animationDelay: '0.3s' }} />

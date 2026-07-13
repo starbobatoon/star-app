@@ -31,7 +31,7 @@ export interface SynthesizeSpeechParams {
   format?: "mp3" | "wav";
   /** Optional API key to use instead of the environment variable. */
   apiKey?: string;
-  /** TTS model name. Defaults to "s2-pro". */
+  /** TTS model name. Defaults to "s2.1-pro". */
   model?: string;
   /** Volume adjustment from -5 to 5. Defaults to 0. */
   volume?: number;
@@ -121,7 +121,7 @@ export async function testFishAudioConnection(apiKey?: string, voiceId?: string)
   try {
     const body: Record<string, unknown> = {
       text: "Hi",
-      model: "s2-pro",
+      model: "s2.1-pro",
     };
     if (refId) {
       body.reference_id = refId;
@@ -205,7 +205,7 @@ export async function synthesizeSpeech(
     voiceId,
     format = "mp3",
     apiKey,
-    model = "s2-pro",
+    model = "s2.1-pro",
     volume = 0,
     speed = 1.0,
     loudnessNormalization = true,
@@ -226,7 +226,7 @@ export async function synthesizeSpeech(
   //   - text normalization is `normalize` at root (boolean).
   //   - loudness_normalization has no direct Fish Audio equivalent; passed
   //     through for forward compatibility but Fish Audio currently ignores it.
-  //   - The s2-pro model is selected via the URL path or the `chunk_length`
+  //   - The s2.1-pro model is selected via the URL path or the `chunk_length`
   //     and other params; we leave `model` here for record-keeping.
   const body: Record<string, unknown> = {
     text,

@@ -398,7 +398,7 @@ export default function VoiceConfigPage() {
   const [testVoiceError, setTestVoiceError] = useState<string | null>(null);
 
   // Audio Settings
-  const [ttsModel, setTtsModel] = useState('s2-pro');
+  const [ttsModel, setTtsModel] = useState('s2.1-pro');
   const [volume, setVolume] = useState(0);
   const [speed, setSpeed] = useState(1.0);
   const [loudnessNorm, setLoudnessNorm] = useState(true);
@@ -441,7 +441,7 @@ export default function VoiceConfigPage() {
             isConfigured: faData.integration.is_configured,
             apiKeyPreview: faData.integration.api_key_preview,
             defaultVoiceId: faData.integration.default_voice_id || null,
-            ttsModel: faData.integration.tts_model || 's2-pro',
+            ttsModel: faData.integration.tts_model || 's2.1-pro',
             volume: faData.integration.volume ?? 0,
             speed: faData.integration.speed ?? 1.0,
             loudnessNormalization: faData.integration.loudness_normalization ?? true,
@@ -450,7 +450,7 @@ export default function VoiceConfigPage() {
           if (faData.integration.default_voice_id) {
             setDefaultVoiceId(faData.integration.default_voice_id);
           }
-          setTtsModel(faData.integration.tts_model || 's2-pro');
+          setTtsModel(faData.integration.tts_model || 's2.1-pro');
           setVolume(faData.integration.volume ?? 0);
           setSpeed(faData.integration.speed ?? 1.0);
           setLoudnessNorm(faData.integration.loudness_normalization ?? true);
@@ -997,7 +997,7 @@ export default function VoiceConfigPage() {
                     cursor: 'pointer',
                   }}
                 >
-                  <option value="s2-pro">S2 Pro</option>
+                  <option value="s2.1-pro">S2.1 Pro</option>
                   <option value="s2">S2</option>
                 </select>
               </div>

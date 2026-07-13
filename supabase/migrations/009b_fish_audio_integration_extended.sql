@@ -5,7 +5,7 @@
 -- ============================================================
 
 ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS default_voice_id TEXT;
-ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS tts_model TEXT DEFAULT 's2-pro';
+ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS tts_model TEXT DEFAULT 's2.1-pro';
 ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS volume NUMERIC DEFAULT 0;
 ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS speed NUMERIC DEFAULT 1.0;
 ALTER TABLE fish_audio_integration ADD COLUMN IF NOT EXISTS loudness_normalization BOOLEAN DEFAULT true;

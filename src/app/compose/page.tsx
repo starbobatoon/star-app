@@ -1,6 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Check,
+  Volume2,
+  FileText,
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  PenLine,
+  X,
+  Play,
+  Loader2,
+} from "lucide-react";
 import { colors, typography, spacing, radius } from "@/lib/design-tokens";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -43,6 +55,27 @@ interface SpeechStatus {
 }
 
 const STORAGE_KEY_PREFIX = "star-draft-";
+
+// ─── Contact validation (P1-11) ──────────────────────────────────
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function isValidEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email.trim());
+}
+
+/** Format a phone number as (555) 123-4567 as the user types (US-style mask). */
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 10);
+  const len = digits.length;
+  if (len === 0) return "";
+  if (len < 4) return `(${digits}`;
+  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function isValidPhone(phone: string): boolean {
+  return phone.replace(/\D/g, "").length === 10;
+}
 
 // ─── Compose Nav Header ──────────────────────────────────────────
 function ComposeNav() {
@@ -150,7 +183,7 @@ function VideoHint({ videoUrl }: { videoUrl: string }) {
             padding: 0,
           }}
         >
-          ✕ Close video
+          <X size={14} /> Close video
         </button>
       </div>
     );
@@ -172,11 +205,10 @@ function VideoHint({ videoUrl }: { videoUrl: string }) {
           alignItems: 'center',
           justifyContent: 'center',
           color: colors.onPrimary,
-          fontSize: '9px',
           flexShrink: 0,
         }}
       >
-        ▶
+        <Play size={10} fill={colors.onPrimary} />
       </div>
       Watch Star explain this question
     </button>
@@ -238,18 +270,10 @@ const STANDBY_QUOTES = [
 ];
 
 function StandByScreen({ email, speechId }: { email: string; speechId: string }) {
-  const TOTAL_SECONDS = 300; // 5-minute max estimate
   const [speechStatus, setSpeechStatus] = useState<SpeechStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [elapsed, setElapsed] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(0);
   const [quoteFading, setQuoteFading] = useState(false);
-
-  // Elapsed timer — drives the progress bar
-  useEffect(() => {
-    const t = setInterval(() => setElapsed((s) => Math.min(s + 1, TOTAL_SECONDS)), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   // Rotate quotes every 15 seconds with a fade transition
   useEffect(() => {
@@ -307,10 +331,20 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
     return <SpeechViewer speech={speechStatus} email={email} />;
   }
 
-  const remaining = Math.max(0, TOTAL_SECONDS - elapsed);
-  const mins = Math.floor(remaining / 60);
-  const secs = remaining % 60;
-  const progressPct = Math.min(100, (elapsed / TOTAL_SECONDS) * 100);
+  // Status-driven 3-stage checklist — bound to the REAL pipeline status, never
+  // a fake countdown. Stages advance in lockstep with the polled status and a
+  // long-running generation shows an honest "still working" state.
+  const status = speechStatus?.status ?? 'pending';
+  const STAGES = [
+    { key: 'writing', label: 'Writing', active: 'Writing your speech…', done: 'Writing' },
+    { key: 'recording', label: 'Recording voice', active: 'Recording voice…', done: 'Recording voice' },
+    { key: 'delivery', label: 'Preparing delivery', active: 'Preparing delivery…', done: 'Preparing delivery' },
+  ] as const;
+  const activeIndex =
+    status === 'generating_audio' ? 1
+      : status === 'uploading' || status === 'syncing_ghl' ? 2
+        : status === 'complete' || status === 'completed' ? 3
+          : 0; // pending / generating_text
   const quote = STANDBY_QUOTES[quoteIndex];
 
   return (
@@ -321,9 +355,8 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
           0%, 100% { transform: scale(1); opacity: 0.7; }
           50% { transform: scale(1.08); opacity: 1; }
         }
-        @keyframes standbyOrbit {
-          from { transform: rotate(0deg) translateX(36px) rotate(0deg); }
-          to { transform: rotate(360deg) translateX(36px) rotate(-360deg); }
+        @keyframes standbySpin {
+          to { transform: rotate(360deg); }
         }
         @keyframes standbyFadeIn {
           from { opacity: 0; transform: translateY(8px); }
@@ -340,29 +373,16 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
 
       <div style={{ ...mainContentStyle, textAlign: 'center' as const, maxWidth: 600, gap: spacing.xl }}>
 
-        {/* Orbital animation */}
-        <div style={{ position: 'relative', width: 96, height: 96, margin: '0 auto' }}>
-          <div style={{
-            width: 96, height: 96, borderRadius: '50%',
-            background: `radial-gradient(circle at 35% 35%, ${colors.secondary}33, ${colors.primary}22)`,
-            border: `2px solid ${colors.primary}55`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            animation: 'standbyPulse 3s ease-in-out infinite',
-          }}>
-            <span style={{ fontSize: '36px', lineHeight: 1 }}>✍️</span>
-          </div>
-          {[0, 120, 240].map((deg, i) => (
-            <div key={i} style={{
-              position: 'absolute', top: '50%', left: '50%',
-              width: 8, height: 8, marginTop: -4, marginLeft: -4,
-              borderRadius: '50%',
-              backgroundColor: i === 0 ? colors.primary : i === 1 ? colors.secondary : colors.outline,
-              animation: `standbyOrbit ${2.4 + i * 0.4}s linear infinite`,
-              animationDelay: `${-i * 0.8}s`,
-              transformOrigin: '0 0',
-              transform: `rotate(${deg}deg) translateX(52px)`,
-            }} />
-          ))}
+        {/* Mark */}
+        <div style={{
+          width: 88, height: 88, borderRadius: '50%', margin: '0 auto',
+          background: `radial-gradient(circle at 35% 35%, ${colors.secondary}33, ${colors.primary}22)`,
+          border: `2px solid ${colors.primary}55`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: colors.primary,
+          animation: 'standbyPulse 3s ease-in-out infinite',
+        }}>
+          <PenLine size={34} />
         </div>
 
         {/* Headline */}
@@ -371,30 +391,42 @@ function StandByScreen({ email, speechId }: { email: string; speechId: string })
             Crafting Your Masterpiece
           </h1>
           <p style={{ color: colors.onSurfaceVariant, fontSize: '15px', margin: 0 }}>
-            AI writing + voice recording in progress — this takes 1–5 minutes
+            {activeIndex >= 3
+              ? 'Finishing up…'
+              : "This usually takes 1–5 minutes. We're still working — you can safely wait here."}
           </p>
         </div>
 
-        {/* Countdown + progress */}
-        <div style={{ width: '100%', maxWidth: 400, margin: '0 auto' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-            <span style={{ color: colors.outline, fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Est. time remaining
-            </span>
-            <span style={{ color: colors.primary, fontSize: '32px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em' }}>
-              {mins}:{secs.toString().padStart(2, '0')}
-            </span>
-          </div>
-          {/* Progress bar */}
-          <div style={{ height: 6, borderRadius: 3, background: colors.surface.containerHigh, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${progressPct}%`,
-              borderRadius: 3,
-              background: `linear-gradient(to right, #0B1472, ${colors.primary})`,
-              transition: 'width 1s linear',
-            }} />
-          </div>
+        {/* Status-driven checklist */}
+        <div style={{ width: '100%', maxWidth: 380, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12, textAlign: 'left' }}>
+          {STAGES.map((stage, i) => {
+            const isDone = i < activeIndex;
+            const isActive = i === activeIndex;
+            return (
+              <div key={stage.key} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{
+                  width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isDone ? colors.primary : isActive ? `${colors.primary}22` : 'transparent',
+                  border: isDone ? 'none' : `1px solid ${colors.outlineVariant}`,
+                  color: isDone ? colors.onPrimary : colors.primary,
+                }}>
+                  {isDone
+                    ? <Check size={15} />
+                    : isActive
+                      ? <Loader2 size={15} style={{ animation: 'standbySpin 1s linear infinite' }} />
+                      : <span style={{ width: 5, height: 5, borderRadius: '50%', background: colors.outline }} />}
+                </span>
+                <span style={{
+                  fontSize: 15,
+                  fontWeight: isActive ? 600 : 500,
+                  color: isDone ? colors.onSurface : isActive ? colors.onSurface : colors.outline,
+                }}>
+                  {isDone ? stage.done : isActive ? stage.active : stage.label}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Rotating quote */}
@@ -579,8 +611,8 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
             padding: `6px ${spacing.md}`,
             marginBottom: spacing.sm,
           }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: colors.primary, letterSpacing: '0.06em' }}>
-              ✓ YOUR SPEECH IS READY
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '12px', fontWeight: 700, color: colors.primary, letterSpacing: '0.06em' }}>
+              <Check size={14} /> YOUR SPEECH IS READY
             </span>
           </div>
           <h1 style={{ ...typography.h2, color: colors.onSurface, marginBottom: spacing.sm }}>
@@ -595,10 +627,11 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
         <Card cardStyle={{ marginBottom: spacing.lg }}>
           <div style={{ padding: `${spacing.sm} ${spacing.xs}` }}>
             <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
               fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const,
               color: colors.secondary, marginBottom: spacing.md,
             }}>
-              🎙 Listen to Your Speech
+              <Volume2 size={14} /> Listen to Your Speech
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
               <button
@@ -687,17 +720,12 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
             borderBottom: `1px solid ${colors.outlineVariant}`,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: colors.secondary }}>
-              📄 Your Written Speech
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' as const, color: colors.secondary }}>
+              <FileText size={14} /> Your Written Speech
             </span>
-            <span style={{ fontSize: '12px', color: colors.outline }}>Scroll to read ↕</span>
           </div>
           <div style={{
             padding: spacing.lg,
-            maxHeight: '520px',
-            overflowY: 'auto' as const,
-            scrollbarWidth: 'thin' as const,
-            scrollbarColor: `${colors.outlineVariant} transparent`,
           }}>
             {parseTranscriptSections(speech.transcript ?? '').map((section) => (
               <div key={section.id} style={{ marginBottom: spacing.xl }}>
@@ -755,18 +783,20 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                display: 'inline-block',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.sm,
                 background: colors.primary,
                 color: colors.onPrimary,
                 padding: `${spacing.sm} ${spacing.xl}`,
-                borderRadius: radius.DEFAULT,
+                borderRadius: radius.full,
                 fontWeight: 700,
                 fontSize: '16px',
                 textDecoration: 'none',
                 letterSpacing: '0.02em',
               }}
             >
-              Schedule a Coaching Session →
+              Schedule a Coaching Session <ArrowRight size={18} />
             </a>
           </div>
         )}
@@ -774,7 +804,7 @@ function SpeechViewer({ speech: initialSpeech, email }: { speech: SpeechStatus; 
         {/* ── Bottom actions ── */}
         <div style={{ display: 'flex', gap: spacing.md, justifyContent: 'center', flexWrap: 'wrap' as const }}>
           <Button variant="secondary" onClick={() => window.location.href = '/'}>
-            ← Back to Home
+            <ArrowLeft size={16} /> Back to Home
           </Button>
           <Button variant="primary" onClick={() => window.location.reload()}>
             Create Another Speech
@@ -1084,7 +1114,9 @@ export default function ComposePage() {
   }, [saveDraft]);
 
   const handleContactChange = (field: keyof ContactInfo, value: string) => {
-    setContact((prev) => ({ ...prev, [field]: value }));
+    // Live phone masking → (555) 123-4567
+    const next = field === "phone" ? formatPhone(value) : value;
+    setContact((prev) => ({ ...prev, [field]: next }));
   };
 
   const handleAnswerChange = (questionId: string, value: string) => {
@@ -1094,8 +1126,8 @@ export default function ComposePage() {
   const canProceedFromContact =
     contact.firstName.trim().length > 0 &&
     contact.lastName.trim().length > 0 &&
-    contact.email.trim().length > 0 &&
-    contact.phone.trim().length > 0;
+    isValidEmail(contact.email) &&
+    isValidPhone(contact.phone);
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -1190,7 +1222,7 @@ export default function ComposePage() {
                     letterSpacing: '0.06em',
                   }}
                 >
-                  ✎ Edit
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><PenLine size={13} /> Edit</span>
                 </button>
               </div>
               <div style={reviewFieldStyle}>
@@ -1226,7 +1258,7 @@ export default function ComposePage() {
                       letterSpacing: '0.06em',
                     }}
                   >
-                    ✎ Edit
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><PenLine size={13} /> Edit</span>
                   </button>
                 </div>
                 <p style={reviewAnswerStyle}>
@@ -1242,7 +1274,7 @@ export default function ComposePage() {
           )}
           <div style={navStyle}>
             <Button variant="secondary" onClick={handlePrevious} disabled={isSubmitting}>
-              ← Back
+              <ArrowLeft size={16} /> Back
             </Button>
             <Button variant="primary" onClick={handleSubmit} loading={isSubmitting}>
               Submit Speech
@@ -1289,14 +1321,15 @@ export default function ComposePage() {
               </div>
               <div style={{ marginTop: spacing.md }}>
                 <Input
-                  label="Email"
+                  label="Email *"
                   type="email"
                   placeholder="you@example.com"
                   value={contact.email}
                   onChange={(e) => handleContactChange("email", e.target.value)}
-                  error={contact.email.length === 0 ? false : !contact.email.includes("@")}
+                  required
+                  error={contact.email.length === 0 ? false : !isValidEmail(contact.email)}
                   helperText={
-                    contact.email.length > 0 && !contact.email.includes("@")
+                    contact.email.length > 0 && !isValidEmail(contact.email)
                       ? "Please enter a valid email address"
                       : "Required — we'll send your speech here"
                   }
@@ -1306,11 +1339,17 @@ export default function ComposePage() {
                 <Input
                   label="Phone *"
                   type="tel"
-                  placeholder="+1 (555) 123-4567"
+                  inputMode="tel"
+                  placeholder="(555) 123-4567"
                   value={contact.phone}
                   onChange={(e) => handleContactChange("phone", e.target.value)}
                   required
-                  helperText="Required — we'll text you when your speech is ready"
+                  error={contact.phone.length === 0 ? false : !isValidPhone(contact.phone)}
+                  helperText={
+                    contact.phone.length > 0 && !isValidPhone(contact.phone)
+                      ? "Please enter a valid 10-digit phone number"
+                      : "Required — we'll text you when your speech is ready"
+                  }
                 />
               </div>
             </Card>
@@ -1322,7 +1361,7 @@ export default function ComposePage() {
               onClick={handleNext}
               disabled={!canProceedFromContact}
             >
-              Begin →
+              Begin <ArrowRight size={16} />
             </Button>
           </div>
         </div>
@@ -1387,16 +1426,16 @@ export default function ComposePage() {
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = colors.secondary; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = colors.outlineVariant; }}
             >
-              ✦ Need help? Brainstorm with AI
+              <Sparkles size={14} /> Need help? Brainstorm with AI
             </button>
           )}
         </div>
         <div className="compose-nav" style={navStyle}>
           <Button variant="secondary" onClick={handlePrevious}>
-            ← Previous
+            <ArrowLeft size={16} /> Previous
           </Button>
           <Button variant="primary" onClick={handleNext}>
-            {step === totalSteps - 1 ? "Review →" : "Next →"}
+            {step === totalSteps - 1 ? "Review" : "Next"} <ArrowRight size={16} />
           </Button>
         </div>
       </div>

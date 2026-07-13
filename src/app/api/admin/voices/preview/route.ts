@@ -110,7 +110,7 @@ export async function POST(request: Request) {
         voiceId: fishAudioVoiceId,
         format: "mp3",
         apiKey,
-        model: integration?.tts_model || "s2-pro",
+        model: integration?.tts_model || "s2.1-pro",
         volume: integration?.volume ?? 0,
         speed: integration?.speed ?? 1.0,
         loudnessNormalization: integration?.loudness_normalization ?? true,

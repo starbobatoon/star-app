@@ -164,6 +164,55 @@ export const typography = {
   } as const,
 } as const;
 
+// ─── Fluid Type Scale ("The Keynote Stage") ──────────────────────
+// A single defined scale for the redesigned shell. Display/hero uses
+// Newsreader (serif); UI uses Inter (sans). Uppercase-letterspaced
+// treatment is reserved for the ≤13px `label` tier ONLY.
+//   hero    64 → 48 (Newsreader 500)
+//   section 32 (Newsreader/Inter)
+//   body    20 (Newsreader serif reading)
+//   ui      16 (Inter)
+//   label   13 (Inter, uppercase-letterspaced — labels only)
+
+export const typeScale = {
+  hero: {
+    fontFamily: 'var(--font-newsreader)',
+    fontSize: 'clamp(2.5rem, 5vw + 1rem, 4rem)', // 40 → 64px
+    fontWeight: 500,
+    lineHeight: 1.05,
+    letterSpacing: '-0.02em',
+  } as const,
+  section: {
+    fontFamily: 'var(--font-newsreader)',
+    fontSize: 'clamp(1.75rem, 2.5vw + 0.75rem, 2rem)', // 28 → 32px
+    fontWeight: 500,
+    lineHeight: 1.2,
+    letterSpacing: '-0.01em',
+  } as const,
+  bodySerif: {
+    fontFamily: 'var(--font-newsreader)',
+    fontSize: 'clamp(1.125rem, 1vw + 0.9rem, 1.25rem)', // 18 → 20px
+    fontWeight: 400,
+    lineHeight: 1.7,
+    letterSpacing: '0',
+  } as const,
+  ui: {
+    fontFamily: 'var(--font-inter)',
+    fontSize: '1rem', // 16px
+    fontWeight: 400,
+    lineHeight: 1.5,
+    letterSpacing: '0',
+  } as const,
+  label: {
+    fontFamily: 'var(--font-inter)',
+    fontSize: '0.8125rem', // 13px
+    fontWeight: 600,
+    lineHeight: 1,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase' as const,
+  } as const,
+} as const;
+
 // ─── Border Radius ───────────────────────────────────────────────
 export const radius = {
   sm: '0.125rem',

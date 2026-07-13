@@ -10,6 +10,7 @@
 export {
   colors,
   typography,
+  typeScale,
   radius,
   spacing,
   elevation,

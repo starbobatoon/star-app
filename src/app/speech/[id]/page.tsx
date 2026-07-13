@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { CalendarDays, ArrowRight, Check } from 'lucide-react';
 import { colors, typography, spacing, radius, glassmorphism } from '@/lib/design-tokens';
 import { Button } from '@/components/ui/Button';
 import { AudioPlayer } from '@/components/ui/AudioPlayer';
@@ -152,6 +153,15 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
   const [rating, setRating] = useState<number | null>(null);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingSaved, setRatingSaved] = useState(false);
+  const [bookingUrl, setBookingUrl] = useState('');
+
+  // Coaching CTA config (renders the gold panel only when set).
+  useEffect(() => {
+    fetch('/api/app-config')
+      .then((r) => r.json())
+      .then((d) => setBookingUrl(d.bookingUrl ?? ''))
+      .catch(() => {});
+  }, []);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isGenerating = speech
@@ -582,32 +592,70 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
         {/* ─── Generated Speech Content ────────────────────────────── */}
         {!isGenerating && sections.length > 0 && (
           <>
+            {/* ── "Your speech is ready" moment card (gold-border glass) ── */}
+            <div
+              className="glass"
+              style={{
+                border: `1px solid ${colors.primary}`,
+                borderRadius: radius.lg,
+                padding: spacing.lg,
+                marginBottom: spacing.xl,
+                display: 'flex',
+                alignItems: 'center',
+                gap: spacing.md,
+              }}
+            >
+              <span
+                style={{
+                  width: 40, height: 40, borderRadius: radius.full, flexShrink: 0,
+                  backgroundColor: colors.primary, color: colors.onPrimary,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Check size={22} />
+              </span>
+              <div>
+                <p style={{ fontFamily: `var(${typography.h2.fontFamily})`, fontSize: '20px', fontWeight: 600, color: colors.onSurface, margin: 0 }}>
+                  Your speech is ready
+                </p>
+                <p style={{ fontFamily: `var(${typography.caption.fontFamily})`, fontSize: '13px', color: colors.onSurfaceVariant, margin: '2px 0 0' }}>
+                  Read it below, then press play to hear it delivered.
+                </p>
+              </div>
+            </div>
+
+            {/* Transcript flows with the page — no inner scrollbox. */}
             <article
               className="speech-article"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 gap: spacing.xl,
-                maxHeight: '65vh',
-                overflowY: 'auto',
-                paddingRight: spacing.sm,
-                scrollbarWidth: 'thin',
-                scrollbarColor: `${colors.outlineVariant} transparent`,
               }}
             >
-              {sections.map((section) => (
+              {sections.map((section, i) => (
                 <section key={section.id}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-                    <div style={{ width: '3px', height: '16px', background: colors.primary, borderRadius: '2px', flexShrink: 0 }} />
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: spacing.md, marginBottom: spacing.sm }}>
+                    <span
+                      style={{
+                        fontFamily: `var(${typography.transcriptDisplay.fontFamily})`,
+                        fontSize: '22px',
+                        fontWeight: 500,
+                        color: colors.primary,
+                        fontVariantNumeric: 'tabular-nums',
+                        lineHeight: 1,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
                     <h3
                       style={{
-                        fontFamily: `var(${typography.uiLabel.fontFamily})`,
-                        fontSize: typography.uiLabel.fontSize,
-                        fontWeight: typography.uiLabel.fontWeight,
-                        lineHeight: typography.uiLabel.lineHeight,
-                        letterSpacing: '0.1em',
-                        color: colors.secondary,
-                        textTransform: 'uppercase',
+                        fontFamily: `var(${typography.transcriptDisplay.fontFamily})`,
+                        fontSize: '22px',
+                        fontWeight: 500,
+                        letterSpacing: '-0.01em',
+                        color: colors.onSurface,
                         margin: 0,
                       }}
                     >
@@ -623,7 +671,6 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
                       letterSpacing: typography.transcriptBody.letterSpacing,
                       color: colors.onSurface,
                       margin: 0,
-                      paddingLeft: '11px',
                     }}
                   >
                     {section.content}
@@ -636,6 +683,50 @@ export default function SpeechPreviewPage({ params }: { params: Promise<{ id: st
             {speech?.audioUrl && (
               <div style={{ marginTop: spacing.xxl }}>
                 <AudioPlayer src={speech.audioUrl} aria-label="Speech audio" />
+              </div>
+            )}
+
+            {/* ─── Coaching CTA (gold panel) — only when bookingUrl set ── */}
+            {bookingUrl && (
+              <div
+                style={{
+                  marginTop: spacing.xxl,
+                  background: `linear-gradient(135deg, ${colors.primary}14, ${colors.secondary}14)`,
+                  border: `1px solid ${colors.primary}`,
+                  borderRadius: radius.lg,
+                  padding: spacing.xl,
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 48, height: 48, borderRadius: radius.full, backgroundColor: `${colors.primary}22`, color: colors.primary, marginBottom: spacing.md }}>
+                  <CalendarDays size={24} />
+                </div>
+                <h3 style={{ fontFamily: `var(${typography.h2.fontFamily})`, fontSize: '22px', fontWeight: 600, color: colors.onSurface, margin: `0 0 ${spacing.xs}` }}>
+                  Want help perfecting your speech?
+                </h3>
+                <p style={{ fontFamily: `var(${typography.uiBody.fontFamily})`, fontSize: '16px', color: colors.onSurfaceVariant, margin: `0 0 ${spacing.lg}`, lineHeight: 1.6 }}>
+                  Schedule a 1-on-1 coaching session with Star Bobatoon to refine your message and delivery.
+                </p>
+                <a
+                  href={bookingUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: spacing.sm,
+                    background: colors.primary,
+                    color: colors.onPrimary,
+                    padding: `${spacing.sm} ${spacing.xl}`,
+                    borderRadius: radius.full,
+                    fontWeight: 700,
+                    fontSize: '16px',
+                    textDecoration: 'none',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  Schedule a Coaching Session <ArrowRight size={18} />
+                </a>
               </div>
             )}
 

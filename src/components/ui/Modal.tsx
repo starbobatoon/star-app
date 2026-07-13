@@ -1,6 +1,7 @@
 'use client';
 
 import React, { type HTMLAttributes, type CSSProperties, forwardRef, useEffect, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { colors, spacing, radius, typography, glassmorphism } from '@/lib/design-tokens';
 
 export interface ModalProps extends Omit<HTMLAttributes<HTMLDivElement>, 'style'> {
@@ -140,7 +141,7 @@ export const Modal = forwardRef<HTMLDivElement, ModalProps>(
                   e.currentTarget.style.color = colors.onSurfaceVariant;
                 }}
               >
-                ✕
+                <X size={18} />
               </button>
             </div>
           )}

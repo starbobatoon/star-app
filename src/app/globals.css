@@ -250,15 +250,11 @@ body {
   display: flex;
   flex-direction: column;
 }
+/* Transcript flows with the page — no scroll-within-scroll on desktop. */
 .speech-article {
   display: flex;
   flex-direction: column;
   gap: 48px;
-  max-height: 65vh;
-  overflow-y: auto;
-  padding-right: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: #2E3670 transparent;
 }
 
 /* Video hint — collapsed pill */
@@ -320,16 +316,12 @@ body {
   .speech-main {
     padding: 24px 16px 160px;
   }
-  .speech-article {
-    max-height: none; /* let content flow naturally on small screens */
-    overflow-y: visible;
-    padding-right: 0;
-  }
   .video-hint-player {
     max-width: 220px;
   }
-  /* Bigger touch targets on mobile */
-  button, a[href] {
+  /* Per-component touch sizing — no blanket min-height that would stretch
+     inline text links. Primary controls set their own comfortable height. */
+  button, input, select, textarea {
     min-height: 44px;
   }
 }
@@ -344,9 +336,6 @@ body {
   }
   .speech-main {
     padding: 60px 24px 160px;
-  }
-  .speech-article {
-    max-height: 70vh;
   }
 }
 

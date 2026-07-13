@@ -1,32 +1,140 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { colors, spacing, radius, typography, elevation, glassmorphism } from '@/lib/design-tokens';
+import {
+  ListChecks,
+  Sparkles,
+  Volume2,
+  Play,
+  Pause,
+  ArrowRight,
+  Quote,
+} from 'lucide-react';
+import { colors, spacing, radius, typeScale, glassmorphism } from '@/lib/design-tokens';
+import { AppHeader } from '@/components/AppHeader';
+import { MobileNav } from '@/components/MobileNav';
 
 /**
- * Landing page — the first thing users see.
- * Matches the Star Speaker AI design reference.
- * Dark mode only, tonal layering, no shadows.
+ * Landing page — "The Keynote Stage".
+ * Communicates what the product does, who Star is, and what the output sounds
+ * like. Six populated sections; brand palette only; no emoji.
  */
+
+const STEPS = [
+  {
+    Icon: ListChecks,
+    title: 'Answer 11 guided questions',
+    body: 'A short, guided interview draws out your message, your story, and your point — no blank page.',
+  },
+  {
+    Icon: Sparkles,
+    title: "Star's AI method writes your 5-minute speech",
+    body: 'The MAP → Hook → Story → Point → CTA → Exit method structures it into a keynote-ready talk.',
+  },
+  {
+    Icon: Volume2,
+    title: 'Hear it delivered in a professional voice',
+    body: 'Your speech is voiced in a natural, professional narration you can play, download, and rehearse to.',
+  },
+];
+
+const METHOD = [
+  { step: 'MAP', desc: 'Frame the moment and the audience.' },
+  { step: 'Hook', desc: 'Open with something they cannot ignore.' },
+  { step: 'Story', desc: 'Earn trust with a real, human story.' },
+  { step: 'Point', desc: 'Land the one idea that matters.' },
+  { step: 'CTA', desc: 'Ask for the action you want.' },
+  { step: 'Exit', desc: 'Close on a line they remember.' },
+];
+
+function SampleAudioCard() {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [available, setAvailable] = useState(true);
+
+  const toggle = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) {
+      a.pause();
+    } else {
+      a.play().catch(() => setAvailable(false));
+    }
+    setPlaying(!playing);
+  }, [playing]);
+
+  return (
+    <div
+      className="glass"
+      style={{
+        borderRadius: radius.xl,
+        padding: spacing.lg,
+        display: 'flex',
+        alignItems: 'center',
+        gap: spacing.lg,
+        maxWidth: 640,
+        margin: '0 auto',
+        width: '100%',
+      }}
+    >
+      <button
+        type="button"
+        onClick={toggle}
+        aria-label={playing ? 'Pause sample' : 'Play sample'}
+        disabled={!available}
+        style={{
+          flexShrink: 0,
+          width: 56,
+          height: 56,
+          borderRadius: radius.full,
+          backgroundColor: colors.primary,
+          color: colors.onPrimary,
+          border: 'none',
+          cursor: available ? 'pointer' : 'not-allowed',
+          opacity: available ? 1 : 0.4,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {playing ? <Pause size={24} fill={colors.onPrimary} /> : <Play size={24} fill={colors.onPrimary} />}
+      </button>
+      <div style={{ textAlign: 'left', flex: 1 }}>
+        <p style={{ ...labelStyle, color: colors.primary, margin: '0 0 6px' }}>Sample speech</p>
+        <p style={{ ...typeScale.ui, color: colors.onSurface, margin: 0 }}>
+          Hear a finished 5-minute speech in the delivery voice.
+        </p>
+        {!available && (
+          <p style={{ ...typeScale.label, color: colors.onSurfaceVariant, margin: '8px 0 0', letterSpacing: '0.06em' }}>
+            Sample coming soon
+          </p>
+        )}
+      </div>
+      {/* When public/sample-speech.mp3 is present, this plays it. */}
+      <audio
+        ref={audioRef}
+        src="/sample-speech.mp3"
+        preload="none"
+        onEnded={() => setPlaying(false)}
+        onError={() => setAvailable(false)}
+      />
+    </div>
+  );
+}
+
+const labelStyle = {
+  fontFamily: 'var(--font-inter), system-ui, sans-serif',
+  fontSize: '13px',
+  fontWeight: 600,
+  letterSpacing: '0.12em',
+  textTransform: 'uppercase' as const,
+};
 
 export default function LandingPage() {
   const router = useRouter();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const handleStartWriting = useCallback(() => {
-    router.push('/compose');
-  }, [router]);
-
-  const navItems = [
-    { label: 'Compose', icon: 'edit_note', href: '/compose', active: true },
-    { label: 'Library', icon: 'auto_stories', href: '/library', active: false },
-  ] as const;
-
-  const bottomNavItems = [
-    ...navItems,
-    { label: 'Settings', icon: 'settings', href: '/settings', active: false },
-  ] as const;
+  const goCompose = useCallback(() => router.push('/compose'), [router]);
 
   return (
     <div
@@ -34,347 +142,295 @@ export default function LandingPage() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: colors.background,
+        backgroundColor: colors.surface.base,
         color: colors.onBackground,
-        fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, -apple-system, sans-serif`,
+        fontFamily: 'var(--font-inter), system-ui, -apple-system, sans-serif',
         WebkitFontSmoothing: 'antialiased',
         MozOsxFontSmoothing: 'grayscale',
-        backgroundImage: 'radial-gradient(circle at 50% 0%, rgba(212, 175, 55, 0.03) 0%, transparent 60%)',
-        backgroundAttachment: 'fixed',
       }}
     >
-      {/* ── Top App Bar ── */}
-      <header
-        style={{
-          position: 'fixed',
-          top: 0,
-          width: '100%',
-          zIndex: 50,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingLeft: spacing.lg,
-          paddingRight: spacing.lg,
-          height: '64px',
-          backgroundColor: 'rgba(8, 13, 34, 0.88)',
-          backdropFilter: `blur(${glassmorphism.backdropBlur})`,
-          WebkitBackdropFilter: `blur(${glassmorphism.backdropBlur})`,
-          borderBottom: `1px solid ${elevation.border}`,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md }}>
-          {/* Mobile menu button */}
+      <AppHeader
+        active={null}
+        right={
           <button
-            aria-label="Open navigation menu"
-            onClick={() => setMobileMenuOpen((prev) => !prev)}
+            onClick={goCompose}
             style={{
-              display: 'none',
-              color: colors.outline,
-              background: 'none',
+              backgroundColor: colors.primary,
+              color: colors.onPrimary,
               border: 'none',
+              borderRadius: radius.full,
+              padding: '8px 18px',
+              fontFamily: 'var(--font-inter), system-ui, sans-serif',
+              fontSize: '13px',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
               cursor: 'pointer',
-              padding: spacing.xs,
-              transition: 'color 0.3s ease',
+              whiteSpace: 'nowrap',
             }}
-            className="mobile-menu-btn"
           >
-            <span
-              aria-hidden="true"
-              style={{ fontSize: '24px', lineHeight: 1 }}
-            >
-              ☰
-            </span>
+            Compose
           </button>
+        }
+      />
 
-          {/* Logo */}
-          <img
-            src="/logo.png"
-            alt="Star Speaker AI"
-            style={{
-              height: '40px',
-              objectFit: 'contain',
-            }}
-          />
-        </div>
-
-        {/* Desktop Navigation */}
-        <nav
-          aria-label="Main navigation"
-          style={{ display: 'flex', alignItems: 'center', gap: spacing.xxl }}
-          className="desktop-nav"
-        >
-          {navItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              aria-label={`Navigate to ${item.label}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: spacing.xs,
-                color: item.active ? colors.primaryContainer : colors.outline,
-                textDecoration: 'none',
-                fontFamily: `var(${typography.uiLabel.fontFamily}), Georgia, serif`,
-                fontSize: typography.uiLabel.fontSize,
-                fontWeight: 700,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase' as const,
-                transition: 'color 0.3s ease',
-              }}
-            >
-              <span aria-hidden="true" style={{ fontSize: '16px', lineHeight: 1 }}>
-                {item.icon === 'edit_note' ? '✏️' : '📖'}
-              </span>
-              {item.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* Profile button */}
-        <button
-          aria-label="User profile"
+      <main style={{ flex: 1 }}>
+        {/* ── 1. HERO ── */}
+        <section
           style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: radius.full,
-            backgroundColor: colors.surface.containerHigh,
-            border: `1px solid ${colors.outlineVariant}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'border-color 0.3s ease',
-            padding: 0,
+            position: 'relative',
+            overflow: 'hidden',
+            padding: '96px 24px 80px',
+            backgroundColor: colors.surface.base,
+            // Gold radial glow at 7% alpha over #05081A (replaces the old
+            // hardcoded legacy-gold hero glow with the brand gold #cba864).
+            backgroundImage:
+              'radial-gradient(circle at 50% 0%, rgba(203, 168, 100, 0.07) 0%, transparent 62%)',
           }}
         >
-          <span
-            aria-hidden="true"
-            style={{
-              color: colors.onSurfaceVariant,
-              fontSize: '14px',
-              lineHeight: 1,
-            }}
-          >
-            👤
-          </span>
-        </button>
-      </header>
-
-      {/* ── Main Content ── */}
-      <main
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          paddingLeft: spacing.gutter,
-          paddingRight: spacing.gutter,
-          paddingTop: '96px',
-          paddingBottom: '112px',
-          position: 'relative',
-          zIndex: 10,
-          width: '100%',
-          maxWidth: '720px',
-          margin: '0 auto',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: spacing.xl,
-            width: '100%',
-          }}
-        >
-          {/* Typography Section */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md, maxWidth: '640px' }}>
-            <h1
-              style={{
-                fontFamily: `var(${typography.h1.fontFamily}), system-ui, sans-serif`,
-                fontSize: typography.h1.fontSize,
-                fontWeight: typography.h1.fontWeight,
-                lineHeight: typography.h1.lineHeight,
-                letterSpacing: typography.h1.letterSpacing,
-                color: colors.onSurface,
-                margin: 0,
-              }}
-            >
-              Your Five-Minute Masterpiece.
+          <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
+            <span style={{ ...labelStyle, color: colors.primary }}>Star Speaker AI</span>
+            <h1 style={{ ...typeScale.hero, color: colors.onSurface, margin: 0 }}>
+              Your five-minute masterpiece.
             </h1>
-            <p
-              style={{
-                fontFamily: `var(${typography.transcriptDisplay.fontFamily}), Georgia, serif`,
-                fontSize: typography.transcriptDisplay.fontSize,
-                fontWeight: typography.transcriptDisplay.fontWeight,
-                lineHeight: typography.transcriptDisplay.lineHeight,
-                letterSpacing: typography.transcriptDisplay.letterSpacing,
-                color: colors.onSurfaceVariant,
-                opacity: 0.9,
-                margin: '0 auto',
-                maxWidth: '560px',
-              }}
-            >
-              Craft perfectly structured speeches in minutes with the power of AI.
+            <p style={{ ...typeScale.bodySerif, color: colors.onSurfaceVariant, maxWidth: 620, margin: '0 auto' }}>
+              Answer a few guided questions and Star&apos;s AI method writes a keynote-ready speech —
+              then delivers it back to you in a professional voice.
             </p>
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: spacing.sm }}>
+              <button
+                onClick={goCompose}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: spacing.sm,
+                  backgroundColor: colors.primary,
+                  color: colors.onPrimary,
+                  border: 'none',
+                  borderRadius: radius.full,
+                  padding: '16px 34px',
+                  fontFamily: 'var(--font-inter), system-ui, sans-serif',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = colors.primaryFixedDim; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.primary; }}
+              >
+                Compose your speech
+                <ArrowRight size={18} />
+              </button>
+            </div>
           </div>
+        </section>
 
-          {/* Action Buttons */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: spacing.md,
-              paddingTop: spacing.lg,
-              width: '100%',
-            }}
-            className="cta-group"
-          >
+        {/* ── 2. HOW IT WORKS ── */}
+        <section style={sectionStyle}>
+          <div style={sectionInner}>
+            <h2 style={{ ...typeScale.section, color: colors.onSurface, textAlign: 'center', margin: `0 0 ${spacing.xl}` }}>
+              How it works
+            </h2>
+            <div className="landing-steps" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: spacing.lg }}>
+              {STEPS.map(({ Icon, title, body }, i) => (
+                <div key={i} style={cardStyle}>
+                  <div
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: radius.lg,
+                      backgroundColor: colors.surface.containerHigh,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: colors.primary,
+                      marginBottom: spacing.md,
+                    }}
+                  >
+                    <Icon size={22} />
+                  </div>
+                  <p style={{ ...labelStyle, color: colors.onSurfaceVariant, margin: '0 0 8px', letterSpacing: '0.1em' }}>
+                    Step {i + 1}
+                  </p>
+                  <h3 style={{ ...typeScale.ui, fontWeight: 600, fontSize: '18px', color: colors.onSurface, margin: '0 0 8px' }}>
+                    {title}
+                  </h3>
+                  <p style={{ ...typeScale.ui, color: colors.onSurfaceVariant, margin: 0, fontSize: '15px' }}>{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── 3. SAMPLE AUDIO ── */}
+        <section style={{ ...sectionStyle, backgroundColor: colors.surface.dim }}>
+          <div style={sectionInner}>
+            <h2 style={{ ...typeScale.section, color: colors.onSurface, textAlign: 'center', margin: `0 0 ${spacing.lg}` }}>
+              Hear the output
+            </h2>
+            <SampleAudioCard />
+          </div>
+        </section>
+
+        {/* ── 4. CREDIBILITY: Star Bobatoon + the STAR method ── */}
+        <section style={sectionStyle}>
+          <div style={{ ...sectionInner, maxWidth: 900 }}>
+            <div className="landing-credibility" style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: spacing.xl, alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: spacing.md }}>
+                <div
+                  aria-hidden="true"
+                  style={{
+                    width: 140,
+                    height: 140,
+                    borderRadius: radius.full,
+                    background: `linear-gradient(135deg, ${colors.secondaryContainer}, ${colors.primaryContainer})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontFamily: 'var(--font-newsreader), Georgia, serif',
+                    fontSize: 48,
+                    fontWeight: 500,
+                    color: colors.onPrimaryContainer,
+                    border: `1px solid ${colors.outlineVariant}`,
+                  }}
+                >
+                  SB
+                </div>
+                <span style={{ ...labelStyle, color: colors.primary, letterSpacing: '0.1em' }}>Star Bobatoon</span>
+              </div>
+              <div>
+                <h2 style={{ ...typeScale.section, color: colors.onSurface, margin: `0 0 ${spacing.md}` }}>
+                  Built on a proven speaking method
+                </h2>
+                <p style={{ ...typeScale.bodySerif, color: colors.onSurfaceVariant, margin: `0 0 ${spacing.lg}` }}>
+                  Star Bobatoon has coached leaders and speakers for years. Star Speaker AI encodes that
+                  same method — <strong style={{ color: colors.onSurface }}>MAP → Hook → Story → Point → CTA → Exit</strong> —
+                  so every speech is structured the way a great talk actually lands.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {METHOD.map(({ step, desc }) => (
+                    <div
+                      key={step}
+                      title={desc}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '6px 14px',
+                        borderRadius: radius.full,
+                        border: `1px solid ${colors.outlineVariant}`,
+                        backgroundColor: colors.surface.containerLow,
+                        color: colors.onSurface,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 5. TESTIMONIAL ── */}
+        <section style={{ ...sectionStyle, backgroundColor: colors.surface.dim }}>
+          <div style={{ ...sectionInner, maxWidth: 720, textAlign: 'center' }}>
+            <Quote size={32} color={colors.primary} style={{ margin: '0 auto' }} />
+            <p style={{ ...typeScale.section, fontWeight: 400, color: colors.onSurface, margin: `${spacing.lg} 0`, fontSize: 'clamp(1.375rem, 2vw + 0.75rem, 1.75rem)', lineHeight: 1.4 }}>
+              &ldquo;I walked in with a blank page and walked out with a speech I was proud to deliver.
+              It sounded like me — only sharper.&rdquo;
+            </p>
+            <p style={{ ...labelStyle, color: colors.primary, letterSpacing: '0.1em' }}>A Star Speaker AI speaker</p>
+          </div>
+        </section>
+
+        {/* ── 6. FINAL CTA ── */}
+        <section style={{ ...sectionStyle, textAlign: 'center' }}>
+          <div style={sectionInner}>
+            <h2 style={{ ...typeScale.hero, fontSize: 'clamp(2rem, 4vw + 1rem, 3rem)', color: colors.onSurface, margin: `0 0 ${spacing.md}` }}>
+              Own your stage.
+            </h2>
+            <p style={{ ...typeScale.bodySerif, color: colors.onSurfaceVariant, maxWidth: 560, margin: `0 auto ${spacing.lg}` }}>
+              Your next speech is a few questions away.
+            </p>
             <button
-              onClick={handleStartWriting}
-              aria-label="Start writing a speech"
+              onClick={goCompose}
               style={{
-                width: '100%',
-                maxWidth: '320px',
-                padding: '16px 32px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: spacing.sm,
                 backgroundColor: colors.primary,
                 color: colors.onPrimary,
-                borderRadius: radius.full,
-                fontFamily: `var(${typography.uiLabel.fontFamily}), system-ui, sans-serif`,
-                fontSize: typography.uiLabel.fontSize,
-                fontWeight: typography.uiLabel.fontWeight,
-                letterSpacing: typography.uiLabel.letterSpacing,
-                lineHeight: typography.uiLabel.lineHeight,
-                textTransform: 'uppercase' as const,
                 border: 'none',
+                borderRadius: radius.full,
+                padding: '16px 34px',
+                fontFamily: 'var(--font-inter), system-ui, sans-serif',
+                fontSize: '15px',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
                 cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: spacing.xs,
-                transition: 'background-color 0.3s ease',
               }}
             >
-              <span aria-hidden="true" style={{ fontSize: '18px', lineHeight: 1 }}>✏️</span>
-              Start Writing
+              Compose your speech
+              <ArrowRight size={18} />
             </button>
           </div>
-        </div>
+        </section>
       </main>
 
-      {/* ── Bottom Navigation Bar (Mobile Only) ── */}
-      <nav
-        aria-label="Mobile navigation"
-        className="bottom-nav"
+      {/* ── FOOTER ── */}
+      <footer
         style={{
-          position: 'fixed',
-          bottom: 0,
-          width: '100%',
-          zIndex: 50,
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          height: '80px',
-          backgroundColor: 'rgba(6, 10, 28, 0.96)',
-          backdropFilter: `blur(${glassmorphism.backdropBlur})`,
-          WebkitBackdropFilter: `blur(${glassmorphism.backdropBlur})`,
-          borderTop: `1px solid ${elevation.border}`,
+          borderTop: `1px solid ${colors.outlineVariant}`,
+          backgroundColor: colors.surface.base,
+          padding: `${spacing.xl} 24px 96px`,
         }}
       >
-        {bottomNavItems.map((item) => (
-          <a
-            key={item.label}
-            href={item.href}
-            aria-label={`Navigate to ${item.label}`}
-            aria-current={item.active ? 'page' : undefined}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              width: '100%',
-              height: '100%',
-              color: item.active ? colors.primaryContainer : colors.outlineVariant,
-              textDecoration: 'none',
-              fontFamily: `var(${typography.uiLabel.fontFamily}), system-ui, sans-serif`,
-              fontSize: '10px',
-              fontWeight: item.active ? 700 : 400,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase' as const,
-              transition: 'color 0.3s ease',
-            }}
-          >
-            <span aria-hidden="true" style={{ fontSize: '20px', lineHeight: 1 }}>
-              {item.icon === 'edit_note' ? '✏️' : item.icon === 'auto_stories' ? '📖' : '⚙️'}
-            </span>
-            {item.label}
-          </a>
-        ))}
-      </nav>
+        <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
+          <span style={{ color: colors.onSurfaceVariant, fontSize: 13 }}>© {new Date().getFullYear()} Star Speaker AI</span>
+          <nav style={{ display: 'flex', gap: spacing.lg }}>
+            <Link href="/compose" style={footerLink}>Compose</Link>
+            <Link href="/library" style={footerLink}>Library</Link>
+            <Link href="/terms" style={footerLink}>Terms of Service</Link>
+          </nav>
+        </div>
+      </footer>
 
-      {/* ── Responsive Styles ── */}
+      <MobileNav active={null} />
+
       <style jsx global>{`
-        /* Mobile menu button visibility */
-        .mobile-menu-btn {
-          display: none !important;
-        }
-        @media (max-width: 767px) {
-          .mobile-menu-btn {
-            display: flex !important;
-          }
-          .desktop-nav {
-            display: none !important;
-          }
-        }
-
-        /* CTA buttons row on larger screens */
-        @media (min-width: 640px) {
-          .cta-group {
-            flex-direction: row !important;
-            width: auto !important;
-          }
-        }
-
-        /* Bottom nav hidden on desktop */
-        @media (min-width: 768px) {
-          .bottom-nav {
-            display: none !important;
-          }
-        }
-
-        /* Responsive heading sizes */
-        @media (max-width: 767px) {
-          main h1 {
-            font-size: 32px !important;
-          }
-          main p {
-            font-size: 18px !important;
-          }
-        }
-        @media (min-width: 768px) and (max-width: 1023px) {
-          main h1 {
-            font-size: 40px !important;
-          }
-        }
-        @media (min-width: 1440px) {
-          main h1 {
-            font-size: 48px !important;
-          }
-        }
-
-        /* Hover states */
-        .cta-group button:hover {
-          filter: brightness(1.1);
-        }
-        .cta-group button:focus-visible {
-          outline: 2px solid var(--color-secondary);
-          outline-offset: 2px;
+        @media (max-width: 860px) {
+          .landing-steps { grid-template-columns: 1fr !important; }
+          .landing-credibility { grid-template-columns: 1fr !important; text-align: center; }
         }
       `}</style>
     </div>
   );
 }
+
+const sectionStyle = {
+  padding: '80px 24px',
+  backgroundColor: colors.surface.base,
+} as const;
+
+const sectionInner = {
+  maxWidth: 1000,
+  margin: '0 auto',
+} as const;
+
+const cardStyle = {
+  backgroundColor: colors.surface.container,
+  border: `1px solid ${colors.outlineVariant}`,
+  borderRadius: radius.xl,
+  padding: spacing.lg,
+} as const;
+
+const footerLink = {
+  color: colors.onSurfaceVariant,
+  textDecoration: 'none',
+  fontSize: 13,
+  fontWeight: 500,
+} as const;

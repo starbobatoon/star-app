@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { X } from 'lucide-react';
 import { colors, spacing, radius, typography } from '@/lib/design-tokens';
 import type { CSSProperties } from 'react';
 
@@ -93,9 +94,11 @@ export function Toast({ message, variant = 'info', duration = 5000, onDismiss }:
           fontSize: '16px',
           padding: spacing.xs,
           lineHeight: 1,
+          display: 'inline-flex',
+          alignItems: 'center',
         }}
       >
-        ✕
+        <X size={16} />
       </button>
     </div>
   );

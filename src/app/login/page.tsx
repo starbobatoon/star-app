@@ -108,7 +108,7 @@ export default function UserLoginPage() {
               marginTop: spacing.xs,
             }}
           >
-            Sign in to compose your speech
+            Sign in to your account
           </p>
         </div>
 
@@ -343,7 +343,10 @@ export default function UserLoginPage() {
             marginTop: spacing.md,
           }}
         >
-          By signing in, you agree to our Terms of Service.
+          By signing in, you agree to our{" "}
+          <a href="/terms" style={{ color: colors.primary, textDecoration: "none" }}>
+            Terms of Service
+          </a>.
         </p>
       </div>
     </div>

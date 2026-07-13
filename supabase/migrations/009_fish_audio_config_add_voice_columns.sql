@@ -10,7 +10,7 @@ ALTER TABLE fish_audio_integration
 
 -- Add tts_model column with default
 ALTER TABLE fish_audio_integration
-  ADD COLUMN IF NOT EXISTS tts_model TEXT DEFAULT 's2-pro';
+  ADD COLUMN IF NOT EXISTS tts_model TEXT DEFAULT 's2.1-pro';
 
 -- Add volume adjustment column
 ALTER TABLE fish_audio_integration

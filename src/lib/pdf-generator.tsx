@@ -73,7 +73,7 @@ Font.register({
 const SOFT_GOLD = '#f2ca50';
 const DARK_TEXT = '#1a1a1a';
 const MUTED_TEXT = '#6b6560';
-const SECTION_LABEL_COLOR = '#d4af37'; // primaryContainer gold
+const SECTION_LABEL_COLOR = '#cba864'; // brand primary gold
 const DIVIDER_COLOR = '#d0c5af';
 const HEADER_BG = '#0A0A0A';
 const HEADER_TEXT = '#e5e2e1';

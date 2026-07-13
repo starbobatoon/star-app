@@ -1,6 +1,7 @@
 'use client';
 
 import React, { type CSSProperties, useRef, useState, useCallback } from 'react';
+import { Play, Pause, Download } from 'lucide-react';
 import { colors, spacing, radius, typography, glassmorphism } from '@/lib/design-tokens';
 
 export interface AudioPlayerProps {
@@ -175,7 +176,7 @@ export function AudioPlayer({
         onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.75'; }}
         onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
       >
-        {isPlaying ? '⏸' : '▶'}
+        {isPlaying ? <Pause size={20} fill={colors.primary} /> : <Play size={20} fill={colors.primary} />}
       </button>
       <span style={timeStyle}>{formatTime(currentTime)}</span>
       <div
@@ -195,6 +196,21 @@ export function AudioPlayer({
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px', height: '24px', overflow: 'hidden' }}>
         {waveformBars}
       </div>
+      <a
+        href={src}
+        download
+        aria-label="Download audio"
+        style={{
+          ...playBtnStyle,
+          color: colors.onSurfaceVariant,
+          textDecoration: 'none',
+          minWidth: '28px',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.color = colors.primary; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = colors.onSurfaceVariant; }}
+      >
+        <Download size={18} />
+      </a>
     </div>
   );
 }

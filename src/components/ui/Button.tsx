@@ -59,7 +59,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       border: 'none',
       outline: 'none',
       transition: 'background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease',
-      opacity: isDisabled ? 0.5 : 1,
+      // Disabled = 40% opacity of the variant's own color (a dimmed version of
+      // the same hue — never a distinct "muddy" color). For the primary button
+      // this reads as a dimmed gold, fixing the "Begin looks broken" complaint.
+      opacity: isDisabled ? 0.4 : 1,
       width: fullWidth ? '100%' : undefined,
     };
 

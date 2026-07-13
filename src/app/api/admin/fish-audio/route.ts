@@ -225,7 +225,7 @@ export async function PUT(request: Request) {
 const postSchema = z.object({
   apiKey: z.string().min(1).optional(),
   voiceId: z.string().min(1, "Voice ID is required").optional(),
-  ttsModel: z.string().optional().default("s2-pro"),
+  ttsModel: z.string().optional().default("s2.1-pro"),
   volume: z.number().min(-5).max(5).optional().default(0),
   speed: z.number().min(0.7).max(1.3).optional().default(1.0),
   loudnessNormalization: z.boolean().optional().default(true),

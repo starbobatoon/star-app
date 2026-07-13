@@ -104,7 +104,7 @@ export async function generateSpeechAudio(
       voiceId,
       format: "mp3",
       apiKey,
-      model: config.tts_model || "s2-pro",
+      model: config.tts_model || "s2.1-pro",
       volume: config.volume ?? 0,
       speed: config.speed ?? 1.0,
       loudnessNormalization: config.loudness_normalization ?? true,

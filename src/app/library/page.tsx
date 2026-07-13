@@ -1,10 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { colors, typography, spacing, radius, glassmorphism } from '@/lib/design-tokens';
+import { Play, Pause, ArrowRight } from 'lucide-react';
+import { colors, typography, typeScale, spacing, radius } from '@/lib/design-tokens';
+import { AppHeader } from '@/components/AppHeader';
+import { MobileNav } from '@/components/MobileNav';
 
-const STORAGE_KEY_PREFIX = 'star_draft_';
+// MUST match the key the compose wizard writes drafts under (star-draft-).
+// The previous value used underscores instead of hyphens, so the email was
+// never recovered and the library always showed empty.
+const STORAGE_KEY_PREFIX = 'star-draft-';
 
 interface Speech {
   id: string;
@@ -20,71 +26,164 @@ interface Speech {
 
 function statusLabel(status: string): string {
   switch (status) {
-    case 'complete': return 'Complete';
+    case 'complete':
+    case 'completed': return 'Ready';
     case 'failed': return 'Failed';
-    case 'pending': return 'Pending';
-    case 'generating_text': return 'Writing speech…';
-    case 'generating_audio': return 'Creating audio…';
+    case 'pending': return 'Queued';
+    case 'generating_text': return 'Writing…';
+    case 'generating_audio': return 'Recording…';
     case 'uploading': return 'Uploading…';
-    case 'syncing_ghl': return 'Syncing…';
-    default: return 'Processing…';
+    case 'syncing_ghl': return 'Delivering…';
+    default: return 'Working…';
   }
 }
 
-function statusColor(status: string): string {
-  switch (status) {
-    case 'complete': return colors.primary;
-    case 'failed': return colors.error;
-    default: return colors.secondary;
-  }
+// Gold = ready, blue = working, red = failed.
+function chipColor(status: string): string {
+  if (status === 'complete' || status === 'completed') return colors.primary;
+  if (status === 'failed') return colors.error;
+  return colors.secondary;
 }
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric',
-    });
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return dateStr;
   }
 }
 
+function findDraftEmail(): string | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(STORAGE_KEY_PREFIX)) {
+        const raw = localStorage.getItem(key);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (draft?.contact?.email) return draft.contact.email;
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function SpeechCard({ speech, onOpen }: { speech: Speech; onOpen: () => void }) {
+  const [playing, setPlaying] = useState(false);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
+  const ready = speech.status === 'complete' || speech.status === 'completed';
+
+  const togglePlay = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!speech.audio_url) return;
+    let a = audio;
+    if (!a) {
+      a = new Audio(speech.audio_url);
+      a.onended = () => setPlaying(false);
+      setAudio(a);
+    }
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play().catch(() => setPlaying(false)); setPlaying(true); }
+  }, [audio, playing, speech.audio_url]);
+
+  return (
+    <div
+      onClick={onOpen}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        padding: spacing.lg,
+        backgroundColor: colors.surface.container,
+        border: `1px solid ${colors.outlineVariant}`,
+        borderRadius: radius.xl,
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+        gap: spacing.md,
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.borderColor = colors.primary)}
+      onMouseLeave={(e) => (e.currentTarget.style.borderColor = colors.outlineVariant)}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.sm }}>
+        <span style={{ ...typography.caption, color: colors.onSurfaceVariant }}>{formatDate(speech.created_at)}</span>
+        <span
+          style={{
+            ...typeScale.label,
+            fontSize: 11,
+            letterSpacing: '0.08em',
+            color: chipColor(speech.status),
+            backgroundColor: `${chipColor(speech.status)}1f`,
+            padding: '3px 10px',
+            borderRadius: radius.full,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {statusLabel(speech.status)}
+        </span>
+      </div>
+
+      <p
+        style={{
+          fontFamily: 'var(--font-newsreader), Georgia, serif',
+          fontSize: 17,
+          lineHeight: 1.5,
+          color: colors.onSurface,
+          margin: 0,
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+        }}
+      >
+        {speech.hook ? speech.hook : 'Your speech'}
+      </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: spacing.md, marginTop: 'auto' }}>
+        {ready && speech.audio_url && (
+          <button
+            type="button"
+            onClick={togglePlay}
+            aria-label={playing ? 'Pause' : 'Play'}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              backgroundColor: 'transparent',
+              border: `1px solid ${colors.outlineVariant}`,
+              color: colors.primary,
+              borderRadius: radius.full,
+              padding: '6px 12px',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {playing ? <Pause size={14} fill={colors.primary} /> : <Play size={14} fill={colors.primary} />}
+            {playing ? 'Pause' : 'Play'}
+          </button>
+        )}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: colors.onSurfaceVariant, fontSize: 12, fontWeight: 600, marginLeft: 'auto' }}>
+          Open <ArrowRight size={14} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export default function LibraryPage() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState('');
   const [speeches, setSpeeches] = useState<Speech[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Find email from any saved draft in localStorage
-    let foundEmail: string | null = null;
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith(STORAGE_KEY_PREFIX)) {
-          const raw = localStorage.getItem(key);
-          if (raw) {
-            const draft = JSON.parse(raw);
-            if (draft?.contact?.email) {
-              foundEmail = draft.contact.email;
-              break;
-            }
-          }
-        }
-      }
-    } catch { /* ignore */ }
-
-    if (!foundEmail) {
-      setLoading(false);
-      return;
-    }
-
-    setEmail(foundEmail);
-
-    fetch(`/api/speeches/mine?email=${encodeURIComponent(foundEmail)}`)
-      .then(res => res.json())
-      .then(data => {
+  const load = useCallback((addr: string) => {
+    setLoading(true);
+    setError(null);
+    fetch(`/api/speeches/mine?email=${encodeURIComponent(addr)}`)
+      .then((res) => res.json())
+      .then((data) => {
         if (data.speeches) setSpeeches(data.speeches);
         else setError('Could not load speeches.');
       })
@@ -92,175 +191,104 @@ export default function LibraryPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const found = findDraftEmail();
+    if (found) {
+      setEmail(found);
+      load(found);
+    } else {
+      setLoading(false);
+    }
+  }, [load]);
+
+  const handleSubmitEmail = (e: React.FormEvent) => {
+    e.preventDefault();
+    const addr = emailInput.trim().toLowerCase();
+    if (!addr) return;
+    setEmail(addr);
+    load(addr);
+  };
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: colors.background,
-      color: colors.onBackground,
-      fontFamily: `var(${typography.uiBody.fontFamily}), system-ui, sans-serif`,
-    }}>
-      {/* Header */}
-      <header style={{
-        position: 'fixed', top: 0, width: '100%', zIndex: 50,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        paddingLeft: spacing.lg, paddingRight: spacing.lg, height: '64px',
-        backgroundColor: 'rgba(8, 13, 34, 0.88)',
-        backdropFilter: `blur(${glassmorphism.backdropBlur})`,
-        borderBottom: `1px solid rgba(255,255,255,0.06)`,
-      }}>
-        <button
-          onClick={() => router.push('/')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-        >
-          <img src="/star-logo.png" alt="Star Speaker AI" style={{ height: '36px' }} onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-        </button>
+    <div style={{ minHeight: '100vh', backgroundColor: colors.surface.base, color: colors.onBackground, fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>
+      <AppHeader active="library" />
 
-        <nav style={{ display: 'flex', gap: spacing.lg }}>
-          <button onClick={() => router.push('/compose')} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            ...typography.uiLabel, color: colors.onSurfaceVariant,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-          }}>
-            ✏ Compose
-          </button>
-          <button style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            ...typography.uiLabel, color: colors.primary,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            borderBottom: `2px solid ${colors.primary}`, paddingBottom: '2px',
-          }}>
-            📚 Library
-          </button>
-        </nav>
-
-        <div style={{ width: '36px' }} />
-      </header>
-
-      {/* Content */}
-      <main style={{ paddingTop: '96px', paddingBottom: spacing.xxl, paddingLeft: spacing.lg, paddingRight: spacing.lg, maxWidth: '720px', margin: '0 auto' }}>
-        <h1 style={{ ...typography.h1, color: colors.onSurface, marginBottom: spacing.xs, fontSize: '32px' }}>
-          Your Speeches
-        </h1>
-        <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.xl }}>
-          {email ? `Showing speeches for ${email}` : 'Your past speeches will appear here.'}
+      <main style={{ maxWidth: 960, margin: '0 auto', padding: `${spacing.xl} ${spacing.lg} 112px` }}>
+        <h1 style={{ ...typeScale.section, color: colors.onSurface, margin: `0 0 ${spacing.xs}` }}>Your speeches</h1>
+        <p style={{ ...typeScale.ui, color: colors.onSurfaceVariant, margin: `0 0 ${spacing.xl}` }}>
+          {email ? `Showing speeches for ${email}` : 'Enter your email to see the speeches you have created.'}
         </p>
 
-        {loading && (
-          <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant }}>Loading…</p>
-        )}
-
-        {error && (
-          <p style={{ ...typography.uiBody, color: colors.error }}>{error}</p>
-        )}
-
-        {!loading && !error && !email && (
-          <div style={{
-            padding: spacing.xl, textAlign: 'center',
-            border: `1px solid ${colors.outlineVariant}`, borderRadius: radius.DEFAULT,
-          }}>
-            <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.lg }}>
-              No speeches found. Start by composing your first speech.
-            </p>
-            <button
-              onClick={() => router.push('/compose')}
+        {/* Email identity fallback — never a bare dead-end empty state. */}
+        {!email && !loading && (
+          <form onSubmit={handleSubmitEmail} style={{ display: 'flex', gap: spacing.sm, maxWidth: 460, marginBottom: spacing.xl, flexWrap: 'wrap' }}>
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
               style={{
-                backgroundColor: colors.primary, color: colors.onPrimary,
-                border: 'none', borderRadius: radius.full, cursor: 'pointer',
-                padding: `${spacing.sm} ${spacing.xl}`,
-                ...typography.uiLabel, letterSpacing: '0.06em',
+                flex: 1,
+                minWidth: 220,
+                backgroundColor: colors.surface.containerLow,
+                color: colors.onSurface,
+                border: `1px solid ${colors.outlineVariant}`,
+                borderRadius: radius.md,
+                padding: '12px 14px',
+                fontSize: 15,
+                outline: 'none',
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                backgroundColor: colors.primary,
+                color: colors.onPrimary,
+                border: 'none',
+                borderRadius: radius.md,
+                padding: '12px 22px',
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
               }}
             >
-              ✏ Start Writing
+              Show my speeches
             </button>
-          </div>
+          </form>
         )}
 
-        {!loading && !error && email && speeches.length === 0 && (
-          <div style={{
-            padding: spacing.xl, textAlign: 'center',
-            border: `1px solid ${colors.outlineVariant}`, borderRadius: radius.DEFAULT,
-          }}>
-            <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, marginBottom: spacing.lg }}>
-              No speeches yet. Compose your first one now.
+        {loading && <p style={{ ...typeScale.ui, color: colors.onSurfaceVariant }}>Loading…</p>}
+        {error && <p style={{ ...typeScale.ui, color: colors.error }}>{error}</p>}
+
+        {email && !loading && !error && speeches.length === 0 && (
+          <div style={{ padding: spacing.xl, textAlign: 'center', border: `1px solid ${colors.outlineVariant}`, borderRadius: radius.xl }}>
+            <p style={{ ...typeScale.ui, color: colors.onSurfaceVariant, marginBottom: spacing.lg }}>
+              No speeches found for {email}. Compose your first one now.
             </p>
             <button
               onClick={() => router.push('/compose')}
-              style={{
-                backgroundColor: colors.primary, color: colors.onPrimary,
-                border: 'none', borderRadius: radius.full, cursor: 'pointer',
-                padding: `${spacing.sm} ${spacing.xl}`,
-                ...typography.uiLabel, letterSpacing: '0.06em',
-              }}
+              style={{ backgroundColor: colors.primary, color: colors.onPrimary, border: 'none', borderRadius: radius.full, cursor: 'pointer', padding: '12px 26px', fontWeight: 700, letterSpacing: '0.04em' }}
             >
-              ✏ Start Writing
+              Start composing
             </button>
           </div>
         )}
 
         {speeches.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.md }}>
-            {speeches.map(speech => (
-              <div
-                key={speech.id}
-                onClick={() => router.push(`/speech/${speech.id}`)}
-                style={{
-                  padding: spacing.lg,
-                  backgroundColor: colors.surface.container,
-                  border: `1px solid ${colors.outlineVariant}`,
-                  borderRadius: radius.DEFAULT,
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = colors.primary)}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = colors.outlineVariant)}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.sm }}>
-                  <div>
-                    <p style={{ ...typography.uiLabel, color: colors.onSurface, margin: 0, marginBottom: '4px' }}>
-                      {formatDate(speech.created_at)}
-                    </p>
-                    {speech.hook && (
-                      <p style={{ ...typography.uiBody, color: colors.onSurfaceVariant, margin: 0, fontSize: '14px', maxWidth: '520px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {speech.hook.slice(0, 100)}{speech.hook.length > 100 ? '…' : ''}
-                      </p>
-                    )}
-                  </div>
-                  <span style={{
-                    ...typography.caption,
-                    color: statusColor(speech.status),
-                    backgroundColor: `${statusColor(speech.status)}18`,
-                    padding: `2px ${spacing.sm}`,
-                    borderRadius: radius.full,
-                    whiteSpace: 'nowrap',
-                    marginLeft: spacing.md,
-                  }}>
-                    {statusLabel(speech.status)}
-                  </span>
-                </div>
-
-                {speech.status === 'complete' && (
-                  <div style={{ display: 'flex', gap: spacing.sm, marginTop: spacing.sm }}>
-                    <span style={{ ...typography.caption, color: colors.primary }}>
-                      View speech →
-                    </span>
-                    {speech.audio_url && (
-                      <span style={{ ...typography.caption, color: colors.onSurfaceVariant }}>
-                        · Audio ready
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {speech.status === 'failed' && (
-                  <p style={{ ...typography.caption, color: colors.error, margin: `${spacing.sm} 0 0 0` }}>
-                    Generation failed — click to retry
-                  </p>
-                )}
-              </div>
+          <div
+            className="library-grid"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: spacing.lg }}
+          >
+            {speeches.map((s) => (
+              <SpeechCard key={s.id} speech={s} onOpen={() => router.push(`/speech/${s.id}`)} />
             ))}
           </div>
         )}
       </main>
+
+      <MobileNav active="library" />
     </div>
   );
 }
