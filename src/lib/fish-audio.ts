@@ -124,7 +124,7 @@ export async function testFishAudioConnection(apiKey?: string, voiceId?: string)
       model: "s2.1-pro",
     };
     if (refId) {
-      body.reference_id = refId;
+      body.voice_id = refId;
     }
 
     const response = await fetch(FISH_AUDIO_API_URL, {
@@ -230,7 +230,7 @@ export async function synthesizeSpeech(
   //     and other params; we leave `model` here for record-keeping.
   const body: Record<string, unknown> = {
     text,
-    reference_id: voiceId,
+    voice_id: voiceId,
     model,
     prosody: {
       speed,
