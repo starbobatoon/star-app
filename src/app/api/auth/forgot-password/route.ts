@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
+import {
+  checkRateLimit,
+  forgotPasswordRateLimiter,
+  getClientIp,
+} from '@/lib/rate-limit';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const limiter = new RateLimiterMemory({ points: 5, duration: 60 });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? 'Star Speaker AI <management@blackceo.com>';
@@ -18,16 +20,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
     }
 
-    const ip = request.headers.get('x-forwarded-for') ?? 'unknown';
-    try {
-      await limiter.consume(`forgot-password:${ip}`);
-    } catch (rej: unknown) {
-      const secLeft = Math.round(((rej as { msBeforeNext?: number }).msBeforeNext ?? 60000) / 1000);
-      return NextResponse.json(
-        { error: `Too many requests, retry in ${secLeft > 60 ? Math.round(secLeft / 60) + 'm' : secLeft + 's'}` },
-        { status: 429 }
-      );
-    }
+    const rateLimitResponse = await checkRateLimit(
+      forgotPasswordRateLimiter,
+      getClientIp(request)
+    );
+    if (rateLimitResponse) return rateLimitResponse;
 
     const origin = request.headers.get('origin') ?? 'https://star-app.vercel.app';
     const redirectTo = `${origin}/auth/reset-password`;
