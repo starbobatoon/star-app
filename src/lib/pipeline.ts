@@ -5,8 +5,10 @@
  *
  * Each stage is handled by its own module and updates speech status
  * independently. The orchestrator runs them sequentially and stops
- * on the first failure. Stage 4 (delivery) is non-fatal — a notification
- * failure does not block the speech from being marked complete.
+ * on the first failure of a fatal stage (text, audio). Stage 3 (GHL
+ * sync) and Stage 4 (delivery) are non-fatal — a GHL outage or a
+ * notification failure does not block the speech from being marked
+ * complete.
  *
  * IMPORTANT: This module uses Node.js APIs and Supabase admin client — server-only.
  * Never import this from a client component.
@@ -43,7 +45,10 @@ export interface PipelineResult {
  *   3. Sync to GHL (contact upsert + media upload + workflow trigger)
  *   4. Delivery notification (email + SMS via GHL workflow / n8n webhook)
  *
- * Stages 1-3 are fatal — pipeline stops on first failure.
+ * Stages 1-2 are fatal — pipeline stops on first failure.
+ * Stage 3 (GHL sync) is non-fatal — it is retried with backoff, and
+ * if GHL is still unavailable the failure is recorded on the speech
+ * for a later retry; the speech still completes.
  * Stage 4 is non-fatal — notification failure is logged but does not
  * block the speech from being marked complete.
  *
@@ -114,7 +119,12 @@ export async function runSpeechPipeline(
 
   console.log(`[pipeline] Audio generation complete for speech ${speechId}`);
 
-  // ── Stage 3: Sync to GHL ────────────────────────────────────────────
+  // ── Stage 3: Sync to GHL (NON-FATAL, with retries) ─────────────────
+  // A GoHighLevel outage must never fail a speech the user already
+  // earned. Retryable failures get in-pipeline retries with backoff;
+  // if GHL is still down, the sync state stays recorded as failed on
+  // the speech (ghl_sync_* fields) for a later retry, and the
+  // pipeline carries on to delivery.
   await writeAuditLog({
     action: "pipeline_stage_start",
     entityType: "speeches",
@@ -122,25 +132,45 @@ export async function runSpeechPipeline(
     afterValue: { stage: "sync_ghl", status: "started" },
   });
 
-  const ghlResult = await syncSpeechToGHL(speechId);
+  const GHL_RETRY_DELAYS_MS = [15_000, 45_000];
+  let ghlResult = await syncSpeechToGHL(speechId);
+  let ghlAttempt = 1;
 
-  if (!ghlResult.success) {
-    console.error(
-      `[pipeline] GHL sync failed for speech ${speechId}: ${ghlResult.error}`
+  while (
+    !ghlResult.success &&
+    !ghlResult.skipped &&
+    ghlResult.retryable !== false &&
+    ghlAttempt <= GHL_RETRY_DELAYS_MS.length
+  ) {
+    const delay = GHL_RETRY_DELAYS_MS[ghlAttempt - 1];
+    console.log(
+      `[pipeline] GHL sync attempt ${ghlAttempt} failed for speech ${speechId} (${ghlResult.error}); retrying in ${delay / 1000}s`
     );
-    await writeAuditLog({
-      action: "pipeline_stage_failed",
-      entityType: "speeches",
-      entityId: speechId,
-      afterValue: { stage: "sync_ghl", error: ghlResult.error },
-    });
-    return {
-      success: false,
-      error: ghlResult.error ?? "GHL sync failed",
-    };
+    await new Promise((resolve) => setTimeout(resolve, delay));
+    ghlAttempt += 1;
+    ghlResult = await syncSpeechToGHL(speechId);
   }
 
-  console.log(`[pipeline] GHL sync complete for speech ${speechId}`);
+  if (!ghlResult.success && !ghlResult.skipped) {
+    console.error(
+      `[pipeline] GHL sync did not complete for speech ${speechId} after ${ghlAttempt} attempt(s): ${ghlResult.error}. Speech will still be marked complete; sync can be retried.`
+    );
+    await writeAuditLog({
+      action: "pipeline_stage_nonfatal_failure",
+      entityType: "speeches",
+      entityId: speechId,
+      afterValue: {
+        stage: "sync_ghl",
+        error: ghlResult.error,
+        attempts: ghlAttempt,
+        retryable: ghlResult.retryable !== false,
+      },
+    });
+  } else {
+    console.log(
+      `[pipeline] GHL sync ${ghlResult.skipped ? "skipped (not configured)" : "complete"} for speech ${speechId}`
+    );
+  }
 
   // ── Stage 4: Delivery notification ──────────────────────────────
   await writeAuditLog({

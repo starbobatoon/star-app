@@ -79,6 +79,14 @@ export interface SyncResult {
   contactId?: string;
   contactCreated?: boolean;
   error?: string;
+  /** True when GHL is not configured and the sync was skipped by design. */
+  skipped?: boolean;
+  /**
+   * Whether retrying could plausibly succeed. Momentary outages
+   * (network, GHL 5xx, DB blips) are retryable; a broken stored
+   * credential is not.
+   */
+  retryable?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -225,15 +233,18 @@ async function callN8nWebhook(
  *
  * - If GHL is not configured (no row or empty encrypted token), the speech
  *   status is set to "complete" directly — GHL sync is skipped gracefully.
- * - If any GHL step fails, the speech status is set to "failed" with an error
- *   message, but the user can still view their speech.
+ * - If any GHL step fails, the speech itself still completes (the sync
+ *   never fails the speech); the failure is recorded in the speech's
+ *   ghl_sync_* fields with a retry time, and the caller decides whether
+ *   to retry (the pipeline retries with backoff; an admin can also
+ *   retry via POST /api/speeches/[id]/ghl-sync/retry).
  *
  * @param speechId - The UUID of the speech to sync.
  * @returns A result object with success status and optional error details.
  */
 export async function syncSpeechToGHL(
   speechId: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<SyncResult> {
   const adminClient = createAdminClient();
 
   // -----------------------------------------------------------------------
@@ -251,14 +262,24 @@ export async function syncSpeechToGHL(
     console.error("[ghl-sync] Failed to read GHL config:", configError);
     // Don't block — mark speech complete
     await updateSpeechStatus(adminClient, speechId, "complete");
-    return { success: false, error: `GHL config read error: ${configError.message}` };
+    await recordGhlSyncState(adminClient, speechId, {
+      status: "failed",
+      error: `GHL config read error: ${configError.message}`,
+      countAttempt: true,
+    });
+    return {
+      success: false,
+      retryable: true,
+      error: `GHL config read error: ${configError.message}`,
+    };
   }
 
   // No GHL config row or no encrypted token → not configured, skip gracefully
   if (!ghlConfig || !ghlConfig.pit_encrypted) {
     console.log("[ghl-sync] GHL not configured, skipping sync for speech", speechId);
     await updateSpeechStatus(adminClient, speechId, "complete");
-    return { success: true, error: "GHL not configured — skipped" };
+    await recordGhlSyncState(adminClient, speechId, { status: "skipped" });
+    return { success: true, skipped: true, error: "GHL not configured — skipped" };
   }
 
   // -----------------------------------------------------------------------
@@ -271,13 +292,27 @@ export async function syncSpeechToGHL(
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ghl-sync] PIT decryption failed:", msg);
     await updateSpeechStatus(adminClient, speechId, "complete");
-    return { success: false, error: `PIT decryption failed: ${msg}` };
+    await recordGhlSyncState(adminClient, speechId, {
+      status: "failed",
+      error: `PIT decryption failed: ${msg}`,
+      countAttempt: true,
+    });
+    return {
+      success: false,
+      retryable: false,
+      error: `PIT decryption failed: ${msg}`,
+    };
   }
 
   if (!pit) {
     console.error("[ghl-sync] Decrypted PIT is empty");
     await updateSpeechStatus(adminClient, speechId, "complete");
-    return { success: false, error: "Decrypted PIT is empty" };
+    await recordGhlSyncState(adminClient, speechId, {
+      status: "failed",
+      error: "Decrypted PIT is empty",
+      countAttempt: true,
+    });
+    return { success: false, retryable: false, error: "Decrypted PIT is empty" };
   }
 
   const locationId = ghlConfig.location_id;
@@ -297,7 +332,12 @@ export async function syncSpeechToGHL(
     const msg = speechError?.message || "Speech not found";
     console.error("[ghl-sync] Failed to read speech:", msg);
     await updateSpeechStatus(adminClient, speechId, "complete");
-    return { success: false, error: `Speech read error: ${msg}` };
+    await recordGhlSyncState(adminClient, speechId, {
+      status: "failed",
+      error: `Speech read error: ${msg}`,
+      countAttempt: true,
+    });
+    return { success: false, retryable: true, error: `Speech read error: ${msg}` };
   }
 
   // -----------------------------------------------------------------------
@@ -324,6 +364,10 @@ export async function syncSpeechToGHL(
   // -----------------------------------------------------------------------
   // We must set status to syncing_ghl BEFORE calling GHL
   await updateSpeechStatus(adminClient, speechId, "syncing_ghl");
+  await recordGhlSyncState(adminClient, speechId, {
+    status: "pending",
+    countAttempt: true,
+  });
 
   let contactId: string;
   let contactCreated: boolean;
@@ -352,13 +396,21 @@ export async function syncSpeechToGHL(
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ghl-sync] Contact upsert failed:", msg);
     await updateSpeechStatus(adminClient, speechId, "complete");
+    await recordGhlSyncState(adminClient, speechId, {
+      status: "failed",
+      error: `Contact upsert failed: ${msg}`,
+    });
     await writeAuditLog({
       action: "sync_ghl_failed",
       entityType: "speeches",
       entityId: speechId,
       afterValue: { step: "contact_upsert", error: msg },
     });
-    return { success: false, error: `Contact upsert failed: ${msg}` };
+    return {
+      success: false,
+      retryable: true,
+      error: `Contact upsert failed: ${msg}`,
+    };
   }
 
   // -----------------------------------------------------------------------
@@ -436,6 +488,7 @@ export async function syncSpeechToGHL(
   // 9. Mark speech as complete
   // -----------------------------------------------------------------------
   await updateSpeechStatus(adminClient, speechId, "complete");
+  await recordGhlSyncState(adminClient, speechId, { status: "synced" });
 
   await writeAuditLog({
     action: "sync_ghl_complete",
@@ -474,5 +527,71 @@ async function updateSpeechStatus(
 
   if (error) {
     console.error(`[ghl-sync] Failed to update speech ${speechId} status to ${status}:`, error);
+  }
+}
+
+/**
+ * Records the durable GHL sync state (status, attempt count, last
+ * error, next retry time) in the ghl_sync_* columns added by
+ * migration 014. This is what makes a failed sync visible and
+ * retryable instead of silently lost.
+ *
+ * Tolerant by design: if the columns do not exist yet (migration
+ * not applied), the read fails and recording is skipped — the sync
+ * itself, and the speech, are unaffected.
+ */
+async function recordGhlSyncState(
+  client: ReturnType<typeof createAdminClient>,
+  speechId: string,
+  state: {
+    status: "pending" | "synced" | "failed" | "skipped";
+    error?: string;
+    countAttempt?: boolean;
+  }
+): Promise<void> {
+  try {
+    const { data, error: readError } = await client
+      .from("speeches")
+      .select("ghl_sync_attempts")
+      .eq("id", speechId)
+      .maybeSingle();
+
+    if (readError) {
+      // Columns missing (pre-migration) or unreadable — skip recording.
+      return;
+    }
+
+    const now = new Date();
+    const update: Record<string, unknown> = {
+      ghl_sync_status: state.status,
+      ghl_sync_last_error: state.error ?? null,
+      ghl_sync_next_attempt_at:
+        state.status === "failed"
+          ? new Date(now.getTime() + 15 * 60 * 1000).toISOString()
+          : null,
+    };
+    if (state.countAttempt) {
+      update.ghl_sync_attempts = (data?.ghl_sync_attempts ?? 0) + 1;
+    }
+    if (state.status === "synced") {
+      update.ghl_synced_at = now.toISOString();
+    }
+
+    const { error: updateError } = await client
+      .from("speeches")
+      .update(update)
+      .eq("id", speechId);
+
+    if (updateError) {
+      console.error(
+        `[ghl-sync] Failed to record sync state for speech ${speechId}:`,
+        updateError
+      );
+    }
+  } catch (err) {
+    console.error(
+      `[ghl-sync] recordGhlSyncState failed for speech ${speechId}:`,
+      err
+    );
   }
 }
