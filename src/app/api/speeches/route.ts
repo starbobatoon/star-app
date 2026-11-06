@@ -7,7 +7,13 @@ import {
   checkIdempotencyKey,
 } from "@/lib/idempotency";
 import { runSpeechPipeline } from "@/lib/pipeline";
-import { speechRateLimiter, getClientIp, checkRateLimit } from "@/lib/rate-limit";
+import {
+  speechRateLimiter,
+  speechEmailRateLimiter,
+  getClientIp,
+  checkRateLimit,
+} from "@/lib/rate-limit";
+import { verifyVerificationToken } from "@/lib/email-verification";
 import { getAuthenticatedUser, isAdmin } from "@/lib/auth-check";
 
 // Allow up to 5 minutes — covers OpenRouter LLM generation + Fish Audio TTS.
@@ -30,6 +36,9 @@ const createSpeechSchema = z.object({
   contact: contactSchema,
   answers: z.array(answerSchema).min(1, "At least one answer is required"),
   idempotencyKey: z.string().optional(),
+  // Signed token from the email confirmation link (see
+  // /api/speeches/verify-email). Required for anonymous submissions.
+  verificationToken: z.string().optional(),
 });
 
 // GET /api/speeches - List speeches (admin only)
@@ -92,7 +101,48 @@ export async function POST(request: Request) {
       );
     }
 
-    const { contact, answers, idempotencyKey: providedKey } = parsed.data;
+    const {
+      contact,
+      answers,
+      idempotencyKey: providedKey,
+      verificationToken,
+    } = parsed.data;
+
+    // ── Email verification ──────────────────────────────────────
+    // Anonymous (public) submissions must prove the submitter
+    // controls the email address: no speech is generated, no GHL
+    // contact is created, and no workflow email is sent for an
+    // unverified address. Signed-in users are already verified by
+    // their account, so they skip this step.
+    let authenticatedUser = null;
+    try {
+      authenticatedUser = await getAuthenticatedUser();
+    } catch {
+      authenticatedUser = null;
+    }
+
+    if (!authenticatedUser) {
+      const verification = verificationToken
+        ? verifyVerificationToken(verificationToken, contact.email)
+        : { valid: false, error: "Email verification required" };
+      if (!verification.valid) {
+        return NextResponse.json(
+          {
+            error:
+              "Please confirm your email address before we generate your speech. Check your inbox for the confirmation link.",
+            code: "EMAIL_VERIFICATION_REQUIRED",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    // Per-email submission cap (on top of the per-IP limit above)
+    const emailRateLimitResponse = await checkRateLimit(
+      speechEmailRateLimiter,
+      contact.email.trim().toLowerCase()
+    );
+    if (emailRateLimitResponse) return emailRateLimitResponse;
 
     // Generate or use provided idempotency key
     const key =

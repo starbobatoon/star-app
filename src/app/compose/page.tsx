@@ -1040,6 +1040,111 @@ export default function ComposePage() {
   const [questions, setQuestions] = useState<LiveQuestion[]>([]);
   const [questionsLoading, setQuestionsLoading] = useState(true);
 
+  // ─── Email verification ─────────────────────────────────────
+  // Public submissions must prove the submitter owns the email
+  // address (server enforces this in POST /api/speeches). The
+  // signed token arrives via the confirmation link
+  // (/compose?verify=<token>) and is kept in sessionStorage.
+  const VERIFICATION_STORAGE_KEY = "star-verified-email";
+  const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [verifyPending, setVerifyPending] = useState(false);
+  const [verifySending, setVerifySending] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // On mount: restore a stored verification, and capture a token
+  // arriving from the confirmation email link.
+  useEffect(() => {
+    let cancelled = false;
+    const params = new URLSearchParams(window.location.search);
+    const tokenFromLink = params.get("verify");
+    if (tokenFromLink) {
+      // Strip the token from the URL so it isn't shared/bookmarked.
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    (async () => {
+      // Restore a verification stored earlier in this session.
+      try {
+        const raw = sessionStorage.getItem(VERIFICATION_STORAGE_KEY);
+        if (raw) {
+          const stored = JSON.parse(raw) as { email?: string; token?: string };
+          if (!cancelled && stored.email && stored.token) {
+            setVerifiedEmail(stored.email);
+            setVerificationToken(stored.token);
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      if (!tokenFromLink) return;
+      try {
+        const res = await fetch('/api/speeches/verify-email/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tokenFromLink }),
+        });
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && data.valid && data.email) {
+          setVerifiedEmail(data.email);
+          setVerificationToken(tokenFromLink);
+          setVerifyPending(false);
+          setVerifyError(null);
+          try {
+            sessionStorage.setItem(
+              VERIFICATION_STORAGE_KEY,
+              JSON.stringify({ email: data.email, token: tokenFromLink })
+            );
+          } catch {
+            // Ignore storage errors
+          }
+          // If a draft exists for this email, restore the contact so
+          // the review step lines up with the verified address.
+          setContact((prev) =>
+            prev.email ? prev : { ...prev, email: data.email }
+          );
+        } else {
+          setVerifyError(
+            data.error || 'That confirmation link is invalid or has expired. Please request a new one.'
+          );
+          setVerifyPending(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setVerifyError('Could not confirm your email. Please try again.');
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const emailIsVerified =
+    !!verificationToken &&
+    !!verifiedEmail &&
+    verifiedEmail === contact.email.trim().toLowerCase();
+
+  const requestVerificationEmail = async () => {
+    setVerifySending(true);
+    setVerifyError(null);
+    try {
+      const res = await fetch('/api/speeches/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: contact.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Could not send the confirmation email');
+      }
+      setVerifyPending(true);
+    } catch (e) {
+      setVerifyError(e instanceof Error ? e.message : 'Could not send the confirmation email');
+    } finally {
+      setVerifySending(false);
+    }
+  };
+
   // Fetch live questions from DB on mount
   useEffect(() => {
     let cancelled = false;
@@ -1150,6 +1255,16 @@ export default function ComposePage() {
   };
 
   const handleSubmit = async () => {
+    // Email verification gate: before anything is generated, the
+    // submitter must confirm they own the email address. Answers
+    // are autosaved as a draft, so nothing is lost while they
+    // click the confirmation link.
+    if (!emailIsVerified) {
+      saveDraft();
+      await requestVerificationEmail();
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -1165,12 +1280,26 @@ export default function ComposePage() {
         body: JSON.stringify({
           contact,
           answers: answersArray,
+          verificationToken,
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        // Server says verification is missing/expired (e.g. token
+        // aged out) — fall back into the verification flow.
+        if (data.code === 'EMAIL_VERIFICATION_REQUIRED') {
+          setVerificationToken(null);
+          setVerifiedEmail(null);
+          try {
+            sessionStorage.removeItem(VERIFICATION_STORAGE_KEY);
+          } catch {
+            // Ignore storage errors
+          }
+          await requestVerificationEmail();
+          return;
+        }
         throw new Error(data.error || 'Failed to submit speech');
       }
 
@@ -1267,6 +1396,34 @@ export default function ComposePage() {
               </Card>
             ))}
           </div>
+          {emailIsVerified && (
+            <div style={{ color: colors.primary, marginBottom: spacing.md, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <Check size={16} /> Email confirmed — you are ready to submit.
+            </div>
+          )}
+          {verifyPending && !emailIsVerified && (
+            <Card cardStyle={{ marginBottom: spacing.md }}>
+              <h3 style={{ ...reviewSectionTitleStyle, marginTop: 0 }}>Confirm your email to finish</h3>
+              <p style={{ margin: 0, lineHeight: 1.5 }}>
+                We sent a confirmation link to <strong>{contact.email}</strong>. Click it,
+                and you will come right back here — your answers are saved. Then press
+                Submit Speech and we will generate your speech.
+              </p>
+              {verifyError && (
+                <p style={{ color: colors.error, marginBottom: 0 }}>{verifyError}</p>
+              )}
+              <div style={{ marginTop: spacing.md }}>
+                <Button variant="secondary" onClick={requestVerificationEmail} loading={verifySending}>
+                  Resend confirmation email
+                </Button>
+              </div>
+            </Card>
+          )}
+          {!verifyPending && verifyError && !emailIsVerified && (
+            <div style={{ color: colors.error, marginBottom: spacing.md, textAlign: 'center' }}>
+              {verifyError}
+            </div>
+          )}
           {submitError && (
             <div style={{ color: colors.error, marginBottom: spacing.md, textAlign: 'center' }}>
               {submitError}
@@ -1276,8 +1433,8 @@ export default function ComposePage() {
             <Button variant="secondary" onClick={handlePrevious} disabled={isSubmitting}>
               <ArrowLeft size={16} /> Back
             </Button>
-            <Button variant="primary" onClick={handleSubmit} loading={isSubmitting}>
-              Submit Speech
+            <Button variant="primary" onClick={handleSubmit} loading={isSubmitting || verifySending}>
+              {emailIsVerified ? 'Submit Speech' : 'Confirm Email & Submit'}
             </Button>
           </div>
         </div>
